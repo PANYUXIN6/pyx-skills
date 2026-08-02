@@ -47,7 +47,7 @@ L3 uses one fresh Subagent per candidate and returns bounded batches without com
 
 ## Rejection ownership
 
-`rejection-record.schema.json` is the sole source of reason-code values.
+`rejection-record.schema.json` is the sole source of reason-code values. `human-rejection-reasons.json` supplies the corresponding Chinese menu, descriptions, and default human reasons. The Runner rejects startup when their human reason-code sets differ.
 
 - `decision_source: automatic` is written only by the Runner. `REFUTED_BY_COUNTEREXAMPLE` belongs here.
 - `decision_source: human` is written only from an explicit L5 decision.
@@ -67,13 +67,16 @@ Submit exactly the current batch:
     {
       "finding_id": "sha256-id",
       "decision": "reject",
-      "reason_code": "NO_CONTRACT_VIOLATION"
+      "reason_code": "NO_CONTRACT_VIOLATION",
+      "reason": "这条路径即使发生，也没有违反引用的契约。"
     }
   ]
 }
 ```
 
-The human answers only: “是否存在可验证的契约违反路径？” A rejection requires one human reason code. An acceptance must not include one.
+The human answers only: “是否存在可验证的契约违反路径？” Present short finding numbers and Chinese choices instead of hashes, `accept`/`reject`, reason-code enums, or JSON. Codex may map a menu number or an unambiguous natural-language explanation to a reason code, but it must ask for clarification when multiple codes fit. Show the complete batch decision summary and obtain explicit confirmation before writing the decisions file.
+
+A rejection requires one human reason code and a non-empty `reason`. Preserve a natural-language reason after trimming surrounding whitespace; when the human selects only a menu number, use that entry's `default_reason`. Persist the reason in both the normalized decision and the human rejection record's `details`. An acceptance must include neither `reason_code` nor `reason`.
 
 ## State rules
 

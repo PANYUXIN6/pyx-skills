@@ -49,11 +49,23 @@ node <skill-directory>/scripts/review-design.mjs fail-task <run-directory> --tas
 
 Interrupt outstanding sibling tasks after the run becomes `FAILED`. Never submit their late output.
 
-9. Stop model orchestration at `AWAITING_HUMAN`, `CLOSED`, `FAILED`, or `INVALIDATED`. Use the Runner result's `human.summary` as the user-facing status; do not expose raw status, reason, or quality-flag enums unless the user explicitly asks for diagnostics. At `AWAITING_HUMAN`, read `human-review.md` and show only the current batch. Do not summarize hidden batches or recommend acceptance. At `FAILED`, explain `failure.json` in Chinese; an `INSUFFICIENT_INPUT` failure requires additional declared input and a new run, never a same-input retry.
+9. Stop model orchestration at `AWAITING_HUMAN`, `CLOSED`, `FAILED`, or `INVALIDATED`. Use the Runner result's `human.summary` as the user-facing status; do not expose raw status, reason, or quality-flag enums unless the user explicitly asks for diagnostics. At `AWAITING_HUMAN`, read `human-review.md` and follow the human-arbitration workflow below. At `FAILED`, explain `failure.json` in Chinese; an `INSUFFICIENT_INPUT` failure requires additional declared input and a new run, never a same-input retry.
 
 ## Record human arbitration
 
-Create a decisions JSON file using the shape in `references/review-protocol.md`, then run:
+Show only the current batch from `human-review.md`. Do not show Markdown comments, complete finding hashes, hidden batches, model identity, effort, confidence, severity, or votes. Do not summarize hidden evidence or recommend a decision.
+
+Collect decisions with these rules:
+
+1. Refer to findings only as `发现 1`, `发现 2`, and so on.
+2. Present the choices as `确认存在违反路径`, `驳回此发现`, or `先解释当前证据`. Do not ask the user to type `accept`, `reject`, a reason code, a finding hash, or JSON.
+3. Explain a finding only from its displayed Evidence Card. After the explanation, ask for a decision again.
+4. When the user rejects a finding, show the Chinese rejection-reason menu from `human-review.md`. Accept either a menu number or a natural-language reason.
+5. Map a menu number to the corresponding code and `default_reason` in `references/human-rejection-reasons.json`. Map natural language only when exactly one reason is a clear match, and preserve the user's reason text. If two or more codes are plausible, show only the closest Chinese choices and ask one clarifying question. If none fits, ask the user to select the closest declared reason; never invent `OTHER`.
+6. Keep a draft until every finding in the current batch has a decision. Before writing a file, show a Chinese summary containing each short finding number, its decision, and any rejection reason. Ask the user to confirm or revise the complete batch.
+7. Only after explicit confirmation, create a decisions JSON file using the shape in `references/review-protocol.md`. Resolve each short number to the `finding_id` stored in the corresponding Markdown comment, without showing that ID to the user.
+
+Then run:
 
 ```bash
 node <skill-directory>/scripts/review-design.mjs decide <run-directory> --decisions <decisions.json>

@@ -1,0 +1,44 @@
+[
+  {
+    "number": 1,
+    "code": "NO_REACHABLE_STATE",
+    "label": "状态无法到达",
+    "description": "finding 依赖的初始状态或前置条件在真实流程中无法出现。",
+    "default_reason": "该 finding 依赖的状态在真实流程中无法到达。"
+  },
+  {
+    "number": 2,
+    "code": "BROKEN_TRANSITION",
+    "label": "推导链路断裂",
+    "description": "触发步骤中的某个状态转换没有被契约或现有流程支持。",
+    "default_reason": "该 finding 的触发步骤包含无法成立的状态转换。"
+  },
+  {
+    "number": 3,
+    "code": "NO_CONTRACT_VIOLATION",
+    "label": "不构成契约违反",
+    "description": "路径可能发生，但实际结果没有违反引用的契约。",
+    "default_reason": "该路径即使发生，也不构成对引用契约的违反。"
+  },
+  {
+    "number": 4,
+    "code": "UNVERIFIABLE_ORACLE",
+    "label": "无法客观验证",
+    "description": "给出的验证方法或成立标志不能客观判定 finding 是否成立。",
+    "default_reason": "该 finding 缺少可以客观判定结果的验证方法或成立标志。"
+  },
+  {
+    "number": 5,
+    "code": "DUPLICATE",
+    "label": "与其他发现重复",
+    "description": "该 finding 与本次评审中的另一条发现具有相同契约和违反路径。",
+    "default_reason": "该 finding 与本次评审中的另一条发现重复。"
+  },
+  {
+    "number": 6,
+    "code": "OUT_OF_SCOPE",
+    "label": "超出设计范围",
+    "description": "该 finding 讨论的行为不属于目标设计声明的范围。",
+    "default_reason": "该 finding 讨论的行为超出了目标设计声明的范围。"
+  }
+]

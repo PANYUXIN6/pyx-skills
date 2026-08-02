@@ -19,6 +19,10 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const skillDirectory = path.dirname(scriptDirectory)
 const configPath = path.join(skillDirectory, 'review.config.json')
 const referencesDirectory = path.join(skillDirectory, 'references')
+const humanRejectionReasonsPath = path.join(
+  referencesDirectory,
+  'human-rejection-reasons.json',
+)
 
 const statusText = Object.freeze({
   CREATED: '评审已创建',
@@ -232,6 +236,61 @@ function assertSchema(value, schemaFileName, label) {
     throw new Error(`${label} 不满足 Schema：${errors.join('；')}`)
   }
 }
+
+function loadHumanRejectionReasons() {
+  const reasons = JSON.parse(readFileSync(humanRejectionReasonsPath, 'utf8'))
+  if (!Array.isArray(reasons) || reasons.length === 0) {
+    throw new Error('human-rejection-reasons.json 必须是非空数组')
+  }
+  const expectedKeys = [
+    'code',
+    'default_reason',
+    'description',
+    'label',
+    'number',
+  ]
+  for (const [index, reason] of reasons.entries()) {
+    if (
+      !reason ||
+      typeof reason !== 'object' ||
+      Array.isArray(reason) ||
+      JSON.stringify(Object.keys(reason).sort()) !== JSON.stringify(expectedKeys)
+    ) {
+      throw new Error(`human-rejection-reasons.json 第 ${index + 1} 项结构无效`)
+    }
+    if (
+      reason.number !== index + 1 ||
+      !['code', 'label', 'description', 'default_reason'].every(
+        (key) => typeof reason[key] === 'string' && reason[key].trim().length > 0,
+      )
+    ) {
+      throw new Error(`human-rejection-reasons.json 第 ${index + 1} 项内容无效`)
+    }
+  }
+  const rejectionSchema = JSON.parse(
+    readFileSync(
+      path.join(referencesDirectory, 'rejection-record.schema.json'),
+      'utf8',
+    ),
+  )
+  const humanBranch = rejectionSchema.oneOf?.find(
+    (branch) => branch.properties?.decision_source?.const === 'human',
+  )
+  const schemaCodes = humanBranch?.properties?.reason_code?.enum
+  const reasonCodes = reasons.map((reason) => reason.code)
+  if (
+    !Array.isArray(schemaCodes) ||
+    new Set(reasonCodes).size !== reasonCodes.length ||
+    JSON.stringify([...reasonCodes].sort()) !== JSON.stringify([...schemaCodes].sort())
+  ) {
+    throw new Error(
+      'human-rejection-reasons.json 与人工 rejection reason enum 不一致',
+    )
+  }
+  return Object.freeze(reasons.map((reason) => Object.freeze(reason)))
+}
+
+const humanRejectionReasons = loadHumanRejectionReasons()
 
 function canonicalPath(repositoryRoot, requestedPath) {
   const absolutePath = path.resolve(repositoryRoot, requestedPath)
@@ -1645,7 +1704,13 @@ function renderHumanReview(cards, currentBatch, batchSize, coverage) {
       )
       .join('\n')
     return [
-      `## ${index + 1}. ${card.finding_id}`,
+      `## 发现 ${index + 1}`,
+      '',
+      `<!-- finding_id: ${card.finding_id} -->`,
+      '',
+      `结论：${card.claim}`,
+      '',
+      `契约来源：${card.contract.source} · ${card.contract.heading}`,
       '',
       `契约原文：${card.contract.quote}`,
       '',
@@ -1658,6 +1723,8 @@ function renderHumanReview(cards, currentBatch, batchSize, coverage) {
       `推导结果：${card.trigger.derived_outcome}`,
       '',
       `契约违反：期望「${card.violation.expected}」，实际「${card.violation.actual}」`,
+      '',
+      `对抗检查：尝试「${card.falsification.attempt}」；仍有证据「${card.falsification.remaining_evidence}」`,
       '',
       `验证方法与 Oracle：${card.verification.procedure}；成立标志为「${card.verification.oracle}」`,
     ].join('\n')
@@ -1672,6 +1739,9 @@ function renderHumanReview(cards, currentBatch, batchSize, coverage) {
         '',
       ]
     : []
+  const rejectionReasons = humanRejectionReasons.flatMap((reason) => [
+    `${reason.number}. ${reason.label}：${reason.description}`,
+  ])
   return [
     '# 设计评审',
     '',
@@ -1681,6 +1751,18 @@ function renderHumanReview(cards, currentBatch, batchSize, coverage) {
     '',
     ...coverageSection,
     ...sections,
+    '',
+    '## 如何决策',
+    '',
+    '请使用上面的“发现 1、发现 2……”编号逐条回复：',
+    '',
+    '- 确认存在违反路径',
+    '- 驳回此发现',
+    '- 先解释当前证据',
+    '',
+    '选择“驳回此发现”时，可以回复下面的原因编号，也可以直接说明原因：',
+    '',
+    ...rejectionReasons,
     '',
   ].join('\n')
 }
@@ -1864,8 +1946,11 @@ function decideReview(argumentsList) {
       throw new Error(`决策不属于当前批次：${decision.finding_id}`)
     }
     if (decision.decision === 'accept') {
-      if (decision.reason_code !== undefined) {
-        throw new Error('accept 决策不得包含 reason_code')
+      if (
+        decision.reason_code !== undefined ||
+        decision.reason !== undefined
+      ) {
+        throw new Error('accept 决策不得包含 reason_code 或 reason')
       }
       return {
         finding_id: decision.finding_id,
@@ -1874,11 +1959,18 @@ function decideReview(argumentsList) {
       }
     }
     if (decision.decision === 'reject') {
+      if (
+        typeof decision.reason !== 'string' ||
+        decision.reason.trim().length === 0
+      ) {
+        throw new Error('reject 决策必须包含非空 reason')
+      }
+      const reason = decision.reason.trim()
       const rejection = {
         finding_id: decision.finding_id,
         decision_source: 'human',
         reason_code: decision.reason_code,
-        details: '人工判定不存在可验证的契约违反路径',
+        details: reason,
       }
       assertSchema(rejection, 'rejection-record.schema.json', '人工拒绝记录')
       rejected.push(rejection)
@@ -1886,6 +1978,7 @@ function decideReview(argumentsList) {
         finding_id: decision.finding_id,
         decision: 'reject',
         reason_code: decision.reason_code,
+        reason,
         decided_at: decidedAt,
       }
     }
