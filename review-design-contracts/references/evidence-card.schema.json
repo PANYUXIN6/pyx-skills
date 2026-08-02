@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "evidence-card.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding_id",
+    "layer",
+    "claim",
+    "contract",
+    "trigger",
+    "violation",
+    "verification",
+    "falsification"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "layer": {
+      "enum": ["self_consistency", "architecture"]
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "heading", "quote", "quote_hash"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "heading": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quote_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "trigger": {
+      "$ref": "candidate-finding.schema.json#/$defs/trigger"
+    },
+    "violation": {
+      "$ref": "candidate-finding.schema.json#/$defs/violation"
+    },
+    "verification": {
+      "$ref": "candidate-finding.schema.json#/$defs/verification"
+    },
+    "falsification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt", "remaining_evidence"],
+      "properties": {
+        "attempt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remaining_evidence": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

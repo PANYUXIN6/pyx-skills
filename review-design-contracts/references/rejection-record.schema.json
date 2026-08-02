@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rejection-record.schema.json",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finding_id", "decision_source", "reason_code", "details"],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "decision_source": {
+          "const": "automatic"
+        },
+        "reason_code": {
+          "enum": [
+            "REFUTED_BY_COUNTEREXAMPLE",
+            "REFERENCE_NOT_IN_PACK",
+            "QUOTE_MISMATCH",
+            "MISSING_OBSERVABLE_OUTCOME",
+            "NO_PROJECT_CONTRACT",
+            "AMBIGUOUS_OMISSION",
+            "UNVERIFIABLE_ORACLE",
+            "INCOMPLETE_CHALLENGE_EVIDENCE",
+            "EXACT_DUPLICATE",
+            "COMMAND_NOT_ALLOWLISTED",
+            "OUT_OF_SCOPE_OPINION"
+          ]
+        },
+        "details": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finding_id", "decision_source", "reason_code", "details"],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "decision_source": {
+          "const": "human"
+        },
+        "reason_code": {
+          "enum": [
+            "NO_REACHABLE_STATE",
+            "BROKEN_TRANSITION",
+            "NO_CONTRACT_VIOLATION",
+            "UNVERIFIABLE_ORACLE",
+            "DUPLICATE",
+            "OUT_OF_SCOPE"
+          ]
+        },
+        "details": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "adversarial-result.schema.json",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["challenge_outcome", "falsification"],
+      "properties": {
+        "challenge_outcome": {
+          "const": "refuted"
+        },
+        "falsification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["attempt", "counterexample"],
+          "properties": {
+            "attempt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "counterexample": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["challenge_outcome", "falsification", "refined_finding"],
+      "properties": {
+        "challenge_outcome": {
+          "const": "survives"
+        },
+        "falsification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["attempt", "remaining_evidence"],
+          "properties": {
+            "attempt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "remaining_evidence": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "refined_finding": {
+          "$ref": "candidate-finding.schema.json#/$defs/candidate"
+        }
+      }
+    },
+    {
+      "$ref": "insufficient-result.schema.json"
+    }
+  ]
+}

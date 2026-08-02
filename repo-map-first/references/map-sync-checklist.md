@@ -32,4 +32,6 @@ After implementation, update the map documents if any condition below applies.
 - The flow or entry point it belongs to
 - Its relationship with adjacent modules
 
+If the document contains `generated_by` or `authority_status` frontmatter, preserve it during synchronization. Do not change `authority_status: observed` to `confirmed` without explicit user confirmation.
+
 Update the map so the next person can determine where to find the code and why it lives there without rereading the entire codebase.

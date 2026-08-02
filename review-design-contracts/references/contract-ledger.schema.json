@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contract-ledger.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contracts"],
+  "properties": {
+    "contracts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contract_entry"
+      }
+    }
+  },
+  "$defs": {
+    "contract_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "heading", "quote", "category", "statement"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "heading": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "term",
+            "state",
+            "input",
+            "output",
+            "invariant",
+            "permission",
+            "transaction",
+            "acceptance"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}
