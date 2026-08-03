@@ -15,6 +15,8 @@ authority_status: observed
 - `scripts/review-design.mjs` 负责确定性状态机、紧凑输入投影、任务成本指标、Schema 校验、证据门禁和人工决策记录。
 - `references/` 负责角色边界、审查协议、数据契约，以及用户可见拒绝原因与机器枚举之间的受校验映射。
 
+L3 响应使用版本化契约：Manifest v5 的新任务通过增量角色只返回允许变化字段的 `refinement`，Runner 复用原候选的不可变 layer/contract；v3/v4 任务继续由独立 legacy 角色与 Schema 兼容完整 `refined_finding`。
+
 `repo-map-first` 独立拥有仓库发现与文档同步职责。它不参与正常设计审查；只有 `review-design-contracts` 发现默认仓库文档缺失时，才显式请求其仓库上下文引导模式。
 
 ## 依赖方向
@@ -35,7 +37,7 @@ review-design.mjs ──读取──> review.config.json + references/
 2. 如果缺少文档，`repo-map-first` 读取仓库规则、清单、入口、模块、调用方和测试，只生成缺失的观察性文档。
 3. Runner 的 `prepare` 将目标设计、confirmed authority 和 observed context 分类并进行内容摘要绑定。
 4. Runner 创建 L1 后，从其有效候选中提前调度部分独立 L3，并与 L2 组成不超过并发上限的混合批次；L2 完成后合并候选并继续其余 L3。每个子任务只能读取自己的封闭证据包并写入指定响应文件。
-5. Runner 消费响应、校验 Schema 与引用证据；输入变化会使运行进入 `INVALIDATED`。
+5. Runner 消费响应、按 Manifest 版本校验 L3 Schema，并把增量 refinement 与原候选合并后验证引用证据；输入变化会使运行进入 `INVALIDATED`。
 6. 幸存 finding 以短编号 evidence card 交给人工仲裁；Codex 收集中文决定和自然语言理由，但不拥有接受权。
 7. 人工确认完整批次后，Runner 校验机器枚举、非空理由和批次覆盖，并保存可审计决定；只有明确接受才生成摘要绑定的修复队列。
 

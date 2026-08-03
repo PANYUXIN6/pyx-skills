@@ -812,7 +812,7 @@ function prepareReview(argumentsList) {
   }
   atomicWriteJson(path.join(runDirectory, 'state.json'), state)
   const manifest = {
-    version: 4,
+    version: 5,
     input_digest: inputDigest,
     config_sha256: sha256(configText),
     target_document: target.path,
@@ -976,8 +976,14 @@ function createAdversarialTask({
     stage: 'adversarial',
     attempt,
     modelConfig: config.models.adversarial,
-    roleFileName: 'adversarial-role.md',
-    schemaFileName: 'adversarial-result.schema.json',
+    roleFileName:
+      manifest.version >= 5
+        ? 'adversarial-role.md'
+        : 'adversarial-role-legacy.md',
+    schemaFileName:
+      manifest.version >= 5
+        ? 'adversarial-result.schema.json'
+        : 'adversarial-result-legacy.schema.json',
     logicalId: `adversarial-${preparedCandidate.finding_id}`,
     retryMessage,
     input: {
@@ -1487,7 +1493,13 @@ function advanceReviewOnce(argumentsList) {
   throw new Error(`尚未实现的推进阶段：${run.state.status}`)
 }
 
-function retryNativeTask(runDirectory, task, config, validationMessage) {
+function retryNativeTask(
+  runDirectory,
+  task,
+  config,
+  validationMessage,
+  manifestVersion,
+) {
   const stageSettings = {
     self_consistency: {
       modelConfig: config.models.self_consistency,
@@ -1501,8 +1513,14 @@ function retryNativeTask(runDirectory, task, config, validationMessage) {
     },
     adversarial: {
       modelConfig: config.models.adversarial,
-      roleFileName: 'adversarial-role.md',
-      schemaFileName: 'adversarial-result.schema.json',
+      roleFileName:
+        manifestVersion >= 5
+          ? 'adversarial-role.md'
+          : 'adversarial-role-legacy.md',
+      schemaFileName:
+        manifestVersion >= 5
+          ? 'adversarial-result.schema.json'
+          : 'adversarial-result-legacy.schema.json',
     },
   }
   const settings = stageSettings[task.stage]
@@ -1566,6 +1584,7 @@ function advanceReview(argumentsList) {
       task,
       config,
       error.message,
+      run.manifest.version,
     )
     const activeTasks = run.state.active_tasks.map((activeTaskId) =>
       activeTaskId === task.task_id ? retryTask.task_id : activeTaskId,
@@ -1775,14 +1794,22 @@ function createEvidenceCard(
   documents,
   commandAllowlist,
 ) {
-  const refinedCandidate = adversarialResult.refined_finding
-  if (!sameCandidateSubject(preparedCandidate.candidate, refinedCandidate)) {
-    return {
-      rejection: automaticRejection(
-        preparedCandidate.finding_id,
-        'INCOMPLETE_CHALLENGE_EVIDENCE',
-        'L3 改变了候选来源层或契约引用',
-      ),
+  let refinedCandidate
+  if (adversarialResult.refined_finding) {
+    refinedCandidate = adversarialResult.refined_finding
+    if (!sameCandidateSubject(preparedCandidate.candidate, refinedCandidate)) {
+      return {
+        rejection: automaticRejection(
+          preparedCandidate.finding_id,
+          'INCOMPLETE_CHALLENGE_EVIDENCE',
+          'L3 改变了候选来源层或契约引用',
+        ),
+      }
+    }
+  } else {
+    refinedCandidate = {
+      ...preparedCandidate.candidate,
+      ...(adversarialResult.refinement ?? {}),
     }
   }
   const refined = prepareCandidates(
@@ -2050,7 +2077,7 @@ function loadRun(repositoryRoot, requestedRunDirectory) {
   const manifest = JSON.parse(
     readFileSync(path.join(runDirectory, 'manifest.json'), 'utf8'),
   )
-  if (![3, 4].includes(manifest.version)) {
+  if (![3, 4, 5].includes(manifest.version)) {
     throw new Error(`不支持的 Manifest 版本：${manifest.version}`)
   }
   return {

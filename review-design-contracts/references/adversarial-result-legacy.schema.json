@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "adversarial-result.schema.json",
+  "$id": "adversarial-result-legacy.schema.json",
   "oneOf": [
     {
       "type": "object",
@@ -30,7 +30,7 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["challenge_outcome", "falsification"],
+      "required": ["challenge_outcome", "falsification", "refined_finding"],
       "properties": {
         "challenge_outcome": {
           "const": "survives"
@@ -50,23 +50,8 @@
             }
           }
         },
-        "refinement": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "claim": {
-              "$ref": "candidate-finding.schema.json#/$defs/candidate/properties/claim"
-            },
-            "trigger": {
-              "$ref": "candidate-finding.schema.json#/$defs/trigger"
-            },
-            "violation": {
-              "$ref": "candidate-finding.schema.json#/$defs/violation"
-            },
-            "verification": {
-              "$ref": "candidate-finding.schema.json#/$defs/verification"
-            }
-          }
+        "refined_finding": {
+          "$ref": "candidate-finding.schema.json#/$defs/candidate"
         }
       }
     },

@@ -221,7 +221,7 @@ test('prepare creates one pinned native L1 task without running a model', () => 
   const manifest = JSON.parse(
     readFileSync(path.join(result.run_dir, 'manifest.json'), 'utf8'),
   )
-  assert.equal(manifest.version, 4)
+  assert.equal(manifest.version, 5)
   assert.equal(Array.isArray(manifest.documents[0].sections), true)
   const metrics = JSON.parse(
     readFileSync(path.join(result.run_dir, 'metrics.json'), 'utf8'),
@@ -776,7 +776,6 @@ test('a surviving Native L3 response becomes an evidence card for human arbitrat
       attempt: 'Tried to find a mandatory terminal transition.',
       remaining_evidence: 'The finite active-state path remains reachable.',
     },
-    refined_finding: finding,
   })
 
   const completed = runCli(repositoryRoot, ['advance', prepared.run_dir])
@@ -820,6 +819,153 @@ test('a surviving Native L3 response becomes an evidence card for human arbitrat
     ),
     [],
   )
+  const l3Schema = readFileSync(
+    path.join(afterL1.tasks[1].task_path, 'output.schema.json'),
+    'utf8',
+  )
+  assert.match(l3Schema, /"refinement"/)
+  assert.doesNotMatch(l3Schema, /"refined_finding"/)
+})
+
+test('L3 refinement updates only declared candidate fields and recomputes identity', () => {
+  const repositoryRoot = createRepository()
+  const finding = candidate()
+  const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  writeTaskResponse(prepared.tasks[0], {
+    contracts: [],
+    candidates: [finding],
+  })
+  const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
+  const l3Task = afterL1.tasks.find((task) => task.stage === 'adversarial')
+  const originalFindingId = l3Task.logical_id.replace(/^adversarial-/, '')
+  const refinedTrigger = {
+    ...finding.trigger,
+    initial_state: ['A refined completed-run state is reachable.'],
+  }
+  writeTaskResponse(
+    afterL1.tasks.find((task) => task.stage === 'architecture'),
+    { candidates: [] },
+  )
+  writeTaskResponse(l3Task, {
+    challenge_outcome: 'survives',
+    falsification: {
+      attempt: 'Minimized the reachable initial state.',
+      remaining_evidence: 'The refined state still reaches the violation.',
+    },
+    refinement: {
+      trigger: refinedTrigger,
+    },
+  })
+
+  const completed = runCli(repositoryRoot, ['advance', prepared.run_dir])
+  const [card] = JSON.parse(
+    readFileSync(path.join(prepared.run_dir, 'evidence-cards.json'), 'utf8'),
+  )
+
+  assert.equal(completed.status, 'AWAITING_HUMAN')
+  assert.deepEqual(card.trigger, refinedTrigger)
+  assert.equal(card.layer, finding.layer)
+  assert.deepEqual(
+    {
+      source: card.contract.source,
+      heading: card.contract.heading,
+      quote: card.contract.quote,
+    },
+    finding.contract,
+  )
+  assert.notEqual(card.finding_id, originalFindingId)
+})
+
+test('L3 refinement rejects immutable layer or contract fields', () => {
+  const repositoryRoot = createRepository()
+  const finding = candidate()
+  const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  writeTaskResponse(prepared.tasks[0], {
+    contracts: [],
+    candidates: [finding],
+  })
+  const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
+  writeTaskResponse(
+    afterL1.tasks.find((task) => task.stage === 'architecture'),
+    { candidates: [] },
+  )
+  writeTaskResponse(
+    afterL1.tasks.find((task) => task.stage === 'adversarial'),
+    {
+      challenge_outcome: 'survives',
+      falsification: {
+        attempt: 'Tried to change the contract source.',
+        remaining_evidence: 'The original candidate remains unchanged.',
+      },
+      refinement: {
+        layer: 'architecture',
+      },
+    },
+  )
+
+  const retried = runCli(repositoryRoot, ['advance', prepared.run_dir])
+
+  assert.equal(retried.status, 'SELF_CHECKED')
+  assert.equal(retried.retry_reason, 'MODEL_OUTPUT_INVALID')
+  assert.equal(retried.tasks.length, 1)
+  assert.equal(retried.tasks[0].stage, 'adversarial')
+  assert.equal(retried.tasks[0].attempt, 2)
+})
+
+test('Manifest version 4 legacy L3 response matches version 5 delta output', () => {
+  function completeReview(manifestVersion, legacy) {
+    const repositoryRoot = createRepository()
+    const finding = candidate()
+    const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+    if (manifestVersion !== 5) {
+      const manifestPath = path.join(prepared.run_dir, 'manifest.json')
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+      manifest.version = manifestVersion
+      writeJson(manifestPath, manifest)
+    }
+    writeTaskResponse(prepared.tasks[0], {
+      contracts: [],
+      candidates: [finding],
+    })
+    const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
+    const l3Task = afterL1.tasks.find((task) => task.stage === 'adversarial')
+    const instructions = readFileSync(
+      path.join(l3Task.task_path, 'instructions.md'),
+      'utf8',
+    )
+    if (legacy) {
+      assert.match(instructions, /complete `refined_finding`/)
+      assert.doesNotMatch(instructions, /return `refinement` only/)
+    } else {
+      assert.match(instructions, /return `refinement` only/)
+      assert.doesNotMatch(instructions, /complete `refined_finding`/)
+    }
+    writeTaskResponse(
+      afterL1.tasks.find((task) => task.stage === 'architecture'),
+      { candidates: [] },
+    )
+    writeTaskResponse(
+      l3Task,
+      {
+        challenge_outcome: 'survives',
+        falsification: {
+          attempt: 'Tried to refute the transition.',
+          remaining_evidence: 'The finite trigger remains reachable.',
+        },
+        ...(legacy ? { refined_finding: finding } : {}),
+      },
+    )
+    const completed = runCli(repositoryRoot, ['advance', prepared.run_dir])
+    assert.equal(completed.status, 'AWAITING_HUMAN')
+    return JSON.parse(
+      readFileSync(path.join(prepared.run_dir, 'evidence-cards.json'), 'utf8'),
+    )[0]
+  }
+
+  const legacyCard = completeReview(4, true)
+  const deltaCard = completeReview(5, false)
+
+  assert.deepEqual(legacyCard, deltaCard)
 })
 
 test('an invalid task response gets one fresh identical retry then fails the run', () => {
@@ -969,7 +1115,6 @@ test('only an explicit human acceptance creates a digest-bound fix queue item th
           attempt: 'Tried to refute the transition.',
           remaining_evidence: 'The finite trigger remains reachable.',
         },
-        refined_finding: finding,
       },
     ],
   })
@@ -1065,7 +1210,6 @@ test('a human rejection preserves its natural-language reason for audit', () => 
           attempt: 'Tried to refute the transition.',
           remaining_evidence: 'The finite trigger remains reachable.',
         },
-        refined_finding: finding,
       },
     ],
   })
@@ -1122,7 +1266,6 @@ test('reject requires a non-empty natural-language reason', () => {
             attempt: 'Tried to refute the transition.',
             remaining_evidence: 'The finite trigger remains reachable.',
           },
-          refined_finding: finding,
         },
       ],
     })
@@ -1177,7 +1320,6 @@ test('accept rejects every rejection-only field', () => {
             attempt: 'Tried to refute the transition.',
             remaining_evidence: 'The finite trigger remains reachable.',
           },
-          refined_finding: finding,
         },
       ],
     })
@@ -1244,7 +1386,6 @@ test('review overload remains lossless across Native L3 batches and human batche
         attempt: 'Tried to find a mandatory terminal transition.',
         remaining_evidence: 'The variant remains reachable.',
       },
-      refined_finding: finding,
     })),
   })
   const state = JSON.parse(
@@ -1372,7 +1513,6 @@ test('an allowlisted executable verification records only deterministic metadata
           attempt: 'Tried to show the executable path was unavailable.',
           remaining_evidence: 'The allowlisted command can be executed.',
         },
-        refined_finding: finding,
       },
     ],
   })
@@ -1553,7 +1693,6 @@ test('a queued run refuses consumption after the target digest changes', () => {
           attempt: 'Tried to refute the trigger.',
           remaining_evidence: 'The trigger remains reachable.',
         },
-        refined_finding: finding,
       },
     ],
   })
@@ -1610,7 +1749,7 @@ test('observed repository documents are separated from confirmed authorities', (
     (document) => document.path === 'docs/ARCHITECTURE.md',
   )
 
-  assert.equal(manifest.version, 4)
+  assert.equal(manifest.version, 5)
   assert.equal(architectureDocument.role, 'context')
   assert.equal(architectureDocument.authority_status, 'observed')
   assert.deepEqual(manifest.coverage.confirmed_authorities, [

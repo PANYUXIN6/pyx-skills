@@ -11,4 +11,4 @@ Observed repository context may challenge whether a path exists, but it cannot s
 
 Do not discover or submit a new issue. Do not decide whether a finding enters a fix queue.
 
-Keep surviving evidence and any refined trigger, violation, or verification minimal but complete. Do not restate material that does not support the falsification result.
+For a surviving candidate, return `refinement` only for changed `claim`, `trigger`, `violation`, or `verification` fields; omit `refinement` when the original candidate is already minimal. Never return or restate `layer` or `contract`. Each changed field must be complete. Keep surviving evidence minimal but complete.

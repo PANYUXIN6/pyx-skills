@@ -20,6 +20,7 @@ authority_status: observed
 - `review-design-contracts/scripts/review-design.mjs`：确定性 Runner，负责紧凑任务投影、任务成本指标、状态迁移、证据门禁、人工仲裁和修复队列。
 - `review-design-contracts/scripts/review-design.test.mjs`：Runner 的端到端 Node.js 回归测试。
 - `review-design-contracts/references/human-rejection-reasons.json`：人工驳回原因的中文菜单、内部 code 映射和默认审计理由。
+- `review-design-contracts/references/adversarial-result.schema.json` 与 `adversarial-role.md`：新运行的增量 L3 契约；legacy Schema 与角色仅用于继续 v3/v4 历史运行。
 - `<skill-name>/SKILL.md`：后续迁入个人 skill 的标准入口。
 
 ## 资源边界
@@ -35,7 +36,7 @@ authority_status: observed
 2. `review-design-contracts` 检查目标仓库中的 `docs/REPO_MAP.md` 与 `docs/ARCHITECTURE.md`。
 3. 任一文档缺失时，它显式调用同仓库的 `repo-map-first` 仓库上下文引导模式，只生成缺失文档并标记为 `observed`。
 4. Runner 将目标设计、已确认 authority 与观察性 context 分开打包，产出固定模型和推理强度的 Native subagent 任务。
-5. L1 完成后，L2 架构检查可与已验证 L1 候选的首批 L3 对抗任务并行；其余 L3 继续按固定并发分批，Runner 保持候选顺序并执行摘要校验、确定性证据门禁和运行失效检查。
+5. L1 完成后，L2 架构检查可与已验证 L1 候选的首批 L3 对抗任务并行；其余 L3 继续按固定并发分批。新 L3 只返回发生变化的候选字段，Runner 与不可变的原 layer/contract 合并后执行摘要校验、确定性证据门禁和运行失效检查。
 6. Runner 用短编号展示当前批次；Codex 以中文收集决定和自然语言驳回理由，完成整批确认后再生成机器 decisions JSON。
 7. Runner 校验原因 code、非空理由和批次完整性；只有人工明确接受的 finding 才能进入 `fix-queue.json`。
 
