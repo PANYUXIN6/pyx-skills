@@ -31,7 +31,7 @@ model           ← model
 reasoning_effort ← reasoning_effort
 ```
 
-Do not modify any mapped value. L1 and L2 return one task; L3 may return up to `max_parallel_subagents` tasks and each must be spawned separately.
+Do not modify any mapped value. A returned batch may contain L2 together with independent L3 tasks for validated L1 candidates; spawn every descriptor separately. No batch exceeds `max_parallel_subagents` tasks.
 
 7. Wait for the spawned tasks without interpreting their final messages. A task succeeds only when its designated `response.json` exists. When every task in the returned batch has finished, run:
 

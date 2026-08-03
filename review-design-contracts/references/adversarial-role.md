@@ -10,3 +10,5 @@ Challenge exactly one candidate in a fresh context.
 Observed repository context may challenge whether a path exists, but it cannot supply the expected contract. Refute any candidate whose contract source is not the target document or confirmed authority.
 
 Do not discover or submit a new issue. Do not decide whether a finding enters a fix queue.
+
+Keep surviving evidence and any refined trigger, violation, or verification minimal but complete. Do not restate material that does not support the falsification result.

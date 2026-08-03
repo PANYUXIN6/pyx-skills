@@ -131,9 +131,18 @@ function runTaskFixture(repositoryRoot, responses) {
   const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
   writeTaskResponse(prepared.tasks[0], responses.l1)
   const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  writeTaskResponse(afterL1.tasks[0], responses.l2)
-  let current = runCli(repositoryRoot, ['advance', prepared.run_dir])
   let adversarialIndex = 0
+  for (const task of afterL1.tasks) {
+    if (task.stage === 'architecture') {
+      writeTaskResponse(task, responses.l2)
+      continue
+    }
+    const response = responses.l3[adversarialIndex]
+    assert.notEqual(response, undefined)
+    writeTaskResponse(task, response)
+    adversarialIndex += 1
+  }
+  let current = runCli(repositoryRoot, ['advance', prepared.run_dir])
   while (current.status === 'ARCHITECTURE_CHECKED') {
     for (const task of current.tasks) {
       const response = responses.l3[adversarialIndex]
@@ -200,13 +209,25 @@ test('prepare creates one pinned native L1 task without running a model', () => 
   assert.equal(task.agent_task_name, result.tasks[0].agent_task_name)
   assert.equal(input.stage, 'self_consistency')
   assert.match(input.target.content, /A completed run must be terminal/)
+  assert.equal(Object.hasOwn(input.target, 'sections'), false)
   assert.equal(outputSchema.properties.task_id.const, result.tasks[0].task_id)
-  assert.match(instructions, /封闭证据集/)
-  assert.match(instructions, /不得读取父任务、兄弟任务或其他 response\.json/)
+  assert.match(instructions, /closed evidence set/)
+  assert.match(instructions, /Do not read parent tasks, sibling tasks/)
   assert.match(
     instructions,
-    /不得主动调用 Skill、Subagent、Web、MCP、Git 或 Shell/,
+    /Do not invoke Skill, Subagent, Web, MCP, Git, or Shell/,
   )
+  assert.match(instructions, /re-read response\.json/)
+  const manifest = JSON.parse(
+    readFileSync(path.join(result.run_dir, 'manifest.json'), 'utf8'),
+  )
+  assert.equal(manifest.version, 4)
+  assert.equal(Array.isArray(manifest.documents[0].sections), true)
+  const metrics = JSON.parse(
+    readFileSync(path.join(result.run_dir, 'metrics.json'), 'utf8'),
+  )
+  assert.equal(metrics.version, 1)
+  assert.equal(metrics.tasks[result.tasks[0].task_id].input_bytes > 0, true)
   assert.equal(existsSync(result.tasks[0].response_path), false)
   assert.equal(existsSync(path.join(result.run_dir, 'human-review.md')), false)
 })
@@ -265,6 +286,13 @@ test('advance accepts a valid L1 response and creates one fresh L2 task', () => 
     },
   )
   assert.match(l2Input.target.content, /A completed run must be terminal/)
+  assert.equal(Object.hasOwn(l2Input.target, 'sections'), false)
+  assert.equal(
+    l2Input.authorities.every(
+      (authority) => !Object.hasOwn(authority, 'sections'),
+    ),
+    true,
+  )
   assert.deepEqual(
     l2Input.authorities.map((authority) => authority.path).sort(),
     ['docs/ARCHITECTURE.md', 'docs/REPO_MAP.md'],
@@ -275,6 +303,44 @@ test('advance accepts a valid L1 response and creates one fresh L2 task', () => 
   assert.equal(
     JSON.stringify(l2Input.contract_ledger).includes('candidates'),
     false,
+  )
+  const metrics = JSON.parse(
+    readFileSync(path.join(prepared.run_dir, 'metrics.json'), 'utf8'),
+  )
+  assert.equal(metrics.tasks[l1Task.task_id].response_valid, true)
+  assert.equal(metrics.tasks[l1Task.task_id].response_bytes > 0, true)
+  assert.equal(metrics.tasks[l2Task.task_id].stage, 'architecture')
+})
+
+test('L1 Contract Ledger removes only exact duplicate entries', () => {
+  const repositoryRoot = createRepository()
+  const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const contract = {
+    source: 'docs/design.md',
+    heading: 'State contract',
+    quote: 'A completed run must be terminal.',
+    category: 'state',
+    statement: 'Completed runs are terminal.',
+  }
+  writeTaskResponse(prepared.tasks[0], {
+    contracts: [
+      contract,
+      { ...contract },
+      { ...contract, statement: 'Every completed run has a terminal state.' },
+    ],
+    candidates: [],
+  })
+
+  const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
+  const l2Input = JSON.parse(
+    readFileSync(path.join(afterL1.tasks[0].task_path, 'input.json'), 'utf8'),
+  )
+
+  assert.equal(l2Input.contract_ledger.contracts.length, 2)
+  assert.deepEqual(l2Input.contract_ledger.contracts[0], contract)
+  assert.equal(
+    l2Input.contract_ledger.contracts[1].statement,
+    'Every completed run has a terminal state.',
   )
 })
 
@@ -368,7 +434,13 @@ test('L2 insufficient input fails the run without creating adversarial tasks', (
   ])
   assert.equal(
     existsSync(path.join(prepared.run_dir, 'candidates.json')),
-    false,
+    true,
+  )
+  assert.deepEqual(
+    JSON.parse(
+      readFileSync(path.join(prepared.run_dir, 'candidates.json'), 'utf8'),
+    ),
+    [],
   )
   assert.equal(
     existsSync(path.join(prepared.run_dir, 'human-review.md')),
@@ -426,7 +498,7 @@ test('advance closes without human work when L1 and L2 produce no candidates', (
   )
 })
 
-test('L2 completion creates a bounded batch of one-candidate L3 tasks', () => {
+test('L2 overlaps with a bounded prefix of one-candidate L3 tasks', () => {
   const repositoryRoot = createRepository()
   const findings = Array.from({ length: 4 }, (_, index) => {
     const base = candidate()
@@ -444,9 +516,22 @@ test('L2 completion creates a bounded batch of one-candidate L3 tasks', () => {
     candidates: findings,
   })
   const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  writeTaskResponse(afterL1.tasks[0], {
-    candidates: [],
-  })
+  assert.equal(afterL1.tasks.length, 3)
+  assert.equal(afterL1.tasks[0].stage, 'architecture')
+  assert.deepEqual(
+    afterL1.tasks.slice(1).map((task) => task.stage),
+    ['adversarial', 'adversarial'],
+  )
+  writeTaskResponse(afterL1.tasks[0], { candidates: [] })
+  for (const task of afterL1.tasks.slice(1)) {
+    writeTaskResponse(task, {
+      challenge_outcome: 'refuted',
+      falsification: {
+        attempt: 'Trace the early completion transition.',
+        counterexample: 'The alleged active state is unreachable.',
+      },
+    })
+  }
 
   const afterL2 = runCli(repositoryRoot, ['advance', prepared.run_dir])
   const state = JSON.parse(
@@ -454,7 +539,7 @@ test('L2 completion creates a bounded batch of one-candidate L3 tasks', () => {
   )
 
   assert.equal(afterL2.status, 'ARCHITECTURE_CHECKED')
-  assert.equal(afterL2.tasks.length, 3)
+  assert.equal(afterL2.tasks.length, 2)
   assert.deepEqual(
     state.active_tasks,
     afterL2.tasks.map((task) => task.task_id),
@@ -529,6 +614,12 @@ test('architecture L3 receives every review document and the complete contract l
     ).content,
     /A completed run must be terminal/,
   )
+  assert.equal(
+    input.context_documents.every(
+      (document) => !Object.hasOwn(document, 'sections'),
+    ),
+    true,
+  )
   assert.deepEqual(input.contract_ledger_entries, contractLedger.contracts)
   assert.equal(input.cited_sections[0].source, 'docs/ARCHITECTURE.md')
 })
@@ -551,11 +642,8 @@ test('L3 batches are lossless and all refuted candidates close without human wor
     candidates: findings,
   })
   const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  writeTaskResponse(afterL1.tasks[0], {
-    candidates: [],
-  })
-  const firstBatch = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  for (const task of firstBatch.tasks) {
+  writeTaskResponse(afterL1.tasks[0], { candidates: [] })
+  for (const task of afterL1.tasks.slice(1)) {
     writeTaskResponse(task, {
       challenge_outcome: 'refuted',
       falsification: {
@@ -568,7 +656,7 @@ test('L3 batches are lossless and all refuted candidates close without human wor
   const secondBatch = runCli(repositoryRoot, ['advance', prepared.run_dir])
 
   assert.equal(secondBatch.status, 'ARCHITECTURE_CHECKED')
-  assert.equal(secondBatch.tasks.length, 1)
+  assert.equal(secondBatch.tasks.length, 2)
   assert.equal(
     JSON.parse(
       readFileSync(
@@ -576,16 +664,18 @@ test('L3 batches are lossless and all refuted candidates close without human wor
         'utf8',
       ),
     ).length,
-    3,
+    2,
   )
 
-  writeTaskResponse(secondBatch.tasks[0], {
-    challenge_outcome: 'refuted',
-    falsification: {
-      attempt: 'Trace the final completion transition.',
-      counterexample: 'The final alleged state is also unreachable.',
-    },
-  })
+  for (const task of secondBatch.tasks) {
+    writeTaskResponse(task, {
+      challenge_outcome: 'refuted',
+      falsification: {
+        attempt: 'Trace the final completion transition.',
+        counterexample: 'The final alleged state is also unreachable.',
+      },
+    })
+  }
   const completed = runCli(repositoryRoot, ['advance', prepared.run_dir])
   const rejected = JSON.parse(
     readFileSync(path.join(prepared.run_dir, 'rejected.json'), 'utf8'),
@@ -621,18 +711,15 @@ test('one L3 insufficient result fails the whole batch without partial artifacts
     candidates: findings,
   })
   const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  writeTaskResponse(afterL1.tasks[0], {
-    candidates: [],
-  })
-  const l3Batch = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  writeTaskResponse(l3Batch.tasks[0], {
+  writeTaskResponse(afterL1.tasks[0], { candidates: [] })
+  writeTaskResponse(afterL1.tasks[1], {
     challenge_outcome: 'refuted',
     falsification: {
       attempt: 'Trace the first completion transition.',
       counterexample: 'The first alleged state is unreachable.',
     },
   })
-  writeTaskResponse(l3Batch.tasks[1], {
+  writeTaskResponse(afterL1.tasks[2], {
     task_status: 'insufficient_input',
     missing_inputs: ['The cited section does not contain the referenced rule.'],
   })
@@ -682,11 +769,8 @@ test('a surviving Native L3 response becomes an evidence card for human arbitrat
     candidates: [finding],
   })
   const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  writeTaskResponse(afterL1.tasks[0], {
-    candidates: [],
-  })
-  const afterL2 = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  writeTaskResponse(afterL2.tasks[0], {
+  writeTaskResponse(afterL1.tasks[0], { candidates: [] })
+  writeTaskResponse(afterL1.tasks[1], {
     challenge_outcome: 'survives',
     falsification: {
       attempt: 'Tried to find a mandatory terminal transition.',
@@ -791,14 +875,11 @@ test('retrying one invalid L3 task preserves completed sibling responses', () =>
     candidates: findings,
   })
   const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  writeTaskResponse(afterL1.tasks[0], {
-    candidates: [],
-  })
-  const l3Batch = runCli(repositoryRoot, ['advance', prepared.run_dir])
-  writeTaskResponse(l3Batch.tasks[0], {
+  writeTaskResponse(afterL1.tasks[0], { candidates: [] })
+  writeTaskResponse(afterL1.tasks[1], {
     challenge_outcome: 'refuted',
   })
-  writeTaskResponse(l3Batch.tasks[1], {
+  writeTaskResponse(afterL1.tasks[2], {
     challenge_outcome: 'refuted',
     falsification: {
       attempt: 'Trace the second transition.',
@@ -814,7 +895,7 @@ test('retrying one invalid L3 task preserves completed sibling responses', () =>
 
   assert.equal(retried.tasks.length, 1)
   assert.equal(retryTask.attempt, 2)
-  assert.equal(stateAfterRetry.active_tasks.length, 2)
+  assert.equal(stateAfterRetry.active_tasks.length, 3)
   writeTaskResponse(retryTask, {
     challenge_outcome: 'refuted',
     falsification: {
@@ -1372,6 +1453,45 @@ test('retrying a failed Native run creates a new run linked by retry_of', () => 
   )
 })
 
+test('Manifest version 3 resumes with serial L2 and without metrics input', () => {
+  const repositoryRoot = createRepository()
+  const finding = candidate()
+  const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const manifestPath = path.join(prepared.run_dir, 'manifest.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  manifest.version = 3
+  writeJson(manifestPath, manifest)
+  unlinkSync(path.join(prepared.run_dir, 'metrics.json'))
+  writeTaskResponse(prepared.tasks[0], {
+    contracts: [],
+    candidates: [finding],
+  })
+
+  const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
+  const l2Input = JSON.parse(
+    readFileSync(path.join(afterL1.tasks[0].task_path, 'input.json'), 'utf8'),
+  )
+
+  assert.equal(afterL1.tasks.length, 1)
+  assert.equal(afterL1.tasks[0].stage, 'architecture')
+  assert.equal(Array.isArray(l2Input.target.sections), true)
+  assert.equal(
+    existsSync(path.join(prepared.run_dir, 'metrics.json')),
+    true,
+  )
+})
+
+test('an unknown Manifest version is rejected instead of guessed', () => {
+  const repositoryRoot = createRepository()
+  const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const manifestPath = path.join(prepared.run_dir, 'manifest.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  manifest.version = 99
+  writeJson(manifestPath, manifest)
+
+  runCliExpectFailure(repositoryRoot, ['advance', prepared.run_dir])
+})
+
 test('a candidate emitted by the wrong discovery layer is rejected before L3', () => {
   const repositoryRoot = createRepository()
   const review = runTaskFixture(repositoryRoot, {
@@ -1490,7 +1610,7 @@ test('observed repository documents are separated from confirmed authorities', (
     (document) => document.path === 'docs/ARCHITECTURE.md',
   )
 
-  assert.equal(manifest.version, 3)
+  assert.equal(manifest.version, 4)
   assert.equal(architectureDocument.role, 'context')
   assert.equal(architectureDocument.authority_status, 'observed')
   assert.deepEqual(manifest.coverage.confirmed_authorities, [
