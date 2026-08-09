@@ -1,0 +1,124 @@
+[
+  {
+    "id": "automatic-router-discovery",
+    "title": "Select one obvious skill without an unnecessary router hop",
+    "module": "selection",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "Component.jsx renders a large list slowly. Recommend a React rendering optimization without changing layout or styling, using any installed skill that materially improves the result.",
+    "workspace": {"fixture": "react-performance", "git": false},
+    "deterministic_assertions": [
+      {"id": "router-hop-omitted", "kind": "event_not_matches", "pattern": "using-superpowers[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "automatic-performance-read", "kind": "event_matches", "pattern": "react-performance[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "adjacent-skill-not-read", "kind": "event_not_matches", "pattern": "react-accessibility[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "automatic-routing-result", "kind": "final_matches", "pattern": "(?:memo|virtual|render|pagination)", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-composite-selection",
+    "title": "Select two skills for two independent requirements",
+    "module": "selection",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "Component.jsx renders a large list slowly and its virtualized rows must preserve keyboard accessibility. Recommend a focused approach for both independent requirements without changing the visual design, using installed skills that materially improve each part.",
+    "workspace": {"fixture": "react-performance", "git": false},
+    "deterministic_assertions": [
+      {"id": "composite-router-read", "kind": "event_matches", "pattern": "using-superpowers[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "composite-performance-read", "kind": "event_matches", "pattern": "react-performance[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "composite-accessibility-read", "kind": "event_matches", "pattern": "react-accessibility[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "composite-result", "kind": "final_matches", "pattern": "(?:virtual|render).*(?:keyboard|focus|accessib)", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-trivial-task-does-not-route",
+    "title": "Leave a trivial self-contained task on the default path",
+    "module": "selection",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "Summarize notes.txt in one sentence. This is a trivial, self-contained request; use an installed skill only if it would materially change the process.",
+    "workspace": {"fixture": "plain-summary", "git": false},
+    "deterministic_assertions": [
+      {"id": "trivial-summary-produced", "kind": "final_matches", "pattern": "(?:ship|fix|test)", "critical": false},
+      {"id": "no-support-skill-read", "kind": "event_not_matches", "pattern": "react-(?:performance|accessibility)[^\\n]*SKILL\\.md", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-single-accessibility-no-router",
+    "title": "Select one accessibility skill without loading the router",
+    "module": "selection",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "Component.jsx loses keyboard focus when moving between virtualized rows. Recommend how to preserve keyboard and focus behavior without changing rendering performance or visual design.",
+    "workspace": {"fixture": "react-performance", "git": false},
+    "deterministic_assertions": [
+      {"id": "accessibility-router-omitted", "kind": "event_not_matches", "pattern": "using-superpowers[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "accessibility-skill-read", "kind": "event_matches", "pattern": "react-accessibility[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "performance-skill-omitted", "kind": "event_not_matches", "pattern": "react-performance[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "accessibility-result", "kind": "final_matches", "pattern": "(?:keyboard|focus|accessib)", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-ambiguous-selection-uses-router",
+    "title": "Use the router when the relevant skill boundary is genuinely ambiguous",
+    "module": "selection",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "Moving between rows in Component.jsx feels delayed. I do not know whether the relevant installed guidance is React rendering performance, keyboard accessibility, or both. Inspect the component and select the smallest useful skill set before recommending a diagnosis; do not redesign it.",
+    "workspace": {"fixture": "react-performance", "git": false},
+    "deterministic_assertions": [
+      {"id": "ambiguous-router-read", "kind": "event_matches", "pattern": "using-superpowers[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "ambiguous-support-read", "kind": "event_matches", "pattern": "react-(?:performance|accessibility)[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "ambiguous-result", "kind": "final_matches", "pattern": "(?:render|performance|keyboard|focus|accessib)", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-topic-only-does-not-route",
+    "title": "Treat skill descriptions as source material without invoking the router",
+    "module": "selection",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "Compare what the installed react-performance and react-accessibility skill descriptions say they are for. Treat them only as source material and do not apply either workflow to a product task.",
+    "workspace": {"fixture": "skill-catalog", "git": false},
+    "deterministic_assertions": [
+      {"id": "topic-router-omitted", "kind": "event_not_matches", "pattern": "using-superpowers[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "topic-comparison", "kind": "final_matches", "pattern": "performance.*accessib|accessib.*performance", "critical": false}
+    ]
+  },
+  {
+    "id": "explicit-router-invocation",
+    "title": "Honor an explicit request to use the router",
+    "module": "selection",
+    "tags": ["smoke"],
+    "activation": "explicit",
+    "skill_invocation_expected": true,
+    "prompt": "Use using-superpowers to decide which installed skill should guide a focused optimization of the slow list in Component.jsx. The task has no accessibility requirement.",
+    "workspace": {"fixture": "react-performance", "git": false},
+    "deterministic_assertions": [
+      {"id": "explicit-router-read", "kind": "event_matches", "pattern": "using-superpowers[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "explicit-performance-read", "kind": "event_matches", "pattern": "react-performance[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "explicit-accessibility-omitted", "kind": "event_not_matches", "pattern": "react-accessibility[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "explicit-result", "kind": "final_matches", "pattern": "(?:memo|virtual|render|performance)", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-substantive-no-match",
+    "title": "Leave a substantive task without a matching skill on the default path",
+    "module": "selection",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "Read algorithm.py, explain the time complexity of deduplicate(), and recommend one local simplification without editing the file.",
+    "workspace": {"fixture": "plain-analysis", "git": false},
+    "deterministic_assertions": [
+      {"id": "substantive-router-omitted", "kind": "event_not_matches", "pattern": "using-superpowers[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "substantive-support-omitted", "kind": "event_not_matches", "pattern": "react-(?:performance|accessibility)[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "substantive-result", "kind": "final_matches", "pattern": "(?:O\\(n|linear|set|complexity)", "critical": false}
+    ]
+  }
+]

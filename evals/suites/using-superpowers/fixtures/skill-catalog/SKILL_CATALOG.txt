@@ -1,0 +1,1 @@
+The isolated Codex home contains react-performance and react-accessibility support skills.

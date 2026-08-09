@@ -2,6 +2,8 @@
 
 After implementation, update the map documents if any condition below applies.
 
+Explicit map requests are handled before implementation by the skill's explicit mode. Do not skip that requested work merely because the implementation itself causes no structural change.
+
 ## Update `docs/REPO_MAP.md`
 
 - A new file, directory, or module introduces a new responsibility.

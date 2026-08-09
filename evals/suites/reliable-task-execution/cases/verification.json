@@ -1,0 +1,17 @@
+[
+  {
+    "id": "automatic-reliability-routing",
+    "title": "Discover reliable execution and verify a bug fix",
+    "module": "verification",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "Fix the clamp() bug in calc.py. Use the existing tests as the acceptance check and report only what the current evidence supports.",
+    "workspace": {"fixture": "verified-bug-fix", "git": true},
+    "deterministic_assertions": [
+      {"id": "reliability-auto-read", "kind": "event_matches", "pattern": "reliable-task-execution[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "automatic-fix-implemented", "kind": "file_contains", "path": "calc.py", "pattern": "min\\(value, upper\\)", "critical": false},
+      {"id": "automatic-test-executed", "kind": "event_matches", "pattern": "python(?:3)?[^\\n]*(?:unittest|test_calc)[^\\n]*\"exit_code\": 0", "critical": false}
+    ]
+  }
+]

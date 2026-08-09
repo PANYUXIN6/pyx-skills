@@ -17,7 +17,9 @@ authority_status: observed
 
 L3 响应使用版本化契约：Manifest v5 的新任务通过增量角色只返回允许变化字段的 `refinement`，Runner 复用原候选的不可变 layer/contract；v3/v4 任务继续由独立 legacy 角色与 Schema 兼容完整 `refined_finding`。
 
-`repo-map-first` 独立拥有仓库发现与文档同步职责。它不参与正常设计审查；只有 `review-design-contracts` 发现默认仓库文档缺失时，才显式请求其仓库上下文引导模式。
+`repo-map-first` 独立拥有仓库落点判断与文档同步职责。自动路由只覆盖归属不明、跨模块边界、入口或依赖变化以及地图可疑等真实定位风险；用户显式调用会绕过自动过滤并强制完成相关地图工作。它不参与正常设计审查；只有 `review-design-contracts` 发现默认仓库文档缺失时，才显式请求其严格的仓库上下文引导模式。
+
+`brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first` 与 `code-review` 是相互独立的运行时 skill。它们的开发期行为评测位于仓库级 `evals/`：共享最小集成 Runner、Schema 和本地测试，与 `evals/suites/<skill-name>/` 中的 suite 数据分离，避免开发资源进入运行时分发包。
 
 ## 依赖方向
 
@@ -27,9 +29,11 @@ L3 响应使用版本化契约：Manifest v5 的新任务通过增量角色只�
 review-design-contracts ──缺失仓库文档时──> repo-map-first
 review-design-contracts ──每次运行──> Codex Native subagent 工具
 review-design.mjs ──读取──> review.config.json + references/
+brainstorming ──用户接受视觉伴侣时──> brainstorming/scripts/
+evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 ```
 
-`repo-map-first` 不反向依赖 `review-design-contracts`。Runner 不调用模型 API、CLI 后端或其他 provider；模型与推理强度由 Runner 的任务描述传给当前 Codex 提供的 Native `spawn_agent`。
+`repo-map-first` 不反向依赖 `review-design-contracts`。设计审查 Runner 不调用模型 API、CLI 后端或其他 provider；模型与推理强度由其任务描述传给当前 Codex 提供的 Native `spawn_agent`。独立的行为评测 Runner 会在隔离 workspace 与临时 `CODEX_HOME` 中调用 Codex CLI，并只保存可确定验证的文件、命令和输出证据。
 
 ## 主要控制流
 
@@ -53,5 +57,7 @@ review-design.mjs ──读取──> review.config.json + references/
 ## 外部与运行边界
 
 - 运行依赖当前 Codex 环境提供 `spawn_agent`、`wait_agent` 和 `interrupt_agent`。
+- 行为评测依赖本机 Codex CLI；真实模型 case 需要显式允许访问 Codex 服务，static 和 fake-Codex 单测不需要网络。
+- 行为评测只保留 `static`、单个 `case` 和最小 `smoke`：前两类本地结构/假执行测试零外部调用；`brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first`、`code-review` 的真实 smoke 上限分别为 1、8、2、2、2、4 次。没有语义判分、baseline、重复 trial、regression 或 differential；多案例 smoke 在调用前必须同时满足 manifest 硬上限和显式 `--max-codex-calls` 预算。
 - Runner 仅允许执行 `review.config.json` 中白名单声明的确定性验证命令。
 - skill 包本身不保存评审运行数据，也不自动创建外部 issue、PR 或工单。

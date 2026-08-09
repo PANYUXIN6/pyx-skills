@@ -1,37 +1,26 @@
 # Repository Map Staleness Checklist
 
-If any condition below applies, do not treat the current map as reliable input. Update it before modifying code.
+Use this checklist to decide whether relevant map information is trustworthy. A stale map is evidence to investigate, not authority to follow.
 
-## Clearly Missing
+## Missing or Inadequate
 
-- `docs/REPO_MAP.md` does not exist.
-- The document lists only directory names without responsibilities, entry points, or relationships.
-- The document covers only part of the repository and omits the module relevant to the current task.
+- `docs/REPO_MAP.md` or `docs/ARCHITECTURE.md` is absent when the active invocation mode requires it.
+- The relevant document lists names without responsibilities, entry points, or relationships needed for the task.
+- The module or boundary relevant to the task is omitted.
+- The map does not reveal the current entry, owner, dependency direction, or cross-module relationship needed to place the change.
 
-## Clearly Stale
+## Clearly Stale or Contradictory
 
-- The code contains new directories, modules, services, pages, or job flows that are absent from the map.
-- Files or directories were renamed or moved, but the map still uses the old paths.
-- Entry points changed, but the map still points to the old ones.
-- A key flow changed course, but the map still describes the old call chain.
-- Responsibility ownership in the documentation clearly differs from the code.
-- `REPO_MAP` and `ARCHITECTURE` contradict each other.
+- Current directories, modules, services, pages, endpoints, or jobs are absent from the relevant map.
+- Files or directories moved or were renamed while the map still uses old paths.
+- Entry points or key flows changed while the map still describes the old route.
+- Responsibility ownership in the map differs from current code.
+- `REPO_MAP.md` and `ARCHITECTURE.md` contradict each other.
 
-## Insufficient for the Current Task
+## Respond by Invocation Mode
 
-- The map does not make clear which layer should change.
-- The map does not reveal where the existing logic begins.
-- The map does not describe relationships between modules relevant to the current task.
-- The task adds a capability, but the map identifies no module that should own it.
+- **Explicit map mode:** create missing documents and repair stale relevant sections before implementation. Keep the update limited to evidence needed for the requested scope.
+- **Automatic placement-risk mode:** verify placement against source. Create or repair maps before implementation only when missing or stale information prevents safe placement, or when the task will change durable structure. Otherwise do not create documentation solely because it is absent.
+- **Repository-context bootstrap:** create only the missing documents. Do not repair or overwrite an existing companion unless the requesting skill explicitly expands the scope.
 
-## Minimum Update Standard
-
-If the map is missing or stale, update it enough to support the current task by documenting:
-
-- Relevant module or directory paths.
-- A one-sentence responsibility for each relevant module.
-- Entry points relevant to the current task.
-- The main call chain relevant to the current task.
-- The files or layers where the planned changes will live.
-
-Do not document the entire repository merely to update the map. Add only enough detail to place the current change safely.
+Never convert `authority_status: observed` to `confirmed` without explicit user confirmation. If evidence is insufficient, state the limitation instead of inferring intended architecture.

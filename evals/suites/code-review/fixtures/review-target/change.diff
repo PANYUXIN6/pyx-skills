@@ -1,0 +1,14 @@
+diff --git a/app.py b/app.py
+--- a/app.py
++++ b/app.py
+@@
++import subprocess
++
++def run_report(report_name: str) -> str:
++    return subprocess.run(
++        f"printf 'report=%s' {report_name}",
++        shell=True,
++        check=True,
++        capture_output=True,
++        text=True,
++    ).stdout

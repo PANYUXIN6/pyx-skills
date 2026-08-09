@@ -1,0 +1,28 @@
+[
+  {
+    "id": "automatic-explicit-tdd-routing",
+    "title": "Discover TDD for an explicit test-first request",
+    "module": "routing",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "I want to add is_even() to module.py using test-driven development. Before changing files, describe the first red-green-refactor slice and the minimum test evidence you would use.",
+    "workspace": {"fixture": "simple-module", "git": false},
+    "deterministic_assertions": [
+      {"id": "tdd-loop-described", "kind": "final_matches", "pattern": "(?:red|fail(?:ing)?).*(?:green|pass(?:ing)?)", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-integration-test-does-not-route",
+    "title": "Do not discover TDD for an ordinary integration-test request",
+    "module": "routing",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "Recommend one integration test for the existing greet() behavior in module.py. I am not asking for TDD or test-first development, and do not change the implementation.",
+    "workspace": {"fixture": "simple-module", "git": false},
+    "deterministic_assertions": [
+      {"id": "integration-test-recommended", "kind": "final_matches", "pattern": "integration", "critical": false}
+    ]
+  }
+]

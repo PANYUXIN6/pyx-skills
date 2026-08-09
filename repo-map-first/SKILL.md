@@ -1,58 +1,51 @@
 ---
 name: repo-map-first
-description: Use when implementing or modifying behavior in an existing repository, adding capabilities, making cross-file changes, taking over an unfamiliar codebase, or deciding where code should live. Read docs/REPO_MAP.md and docs/ARCHITECTURE.md when present, determine whether the repository map is missing or stale, provide a pre-coding placement analysis, make the smallest viable change, and update the map when file responsibilities, entry points, module boundaries, or key flows change. Also use when a dependent skill explicitly requests repository-context bootstrap for missing map or architecture documents. Do not otherwise use for explanation-only, review-only, test-only, or other non-behavioral tasks.
+description: Resolve code placement and repository-map trust from repository evidence. Use automatically for existing-repository behavior changes with unclear ownership, cross-boundary impact, entry-point or dependency changes, unfamiliar non-local scope, or missing or stale maps. Also use for dependent-skill repository-context bootstrap and every explicit request to create, repair, update, inspect, or use repository maps; explicit requests always complete the map workflow.
 ---
 
-# Repo Map First
+# Place Changes with Repository Evidence
 
-Treat the repository map as a guide for code placement, not as documentation to patch up afterward.
+Resolve where a change belongs before implementing it when placement mistakes could cross responsibilities or spread through the wrong layer. Keep repository maps evidence-based and update them only when the task or an explicit request justifies the documentation work.
 
-This skill has only three goals:
+## Select the Invocation Mode
 
-1. Determine where code belongs before writing it instead of guessing along the way.
-2. Keep changes within the correct boundaries instead of letting them spread opportunistically.
-3. Update the map after responsibilities change so the next task does not have to rediscover the structure from source code.
+### Explicit Map Mode
 
-## When to Use
+Use this mode whenever the user names this skill or asks to create, repair, update, inspect, or use repository map documents.
 
-Use this skill when any of the following applies:
+- Stay in explicit map mode even when the task is local or placement appears clear.
+- Inspect `docs/REPO_MAP.md` and `docs/ARCHITECTURE.md` when they exist.
+- Ensure both documents cover the requested scope unless the user explicitly limits the document scope.
+- Create missing documents or repair stale relevant sections from repository evidence before implementation.
+- If the request is map-only, finish after producing or repairing the requested map and reporting its evidence and limitations.
+- Leave accurate map sections unchanged.
 
-- Implementing a new feature or modifying existing behavior.
-- Adding a capability, extending an interface, adding configuration, or introducing a new flow.
-- Deciding where a change belongs in an unfamiliar repository.
-- Making a change that crosses files or modules, or may affect entry points or call chains.
-- Locating the correct implementation point when the user has not specified one.
+Map work for the requested scope is complete when relevant owners, entry points, call or data flows, and dependency direction are locatable; claims are supported by repository evidence; unknowns and limitations are explicit; and no material placement ambiguity remains.
 
-## When Not to Use
+### Automatic Placement-Risk Mode
 
-Do not use this skill by default for:
+Use this mode only when an existing-repository behavior change has a real placement risk, such as:
 
-- Explaining code or answering questions without making changes.
-- Reviewing code or identifying issues without implementing changes.
-- Running tests, formatting, or building without changing behavior.
-- Editing comments, copy, README files, or other content that does not affect runtime behavior.
+- responsibility ownership or the implementation location remains unclear from the request and known context;
+- the change crosses module or layer boundaries;
+- entry points, dependency direction, public contracts, or key call flows may change;
+- the repository is unfamiliar and the work is non-local;
+- a relevant map appears missing, stale, contradictory, or insufficient for a cross-boundary decision.
 
-If an analysis-only task turns into a behavioral change, switch to this skill immediately.
+Cross-file work alone is not enough. A local, well-specified change within one clear responsibility does not need this skill.
 
-The only review-only exception is an explicit repository-context bootstrap request from a dependent skill. Follow the bootstrap workflow below instead of the normal implementation workflow.
+If brief inspection shows that placement is clear, no boundary is crossed, and no durable structure changes, release this skill and continue through the normal implementation workflow without placement analysis or map creation.
 
-## Hard Constraints
+When maps are absent in automatic mode, resolve placement from the relevant source first. Create or repair repository documents only when they are necessary for safe placement or the task will change durable repository structure.
 
-- Do not modify code before reading the repository map.
-- Do not modify code before providing the pre-coding placement analysis.
-- When the map is missing or clearly stale, create the smallest usable map before modifying code.
-- Reuse existing modules, boundaries, and extension points. Do not invent a new layer solely for the current task.
-- Do not perform opportunistic refactoring unless the user explicitly requests it. If avoiding a refactor would block implementation, explain why before proceeding.
-- Preserve `generated_by` and `authority_status` provenance in generated maps unless the user explicitly confirms a different authority status.
+### Repository-Context Bootstrap
 
-## Repository-Context Bootstrap
+Use this mode only when another skill explicitly requests repository context because `docs/REPO_MAP.md` or `docs/ARCHITECTURE.md` is missing.
 
-Use this mode only when another skill explicitly requests it because `docs/REPO_MAP.md` or `docs/ARCHITECTURE.md` is missing.
-
-1. Identify which of the two documents are missing. Do not overwrite an existing document merely because its companion is absent.
+1. Identify which documents are missing and preserve any existing companion document.
 2. Read applicable repository rules and existing documentation.
-3. Inspect the repository with `rg --files`, `rg`, and targeted file reads. Locate manifests, workspaces, entry points, relevant modules, public contracts, callers, dependencies, and tests.
-4. Keep the dependent skill's target document unchanged.
+3. Inspect the repository with `rg --files`, `rg`, and targeted reads. Locate manifests, workspaces, entry points, relevant modules, public contracts, callers, dependencies, and tests.
+4. Preserve the dependent skill's target artifact.
 5. Create only the missing documents and begin each generated file with:
 
 ```yaml
@@ -62,8 +55,8 @@ authority_status: observed
 ---
 ```
 
-6. Include only claims supported by repository evidence. Mark unknown relationships as unknown rather than inferring intended architecture from the current implementation.
-7. If the repository does not contain enough evidence for the minimum content below, stop and report `INSUFFICIENT_INPUT` instead of creating a misleading map.
+6. Include only claims supported by repository evidence. Mark unknown relationships as unknown.
+7. If the repository lacks enough evidence for the minimum content below, report `INSUFFICIENT_INPUT` instead of creating a misleading map.
 
 The minimum `REPO_MAP.md` content is:
 
@@ -71,7 +64,7 @@ The minimum `REPO_MAP.md` content is:
 - One-sentence responsibility for each relevant module
 - Primary entry points
 - Key call chains or flows
-- Locations of the public contracts and tests used as evidence
+- Locations of public contracts and tests used as evidence
 
 The minimum `ARCHITECTURE.md` content is:
 
@@ -81,88 +74,34 @@ The minimum `ARCHITECTURE.md` content is:
 - Ownership of important state or data
 - External systems and operational boundaries when present
 
-Return control to the dependent skill after both documents exist. Generated documents remain observed repository context until a user explicitly changes `authority_status` to `confirmed`.
+Return control to the dependent skill after the requested documents exist. Generated documents remain observed context until the user explicitly changes `authority_status` to `confirmed`.
 
-## Workflow
+## Keep These Boundaries
 
-### 1. Confirm Applicability
+- Begin implementation only after responsibility ownership and code placement are materially resolved.
+- Verify stale or contradictory map claims against the relevant source and current behavior.
+- In explicit map mode, complete the requested map work before implementation.
+- Reuse existing modules, boundaries, and extension points; introduce a layer only when the requested behavior establishes a durable responsibility.
+- Keep refactoring to boundary corrections required by the requested behavior. Explain the root cause and make the smallest justified correction.
+- Preserve `generated_by` and `authority_status` provenance unless the user explicitly confirms a different authority status.
 
-Determine whether the task implements or modifies behavior.
+## Placement Workflow
 
-- If it does, continue with this workflow.
-- If it does not, use the normal workflow instead of forcing this skill onto the task.
+The automatic fast exit above is the only route around this workflow. Repository-context bootstrap follows its own closed workflow instead.
 
-### 2. Read the Map, Then the Architecture
+1. Read applicable repository rules and inspect enough source to locate the current entry point, owner, call flow, and dependency direction.
+2. Read the relevant portions of `docs/REPO_MAP.md` and then `docs/ARCHITECTURE.md` when present.
+3. Use [staleness-checklist.md](./references/staleness-checklist.md) to decide whether the maps are trustworthy and what the current invocation mode requires.
+4. State the placement decision using [placement-analysis.md](./references/placement-analysis.md) as a quality rubric, not a fixed template. Keep it brief unless the task crosses several independent subsystems or has high placement uncertainty.
+5. Make the smallest viable change within the resolved responsibility boundary.
+6. Use [map-sync-checklist.md](./references/map-sync-checklist.md) after implementation. Update `REPO_MAP.md` when responsibilities, files, entry points, or flows changed; also update `ARCHITECTURE.md` when layers, dependencies, or cross-system relationships changed.
+7. Report whether responsibilities, entry points, or key flows changed and whether map documents were synchronized.
 
-Read these files in order:
+## Working Principles
 
-1. `docs/REPO_MAP.md`
-2. `docs/ARCHITECTURE.md` when present
-
-Answer only these four questions while reading:
-
-- Where is the entry point?
-- Which module owns the target responsibility?
-- How does the existing call chain flow?
-- In which layer should the change be contained?
-
-### 3. Determine Whether the Map Is Missing or Stale
-
-Use [staleness-checklist.md](./references/staleness-checklist.md) to make this determination.
-
-If any mandatory-update condition applies, update the map before modifying code. Do not continue making blind changes after discovering that the map is inaccurate.
-
-If the repository has no map at all, create a minimal usable version that documents at least:
-
-- The top-level directories or core modules
-- The responsibility of each core module
-- The primary entry points
-- The key call chains or main flows
-
-### 4. Provide the Pre-Coding Placement Analysis
-
-Follow the structure in [pre-code-analysis-template.md](./references/pre-code-analysis-template.md) exactly.
-
-Cover at least:
-
-- Task objective
-- Entry point
-- Existing flow
-- Affected modules
-- Files to modify or add
-- Reasons for choosing those locations
-- Risks and test plan
-- Map status
-
-The purpose is not to restate the user's request, but to demonstrate that the implementation location has been determined.
-
-### 5. Modify the Code
-
-Follow these principles while making changes:
-
-- Look for existing extension points, adapters, services, and composition points before creating a new abstraction.
-- Keep behavioral changes within existing responsibility boundaries; do not push logic across layers.
-- Before adding a file, explain why the logic cannot live in an existing file.
-- If the root problem is an incorrect boundary design, do not conceal it with a patch. Explain the root cause, then make the smallest necessary adjustment.
-
-### 6. Determine Whether to Update the Map
-
-Use [map-sync-checklist.md](./references/map-sync-checklist.md) to make this determination.
-
-If any mandatory-update condition applies, update:
-
-- `docs/REPO_MAP.md`
-- `docs/ARCHITECTURE.md` when architectural relationships, layers, or key flows change
-
-### 7. Report Map Synchronization
-
-At completion, explicitly state:
-
-- Whether the change altered module responsibilities, entry points, or key flows.
-- Whether the map documents were updated; if not, why no update was necessary.
-
-## Output Requirements
-
-Keep the output concise, direct, and actionable. Do not turn the placement analysis into a long background explanation.
-
-Lead with conclusions, then provide only the minimum necessary evidence.
+- Prefer repository evidence over remembered or intended architecture.
+- Discover context before asking generic placement questions.
+- Use the least map detail needed to place the current change safely.
+- Keep explicit user control stronger than automatic routing judgment.
+- Distinguish responsibility boundaries from file count.
+- Keep placement analysis concise and implementation-focused.

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "profile", "started_at", "environment", "cases", "summary"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "profile": {"type": "string"},
+    "started_at": {"type": "string"},
+    "environment": {"type": "object"},
+    "cases": {"type": "array"},
+    "summary": {"type": "object"}
+  }
+}

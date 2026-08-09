@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Minimal skill integration case",
+  "type": "object",
+  "required": ["id", "title", "module", "tags", "prompt", "workspace", "skill_invocation_expected", "deterministic_assertions"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "title": {"type": "string", "minLength": 1},
+    "module": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "activation": {"enum": ["explicit", "automatic"]},
+    "skill_invocation_expected": {"type": "boolean"},
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"enum": ["smoke", "critical"]},
+      "uniqueItems": true
+    },
+    "prompt": {"type": "string", "minLength": 1},
+    "workspace": {
+      "type": "object",
+      "required": ["fixture", "git"],
+      "additionalProperties": false,
+      "properties": {
+        "fixture": {"type": "string", "minLength": 1},
+        "git": {"type": "boolean"}
+      }
+    },
+    "deterministic_assertions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/assertion"}
+    }
+  },
+  "$defs": {
+    "assertion": {
+      "type": "object",
+      "required": ["id", "kind", "critical"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+        "kind": {"enum": ["file_exists", "file_contains", "final_matches", "event_matches", "event_not_matches"]},
+        "critical": {"type": "boolean"},
+        "path": {"type": "string"},
+        "pattern": {"type": "string"}
+      }
+    }
+  }
+}

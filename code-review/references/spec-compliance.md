@@ -11,7 +11,7 @@ Locate corresponding implementation and test evidence for every specification it
 - Requirements that are missing or only partially implemented.
 - Implementations that appear present but fail to match required behavior, boundaries, or error paths.
 - Unsatisfied ticket dependencies, prerequisites, or acceptance criteria.
-- Behavior, interfaces, or configuration that the user did not request and no confirmed source supports, indicating scope creep.
+- Behavior, interfaces, or configuration that the user did not request and no confirmed source supports. Call it change-set scope creep only when comparison evidence or confirmed implementation history shows that the reviewed change introduced it.
 - Specification changes made during implementation without user confirmation.
 - Tests that cover only internal implementation details without proving acceptance behavior.
 

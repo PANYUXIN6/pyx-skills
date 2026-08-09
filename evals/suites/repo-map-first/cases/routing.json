@@ -1,0 +1,28 @@
+[
+  {
+    "id": "automatic-cross-boundary-routing",
+    "title": "Discover repo-map-first for unresolved cross-boundary placement",
+    "module": "routing",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "This unfamiliar repository has api_layer.py and data_layer.py. I need cache invalidation spanning both, but responsibility ownership and placement are unclear. Before implementation, identify the correct module boundary and explain where the change belongs. Do not edit files yet.",
+    "workspace": {"fixture": "placement-risk", "git": false},
+    "deterministic_assertions": [
+      {"id": "placement-recommended", "kind": "final_matches", "pattern": "(?:boundary|ownership|placement|module)", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-local-change-does-not-route",
+    "title": "Do not discover repo-map-first for an explicitly placed local change",
+    "module": "routing",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "In local_target.py, change greet() to return 'Hi, {name}!'. The file and function are the complete scope; do not modify anything else.",
+    "workspace": {"fixture": "placement-risk", "git": false},
+    "deterministic_assertions": [
+      {"id": "local-placement-followed", "kind": "final_matches", "pattern": "local_target[.]py", "critical": false}
+    ]
+  }
+]

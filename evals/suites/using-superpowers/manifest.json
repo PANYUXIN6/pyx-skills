@@ -1,0 +1,9 @@
+{
+  "schema_version": 3,
+  "skill_name": "using-superpowers",
+  "modules": ["selection"],
+  "coverage": {"case_count": 8, "profile_case_counts": {"smoke": 8}},
+  "profiles": {
+    "smoke": {"tags": ["smoke"], "max_codex_calls": 8}
+  }
+}

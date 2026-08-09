@@ -1,0 +1,17 @@
+[
+  {
+    "id": "automatic-brainstorm-routing",
+    "title": "Discover brainstorming and use repository constraints",
+    "module": "context",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "Read CONTEXT.md and recommend the best cache design for this CLI before implementation. Use the repository constraints and give me the design rationale.",
+    "workspace": {"fixture": "dominant-design", "git": false},
+    "deterministic_assertions": [
+      {"id": "brainstorming-auto-read", "kind": "event_matches", "pattern": "brainstorming[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "automatic-context-read", "kind": "event_matches", "pattern": "CONTEXT\\.md", "critical": false},
+      {"id": "automatic-design-recommended", "kind": "final_matches", "pattern": "SQLite", "critical": false}
+    ]
+  }
+]

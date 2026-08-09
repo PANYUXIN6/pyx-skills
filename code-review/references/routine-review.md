@@ -1,10 +1,10 @@
 # Routine Review Workflow
 
-Use this workflow for engineering reviews of the current workspace, routine PRs, commits, or explicit ranges. Read `correctness-quality.md` completely by default, then add risk modules according to the top-level routing table.
+Use this workflow for engineering reviews of the current workspace, named feature implementations without specification acceptance, routine PRs, commits, or explicit ranges. The top-level router is the single source of truth for module selection; this file defines the routine review procedure and output.
 
 ## Steps
 
-1. Fix the review scope using `git status -sb`, diff statistics, and the actual diff. For the current workspace, cover staged changes, unstaged changes, and relevant untracked files.
+1. Fix the review scope using `git status -sb`, diff statistics, and the actual diff when changes are the target. For the current workspace, cover staged changes, unstaged changes, and relevant untracked files. For a named feature review, trace the current implementation through its entry points, callers, contracts, and tests even when some relevant code is already committed.
 2. Identify entry points, ownership boundaries, and critical paths. Search relevant callers, types, tests, and external contracts as needed.
 3. Verify correctness and regression risk first, then perform dispatched security, architecture, or removal checks.
 4. Keep only findings with explainable triggers and practical impact. Do not report personal preferences as issues.

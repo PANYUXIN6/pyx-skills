@@ -1,0 +1,9 @@
+{
+  "schema_version": 3,
+  "skill_name": "brainstorming",
+  "modules": ["context"],
+  "coverage": {"case_count": 1, "profile_case_counts": {"smoke": 1}},
+  "profiles": {
+    "smoke": {"tags": ["smoke"], "max_codex_calls": 1}
+  }
+}
