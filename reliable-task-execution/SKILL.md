@@ -1,6 +1,7 @@
 ---
 name: reliable-task-execution
 description: Apply lightweight safeguards when task execution involves completion claims, destructive or external-state changes, debugging, long-running or resumable work, subagent delegation, or high-risk review. Use to preserve evidence, recoverability, and user control without imposing a fixed development workflow.
+license: MIT
 ---
 
 # Reliable Task Execution

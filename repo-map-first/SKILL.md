@@ -1,6 +1,7 @@
 ---
 name: repo-map-first
 description: Resolve code placement and repository-map trust from repository evidence. Use automatically for existing-repository behavior changes with unclear ownership, cross-boundary impact, entry-point or dependency changes, unfamiliar non-local scope, or missing or stale maps. Also use for dependent-skill repository-context bootstrap and every explicit request to create, repair, update, inspect, or use repository maps; explicit requests always complete the map workflow.
+license: MIT
 ---
 
 # Place Changes with Repository Evidence

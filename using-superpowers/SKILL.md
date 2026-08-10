@@ -1,6 +1,7 @@
 ---
 name: using-superpowers
 description: Route substantive tasks to the smallest set of explicitly requested or strongly matching skills. Use at task start when skill selection can materially change the process.
+license: MIT
 ---
 
 <SUBAGENT-STOP>

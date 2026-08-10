@@ -16,6 +16,8 @@ authority_status: observed
 - `tdd/`：在明确采用测试先行时，用覆盖独立行为和真实风险的最小证据集驱动实现。
 - `evals/`：六个 skill 共用的开发期行为评测基础设施和隔离 suites，不属于任何运行时 skill 包。
 - `docs/superpowers/specs/`：保存非平凡 skill 变更的已确认设计文档。
+- `.github/workflows/verify.yml`：GitHub Actions 持续集成入口，验证 Skill 仓库的 Python、Node.js 和空白字符检查。
+- `LICENSE`：所有运行时 Skill 与仓库文档的 MIT 许可文本。
 - `README.md`：仓库用途、skill 清单和目录约定说明。
 
 ## Skill 入口与职责
@@ -50,6 +52,7 @@ authority_status: observed
 5. L1 完成后，L2 架构检查可与已验证 L1 候选的首批 L3 对抗任务并行；其余 L3 继续按固定并发分批。新 L3 只返回发生变化的候选字段，Runner 与不可变的原 layer/contract 合并后执行摘要校验、确定性证据门禁和运行失效检查。
 6. Runner 用短编号展示当前批次；Codex 以中文收集决定和自然语言驳回理由，完成整批确认后再生成机器 decisions JSON。
 7. Runner 校验原因 code、非空理由和批次完整性；只有人工明确接受的 finding 才能进入 `fix-queue.json`。
+8. GitHub Actions 在推送到 `main` 或面向 `main` 的 Pull Request 上运行本地确定性验证，不运行真实 Codex smoke。
 
 ## 公共契约与测试证据
 

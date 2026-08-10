@@ -1,6 +1,7 @@
 ---
 name: review-design-contracts
 description: Review a Markdown design document with layered contract extraction, architecture reasoning, adversarial falsification, deterministic evidence gates, and human-only admission. Use only when the user explicitly invokes $review-design-contracts with a repository design-document path. When repository map or architecture documents are missing, use the sibling repo-map-first skill to bootstrap observed repository context before review.
+license: MIT
 ---
 
 # Review Design Contracts

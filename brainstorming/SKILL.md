@@ -1,6 +1,7 @@
 ---
 name: brainstorming
 description: Resolve uncertain product or architecture decisions before implementation. Use for explicit brainstorming or design requests, or when unresolved trade-offs, blast radius, or reversal cost could materially change the implementation; clear, local, reversible work proceeds directly.
+license: MIT
 ---
 
 # Brainstorm Just Enough

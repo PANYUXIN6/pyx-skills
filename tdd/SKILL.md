@@ -1,6 +1,7 @@
 ---
 name: tdd
 description: Risk-aware test-driven development. Use when the user explicitly asks for TDD, test-first, red-green-refactor, or a regression test before fixing a bug; ordinary requests that merely include tests use the normal workflow.
+license: MIT
 ---
 
 # Risk-Aware Test-Driven Development

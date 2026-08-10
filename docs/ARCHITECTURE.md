@@ -58,6 +58,7 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 
 - 运行依赖当前 Codex 环境提供 `spawn_agent`、`wait_agent` 和 `interrupt_agent`。
 - 行为评测依赖本机 Codex CLI；真实模型 case 需要显式允许访问 Codex 服务，static 和 fake-Codex 单测不需要网络。
+- GitHub Actions 仅运行仓库已有的确定性 Python 与 Node.js 测试及空白字符检查；发布标签由 GitHub Ruleset 保护，避免已发布的版本标签被更新或删除。
 - 行为评测只保留 `static`、单个 `case` 和最小 `smoke`：前两类本地结构/假执行测试零外部调用；`brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first`、`code-review` 的真实 smoke 上限分别为 1、8、2、2、2、4 次。没有语义判分、baseline、重复 trial、regression 或 differential；多案例 smoke 在调用前必须同时满足 manifest 硬上限和显式 `--max-codex-calls` 预算。
 - Runner 仅允许执行 `review.config.json` 中白名单声明的确定性验证命令。
 - skill 包本身不保存评审运行数据，也不自动创建外部 issue、PR 或工单。

@@ -1,6 +1,7 @@
 ---
 name: code-review
 description: Evidence-backed code review for uncommitted workspace changes, a current feature implementation, Git diffs or ranges, final acceptance against confirmed requirements, and focused security, reliability, architecture, SOLID, performance, correctness, or removal reviews. Route by the conclusion requested; require a Git baseline only for comparison claims, report findings, and wait for separate authorization before fixing them.
+license: MIT
 ---
 
 # Code Review
