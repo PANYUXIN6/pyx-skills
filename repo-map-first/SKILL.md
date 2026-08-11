@@ -1,6 +1,6 @@
 ---
 name: repo-map-first
-description: Resolve code placement and repository-map trust from repository evidence. Use automatically for existing-repository behavior changes with unclear ownership, cross-boundary impact, entry-point or dependency changes, unfamiliar non-local scope, or missing or stale maps. Also use for dependent-skill repository-context bootstrap and every explicit request to create, repair, update, inspect, or use repository maps; explicit requests always complete the map workflow.
+description: Resolve code placement and repository-map trust from repository evidence. Use automatically for existing-repository behavior changes with unclear ownership, cross-boundary impact, entry-point or dependency changes, unfamiliar non-local scope, or missing or stale maps. Also use for dependent-skill repository-context bootstrap or validation and every explicit request to create, repair, update, inspect, or use repository maps; explicit requests always complete the map workflow.
 license: MIT
 ---
 
@@ -77,6 +77,17 @@ The minimum `ARCHITECTURE.md` content is:
 
 Return control to the dependent skill after the requested documents exist. Generated documents remain observed context until the user explicitly changes `authority_status` to `confirmed`.
 
+### Repository-Context Validation
+
+Use this mode only when another skill explicitly requests validation because a recently completed predecessor or repository evidence makes existing `docs/REPO_MAP.md` or `docs/ARCHITECTURE.md` claims potentially stale for the dependent task.
+
+1. Preserve the dependent skill's target artifact.
+2. Read the existing map documents and [staleness-checklist.md](./references/staleness-checklist.md).
+3. Inspect only the source, entry points, owners, dependencies, flows, and tests needed to validate the relevant scope.
+4. Leave accurate map sections unchanged. Repair only stale relevant claims in `authority_status: observed` documents and preserve their provenance.
+5. Do not rewrite an unmarked or `authority_status: confirmed` contract from observed code. Report the contradiction and return `INSUFFICIENT_INPUT` when the dependent workflow requires the conflict to be resolved.
+6. Report the evidence checked, any repaired claims, and remaining limitations, then return control to the dependent skill.
+
 ## Keep These Boundaries
 
 - Begin implementation only after responsibility ownership and code placement are materially resolved.
@@ -85,10 +96,11 @@ Return control to the dependent skill after the requested documents exist. Gener
 - Reuse existing modules, boundaries, and extension points; introduce a layer only when the requested behavior establishes a durable responsibility.
 - Keep refactoring to boundary corrections required by the requested behavior. Explain the root cause and make the smallest justified correction.
 - Preserve `generated_by` and `authority_status` provenance unless the user explicitly confirms a different authority status.
+- Keep a dependent skill's target artifact unchanged during repository-context bootstrap or validation.
 
 ## Placement Workflow
 
-The automatic fast exit above is the only route around this workflow. Repository-context bootstrap follows its own closed workflow instead.
+The automatic fast exit above is the only route around this workflow. Repository-context bootstrap and validation follow their own closed workflows instead.
 
 1. Read applicable repository rules and inspect enough source to locate the current entry point, owner, call flow, and dependency direction.
 2. Read the relevant portions of `docs/REPO_MAP.md` and then `docs/ARCHITECTURE.md` when present.

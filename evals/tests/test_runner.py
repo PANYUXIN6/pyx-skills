@@ -27,7 +27,7 @@ class SuiteValidationTests(unittest.TestCase):
 
     def test_minimal_suites_are_valid_and_bounded(self):
         expected = {
-            "brainstorming": 1,
+            "brainstorming": 2,
             "using-superpowers": 8,
             "reliable-task-execution": 2,
             "tdd": 2,
@@ -99,17 +99,41 @@ class IsolationTests(unittest.TestCase):
         self.assertIn("<skill-dir>/scripts/start-server.sh", guide)
         self.assertIn("<skill-dir>/scripts/stop-server.sh", guide)
 
+    def test_brainstorming_coordinates_only_dependent_full_design_tasks(self):
+        skill = (SKILLS_ROOT / "brainstorming" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("Coordinate Dependent Implementation Tasks", skill)
+        self.assertIn("one governing design", skill)
+        self.assertIn("not task chronology", skill)
+        self.assertIn("before treating dependent child-task designs as final", skill)
+        self.assertIn("Skip this coordination", skill)
+
     def test_repo_map_first_preserves_explicit_and_bootstrap_contracts(self):
         skill_root = SKILLS_ROOT / "repo-map-first"
         skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn("explicit requests always complete the map workflow", skill)
         self.assertIn("Stay in explicit map mode", skill)
         self.assertIn("Repository-Context Bootstrap", skill)
+        self.assertIn("Repository-Context Validation", skill)
         self.assertIn("authority_status: observed", skill)
         self.assertTrue((skill_root / "references" / "placement-analysis.md").is_file())
         self.assertFalse(
             (skill_root / "references" / "pre-code-analysis-template.md").exists()
         )
+
+    def test_design_review_requires_confirmed_parent_and_discloses_coverage(self):
+        skill_root = SKILLS_ROOT / "review-design-contracts"
+        skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+        role = (skill_root / "references" / "self-consistency-role.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("user-confirmed governing design", skill)
+        self.assertIn("not determined by task chronology", skill)
+        self.assertIn("repository-context validation mode", skill)
+        self.assertIn("explicit authorities", skill)
+        self.assertIn("undefined or cyclic prerequisites", role)
+        self.assertIn("incompatible upstream outputs and downstream inputs", role)
 
     @unittest.skipUnless(
         os.environ.get("RUN_VISUAL_COMPANION_SMOKE") == "1",
@@ -326,7 +350,7 @@ class EndToEndHarnessTests(unittest.TestCase):
     def tearDown(self):
         runner.configure_suite(SUITES_ROOT / "reliable-task-execution")
 
-    def test_all_nineteen_cases_pass_with_fake_codex(self):
+    def test_all_twenty_cases_pass_with_fake_codex(self):
         fake = HARNESS_ROOT / "tests" / "fake_codex.py"
         fake.chmod(0o755)
         with tempfile.TemporaryDirectory() as temporary:

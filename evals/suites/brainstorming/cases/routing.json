@@ -13,5 +13,22 @@
       {"id": "automatic-context-read", "kind": "event_matches", "pattern": "CONTEXT\\.md", "critical": false},
       {"id": "automatic-design-recommended", "kind": "final_matches", "pattern": "SQLite", "critical": false}
     ]
+  },
+  {
+    "id": "automatic-full-design-coordinates-dependent-tasks",
+    "title": "Coordinate dependent tasks through one governing design",
+    "module": "full-design",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "Read CONTEXT.md and design this large feature before implementation. Produce a durable Full Design and task breakdown, but do not change files.",
+    "workspace": {"fixture": "dependent-task-design", "git": false},
+    "deterministic_assertions": [
+      {"id": "dependent-design-skill-read", "kind": "event_matches", "pattern": "brainstorming[^\\n]*SKILL\\.md", "critical": false},
+      {"id": "dependent-design-context-read", "kind": "event_matches", "pattern": "CONTEXT\\.md", "critical": false},
+      {"id": "parent-shared-contracts", "kind": "final_matches", "pattern": "(?:governing|parent|umbrella|overall|shared|global)[ -]?(?:design|contract)", "critical": false},
+      {"id": "task-dependency-order", "kind": "final_matches", "pattern": "(?:dependenc|prerequisite|sequence|implementation order)", "critical": false},
+      {"id": "integration-acceptance", "kind": "final_matches", "pattern": "(?:integration.*accept|accept.*integration|end-to-end)", "critical": false}
+    ]
   }
 ]

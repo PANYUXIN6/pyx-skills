@@ -20,6 +20,8 @@ Default `docs/REPO_MAP.md` and `docs/ARCHITECTURE.md` files without an `authorit
 
 Observed context may establish that a file, entry point, dependency, ownership path, or call chain exists. A candidate's expected contract and quoted contract source must come from the target document or confirmed authority. The Runner rejects a candidate that cites observed context as its contract source.
 
+When the target is a child-task design, its user-confirmed governing design (also called a parent design) must be supplied as an explicit authority. Governing status comes from ownership of shared contracts or constraints, not task chronology; a predecessor task's design is not authority merely because it was completed first. A completed review does not itself grant authority, and a discovered or unconfirmed design must never be promoted automatically. If the child materially relies on a missing or unconfirmed governing contract, stop before creating a run and report `INSUFFICIENT_INPUT`.
+
 ## Native task contract
 
 `prepare` and `advance` return complete task descriptors. Pass `agent_task_name`, `spawn_message`, `fork_turns`, `model`, and `reasoning_effort` unchanged to Native `spawn_agent`.
@@ -88,4 +90,4 @@ A rejection requires one human reason code and a non-empty `reason`. Preserve a 
 
 `FAILED` and `INVALIDATED` are terminal. Retry with a new run. A valid `insufficient_input` result from L1, L2, or any L3 sibling fails the whole run before partial downstream artifacts or human work are emitted. Zero admissible Evidence Cards close with `state.json.completion_reason: NO_ADMISSIBLE_FINDINGS` and never create an empty human task. `AWAITING_HUMAN` may span multiple batches; do not declare completion until every batch has a decision. Queue items are valid only while the target document digest still matches.
 
-Runner stdout keeps the stable machine `status` and adds `human.status`, optional `human.reason`, and `human.summary`. These Chinese fields are a deterministic presentation layer only: they never participate in transitions or validation. When observed context is present, `human.summary` and `human-review.md` disclose the reduced authority coverage. Report `human.summary` to the user by default; show raw enums only for explicitly requested diagnostics.
+Runner stdout keeps the stable machine `status` and adds `human.status`, optional `human.reason`, and `human.summary`. These Chinese fields are a deterministic presentation layer only: they never participate in transitions or validation. `human.summary` and `human-review.md` disclose the target, any explicit authority paths, and any reduced observed-context coverage. Report `human.summary` to the user by default; show raw enums only for explicitly requested diagnostics.

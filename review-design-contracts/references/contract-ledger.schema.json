@@ -39,7 +39,10 @@
             "invariant",
             "permission",
             "transaction",
-            "acceptance"
+            "acceptance",
+            "ownership",
+            "dependency",
+            "handoff"
           ]
         },
         "statement": {

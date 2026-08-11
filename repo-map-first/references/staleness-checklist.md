@@ -22,5 +22,6 @@ Use this checklist to decide whether relevant map information is trustworthy. A 
 - **Explicit map mode:** create missing documents and repair stale relevant sections before implementation. Keep the update limited to evidence needed for the requested scope.
 - **Automatic placement-risk mode:** verify placement against source. Create or repair maps before implementation only when missing or stale information prevents safe placement, or when the task will change durable structure. Otherwise do not create documentation solely because it is absent.
 - **Repository-context bootstrap:** create only the missing documents. Do not repair or overwrite an existing companion unless the requesting skill explicitly expands the scope.
+- **Repository-context validation:** verify only the dependent task's relevant scope. Repair stale observed claims, leave accurate sections unchanged, and report rather than overwrite a contradiction involving unmarked or confirmed authority.
 
 Never convert `authority_status: observed` to `confirmed` without explicit user confirmation. If evidence is insufficient, state the limitation instead of inferring intended architecture.

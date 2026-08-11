@@ -73,6 +73,19 @@ For these cases:
 
 Evaluate the design through the relevant lenses of clear responsibilities, explicit interfaces or contracts, dependency direction, and bounded failure behavior. Use these as quality checks, not required document sections or a fixed template.
 
+### Coordinate Dependent Implementation Tasks
+
+When a Full Design must be implemented through multiple tasks that share contracts or depend on one another:
+
+1. Establish one governing design (the parent design) that owns the shared contracts, task boundaries, dependency order, constraints that child tasks may not redefine, and integration acceptance criteria.
+2. Obtain approval for the governing design before treating dependent child-task designs as final.
+3. Derive each child-task design from the governing design and keep it focused on its assigned responsibility and verification evidence.
+4. Revise and reconfirm the governing design before implementation when a child task needs to change a shared contract.
+
+Determine this relationship by contract ownership, not task chronology. A predecessor task's design is governing only when it owns a shared constraint that the current task must obey.
+
+Skip this coordination for implementation tasks that are genuinely independent.
+
 Present large designs in digestible sections, but do not require approval after every section unless incremental confirmation would genuinely reduce misunderstanding.
 
 ## Choose the Best Design

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic Codex stand-in for the nineteen minimal integration cases."""
+"""Deterministic Codex stand-in for the twenty minimal integration cases."""
 
 import json
 import sys
@@ -35,7 +35,13 @@ def command_event(command, exit_code=None):
 if (workspace / "CONTEXT.md").is_file():
     command_event("sed -n 1,200p codex-home/skills/brainstorming/SKILL.md")
     command_event("sed -n 1,200p CONTEXT.md")
-    final_message = "Use SQLite: it satisfies the offline and single-process constraints."
+    if "durable Full Design" in prompt:
+        final_message = (
+            "Use one governing design for the shared contract, define task dependency "
+            "order, and finish with end-to-end integration acceptance."
+        )
+    else:
+        final_message = "Use SQLite: it satisfies the offline and single-process constraints."
 elif (workspace / "Component.jsx").is_file():
     if "Use using-superpowers" in prompt:
         command_event("sed -n 1,200p codex-home/skills/using-superpowers/SKILL.md")

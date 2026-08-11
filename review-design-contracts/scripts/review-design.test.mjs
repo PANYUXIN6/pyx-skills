@@ -170,7 +170,7 @@ test('prepare creates one pinned native L1 task without running a model', () => 
   assert.equal(result.status, 'PACKED')
   assert.deepEqual(result.human, {
     status: '自洽检查任务已准备',
-    summary: '自洽检查任务已准备',
+    summary: '自洽检查任务已准备；评审目标：docs/design.md',
   })
   assert.equal(result.tasks.length, 1)
   assert.equal(
@@ -310,6 +310,50 @@ test('advance accepts a valid L1 response and creates one fresh L2 task', () => 
   assert.equal(metrics.tasks[l1Task.task_id].response_valid, true)
   assert.equal(metrics.tasks[l1Task.task_id].response_bytes > 0, true)
   assert.equal(metrics.tasks[l2Task.task_id].stage, 'architecture')
+})
+
+test('L1 accepts ownership, dependency, and handoff contracts for dependent tasks', () => {
+  const repositoryRoot = createRepository()
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Parent design',
+      '',
+      '## Task contracts',
+      '',
+      'Task A owns the recovery state.',
+      'Task B starts only after Task A completes.',
+      'Task A emits prepared and Task B consumes prepared.',
+      '',
+    ].join('\n'),
+  )
+  const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const categories = ['ownership', 'dependency', 'handoff']
+  const quotes = [
+    'Task A owns the recovery state.',
+    'Task B starts only after Task A completes.',
+    'Task A emits prepared and Task B consumes prepared.',
+  ]
+  writeTaskResponse(prepared.tasks[0], {
+    contracts: categories.map((category, index) => ({
+      source: 'docs/design.md',
+      heading: 'Task contracts',
+      quote: quotes[index],
+      category,
+      statement: quotes[index],
+    })),
+    candidates: [],
+  })
+
+  const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
+  const l2Input = JSON.parse(
+    readFileSync(path.join(afterL1.tasks[0].task_path, 'input.json'), 'utf8'),
+  )
+
+  assert.deepEqual(
+    l2Input.contract_ledger.contracts.map((contract) => contract.category),
+    categories,
+  )
 })
 
 test('L1 Contract Ledger removes only exact duplicate entries', () => {
@@ -469,7 +513,8 @@ test('advance closes without human work when L1 and L2 produce no candidates', (
   assert.deepEqual(completed.human, {
     status: '评审已结束',
     reason: '没有发现需要人工判断的问题',
-    summary: '评审已结束：没有发现需要人工判断的问题',
+    summary:
+      '评审已结束：没有发现需要人工判断的问题；评审目标：docs/design.md',
   })
   assert.deepEqual(completed.tasks, [])
   assert.equal(state.completion_reason, 'NO_ADMISSIBLE_FINDINGS')
@@ -790,7 +835,7 @@ test('a surviving Native L3 response becomes an evidence card for human arbitrat
   assert.equal(completed.status, 'AWAITING_HUMAN')
   assert.deepEqual(completed.human, {
     status: '等待人工判断',
-    summary: '等待人工判断',
+    summary: '等待人工判断；评审目标：docs/design.md',
   })
   assert.equal(cards.length, 1)
   assert.equal(
@@ -798,6 +843,7 @@ test('a surviving Native L3 response becomes an evidence card for human arbitrat
     'The finite active-state path remains reachable.',
   )
   assert.match(humanReport, /## 发现 1/)
+  assert.match(humanReport, /评审目标：docs\/design\.md/)
   assert.match(humanReport, new RegExp(`<!-- finding_id: ${cards[0].finding_id} -->`))
   assert.doesNotMatch(humanReport, new RegExp(`## .*${cards[0].finding_id}`))
   assert.match(humanReport, /结论：The run can remain non-terminal\./)
@@ -1087,7 +1133,7 @@ test('fail-task records a Native infrastructure failure as an explicit terminal 
   assert.deepEqual(failed.human, {
     status: '评审失败',
     reason: '评审任务执行失败',
-    summary: '评审失败：评审任务执行失败',
+    summary: '评审失败：评审任务执行失败；评审目标：docs/design.md',
   })
   assert.equal(state.status, 'FAILED')
   assert.deepEqual(state.active_tasks, [])
@@ -1145,14 +1191,14 @@ test('only an explicit human acceptance creates a digest-bound fix queue item th
   assert.equal(decided.status, 'QUEUED')
   assert.deepEqual(decided.human, {
     status: '已进入修复队列',
-    summary: '已进入修复队列',
+    summary: '已进入修复队列；评审目标：docs/design.md',
   })
   assert.equal(queue.length, 1)
   assert.equal(queue[0].finding_id, card.finding_id)
   assert.equal(verified.status, 'VALID')
   assert.deepEqual(verified.human, {
     status: '修复队列校验通过',
-    summary: '修复队列校验通过',
+    summary: '修复队列校验通过；评审目标：docs/design.md',
   })
 })
 
@@ -1551,7 +1597,7 @@ test('a changed input invalidates an active Native task before its response is c
   assert.equal(result.status, 'INVALIDATED')
   assert.deepEqual(result.human, {
     status: '评审已失效',
-    summary: '评审已失效',
+    summary: '评审已失效；评审目标：docs/design.md',
   })
   assert.equal(state.status, 'INVALIDATED')
   assert.deepEqual(state.active_tasks, [])
@@ -1839,6 +1885,12 @@ test('an explicit authority overrides observed provenance for the same document'
     'docs/ARCHITECTURE.md',
     'docs/REPO_MAP.md',
   ])
+  assert.equal(manifest.coverage.target, 'docs/design.md')
+  assert.deepEqual(manifest.coverage.explicit_authorities, [
+    'docs/ARCHITECTURE.md',
+  ])
+  assert.match(prepared.human.summary, /评审目标：docs\/design\.md/)
+  assert.match(prepared.human.summary, /显式 authority：docs\/ARCHITECTURE\.md/)
 })
 
 test('a changed observed context invalidates the active review', () => {

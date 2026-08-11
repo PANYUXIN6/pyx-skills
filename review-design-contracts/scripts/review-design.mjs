@@ -493,13 +493,28 @@ function addHumanReadableResult(result) {
   const baseSummary = localizedReason
     ? `${localizedStatus}：${localizedReason}`
     : localizedStatus
-  const coverageSummary = state.coverage?.observed_contexts?.length
-    ? state.coverage.confirmed_authorities?.length
-      ? `架构覆盖包含观察性仓库上下文：${state.coverage.observed_contexts.join('、')}`
-      : `架构覆盖依据为目标设计与观察性仓库上下文：${state.coverage.observed_contexts.join('、')}`
-    : state.coverage?.missing_default_documents?.length
-      ? `缺少默认仓库文档：${state.coverage.missing_default_documents.join('、')}`
-      : null
+  const coverageParts = []
+  const targetPath = state.coverage?.target ?? state.target_path
+  if (targetPath) {
+    coverageParts.push(`评审目标：${targetPath}`)
+  }
+  if (state.coverage?.explicit_authorities?.length) {
+    coverageParts.push(
+      `显式 authority：${state.coverage.explicit_authorities.join('、')}`,
+    )
+  }
+  if (state.coverage?.observed_contexts?.length) {
+    coverageParts.push(
+      state.coverage.confirmed_authorities?.length
+        ? `架构覆盖包含观察性仓库上下文：${state.coverage.observed_contexts.join('、')}`
+        : `架构覆盖依据为目标设计与观察性仓库上下文：${state.coverage.observed_contexts.join('、')}`,
+    )
+  } else if (state.coverage?.missing_default_documents?.length) {
+    coverageParts.push(
+      `缺少默认仓库文档：${state.coverage.missing_default_documents.join('、')}`,
+    )
+  }
+  const coverageSummary = coverageParts.join('；') || null
 
   return {
     ...result,
@@ -768,6 +783,8 @@ function prepareReview(argumentsList) {
     .sort((left, right) => left.path.localeCompare(right.path))
   const reviewDocuments = [target, ...authorities, ...repositoryContexts]
   const coverage = {
+    target: target.path,
+    explicit_authorities: explicitAuthorities.map((document) => document.path),
     confirmed_authorities: authorities.map((document) => document.path),
     observed_contexts: repositoryContexts.map((document) => document.path),
     missing_default_documents: missingDefaultDocuments,
@@ -1946,15 +1963,24 @@ function renderHumanReview(cards, currentBatch, batchSize, coverage) {
       `验证方法与 Oracle：${card.verification.procedure}；成立标志为「${card.verification.oracle}」`,
     ].join('\n')
   })
-  const coverageSection = coverage?.observed_contexts?.length
-    ? [
-        '## 覆盖说明',
-        '',
-        coverage.confirmed_authorities?.length
-          ? `架构检查使用了观察性仓库上下文：${coverage.observed_contexts.join('、')}。这些文档不能替代已确认的架构契约。`
-          : `当前没有已确认的仓库 authority；架构检查仅依据目标设计与观察性仓库上下文：${coverage.observed_contexts.join('、')}。这些文档不能替代已确认的架构契约。`,
-        '',
-      ]
+  const coverageLines = []
+  if (coverage?.target) {
+    coverageLines.push(`评审目标：${coverage.target}`)
+  }
+  if (coverage?.explicit_authorities?.length) {
+    coverageLines.push(
+      `显式 authority：${coverage.explicit_authorities.join('、')}`,
+    )
+  }
+  if (coverage?.observed_contexts?.length) {
+    coverageLines.push(
+      coverage.confirmed_authorities?.length
+        ? `架构检查使用了观察性仓库上下文：${coverage.observed_contexts.join('、')}。这些文档不能替代已确认的架构契约。`
+        : `当前没有已确认的仓库 authority；架构检查仅依据目标设计与观察性仓库上下文：${coverage.observed_contexts.join('、')}。这些文档不能替代已确认的架构契约。`,
+    )
+  }
+  const coverageSection = coverageLines.length
+    ? ['## 覆盖说明', '', ...coverageLines, '']
     : []
   const rejectionReasons = humanRejectionReasons.flatMap((reason) => [
     `${reason.number}. ${reason.label}：${reason.description}`,
@@ -2038,7 +2064,10 @@ function finishReview({
       sortedEvidenceCards,
       1,
       config.human_batch_size,
-      startingState.coverage,
+      {
+        target: startingState.target_path,
+        ...(startingState.coverage ?? {}),
+      },
     ),
   )
   const qualityFlags =
@@ -2217,7 +2246,10 @@ function decideReview(argumentsList) {
         cards,
         nextBatch,
         config.human_batch_size,
-        run.state.coverage,
+        {
+          target: run.state.target_path,
+          ...(run.state.coverage ?? {}),
+        },
       ),
     )
     const awaiting = transition(run.runDirectory, run.state, 'AWAITING_HUMAN', {

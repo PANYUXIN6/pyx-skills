@@ -46,7 +46,7 @@ Codex 主要根据每个 `SKILL.md` 的 `name` 和 `description` 自动判断是
 
 ## 评测
 
-六个通用运行时 skill 共用零第三方 Python 依赖的最小行为评测 Runner。当前 suites 共包含 19 个确定性 case，覆盖自动触发、负向路由、关键工作流选择和安全退出边界。
+六个通用运行时 skill 共用零第三方 Python 依赖的最小行为评测 Runner。当前 suites 共包含 20 个确定性 case，覆盖自动触发、负向路由、关键工作流选择和安全退出边界。
 
 运行本地 Runner 测试：
 
