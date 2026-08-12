@@ -32,7 +32,7 @@ class SuiteValidationTests(unittest.TestCase):
             "reliable-task-execution": 2,
             "tdd": 2,
             "repo-map-first": 2,
-            "code-review": 4,
+            "code-review": 5,
         }
         for skill_name, count in expected.items():
             runner.configure_suite(SUITES_ROOT / skill_name)
@@ -120,6 +120,29 @@ class IsolationTests(unittest.TestCase):
         self.assertTrue((skill_root / "references" / "placement-analysis.md").is_file())
         self.assertFalse(
             (skill_root / "references" / "pre-code-analysis-template.md").exists()
+        )
+
+    def test_code_review_uses_a_deterministic_runtime_contract(self):
+        skill_root = SKILLS_ROOT / "code-review"
+        skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+        protocol = (
+            skill_root / "references" / "review-runtime-protocol.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("scripts/review.mjs", skill)
+        self.assertIn("never issue `APPROVE`", skill)
+        self.assertIn("existing_code", skill)
+        self.assertIn("does not require Git, a diff, or a baseline", skill)
+        self.assertIn("cannot prove that an Agent understood an item", skill)
+        self.assertIn("Use only when the requested review target is code", skill)
+        self.assertIn("Do not use to review prose documents themselves", skill)
+        self.assertIn("current_input_drift", protocol)
+        self.assertIn("queue_path", skill)
+        self.assertIn("only when a command fails", skill)
+        self.assertIn("8 MiB", protocol)
+        self.assertTrue((skill_root / "scripts" / "review.mjs").is_file())
+        self.assertTrue((skill_root / "references" / "findings.schema.json").is_file())
+        self.assertFalse(
+            (skill_root / "references" / "review-manifest.schema.json").exists()
         )
 
     def test_design_review_requires_confirmed_parent_and_discloses_coverage(self):
@@ -350,7 +373,7 @@ class EndToEndHarnessTests(unittest.TestCase):
     def tearDown(self):
         runner.configure_suite(SUITES_ROOT / "reliable-task-execution")
 
-    def test_all_twenty_cases_pass_with_fake_codex(self):
+    def test_all_cases_pass_with_fake_codex(self):
         fake = HARNESS_ROOT / "tests" / "fake_codex.py"
         fake.chmod(0o755)
         with tempfile.TemporaryDirectory() as temporary:

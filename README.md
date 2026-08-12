@@ -21,7 +21,7 @@
 | [`repo-map-first`](./repo-map-first/) | 用仓库证据解决代码落点和地图可信度。 | 自动路由只覆盖归属不明、跨边界或地图可疑等定位风险；用户显式调用时完成地图工作，dependent skill 可请求严格 bootstrap。 |
 | [`tdd`](./tdd/) | 用最小可信测试证据驱动明确要求的测试先行开发。 | 保留有效 Red、独立 oracle 和当前验证；普通测试或集成测试请求不会自动升级为 TDD。 |
 | [`reliable-task-execution`](./reliable-task-execution/) | 按风险加载验证、安全操作、诊断恢复、任务连续性、委派和独立审查规范。 | 保护证据、可恢复性和用户控制，但不强制 plan、TDD、worktree、subagent、commit 或固定开发阶段。 |
-| [`code-review`](./code-review/) | 统一路由日常、验收和专项代码审查。 | 可审查未提交工作区、当前功能实现、Git diff、PR 或提交范围；只有 change-set 比较结论要求 Git baseline，默认只报告、不自动修复。 |
+| [`code-review`](./code-review/) | 以 Skill 路由语义审查，以确定性 Runner 冻结输入、校验锚点、记录声明式 disposition 并约束结论。 | 未提交工作区会分别冻结 staged、unstaged、untracked；Agent 读取紧凑审查队列，完整 Manifest 留给 Runner；只有 change-set 比较结论要求 baseline，默认只报告、不自动修复。 |
 | [`review-design-contracts`](./review-design-contracts/) | 对 Markdown 设计文档执行分层契约提取、架构审查、对抗验证、确定性门禁和人工仲裁。 | 仅在显式调用 `$review-design-contracts` 时使用；模型 finding 只有经过人工接受后才能进入修复队列。 |
 
 ## 使用方式
@@ -71,14 +71,15 @@ python3 evals/scripts/run_eval.py \
 
 python3 evals/scripts/run_eval.py \
   --suite-root evals/suites/code-review \
-  smoke --max-codex-calls 4
+  smoke --max-codex-calls 5
 ```
 
 真实 smoke 会在隔离 workspace 和临时 `CODEX_HOME` 中运行，并把 suite prompt、合成 fixtures 和被测 skill 发送给 Codex 服务。执行前应确认数据出境范围和调用预算。历史结果默认保存在对应 suite 的 `results/` 中；不要用旧报告证明修改后的 skill。
 
-`review-design-contracts` 的确定性 Runner 使用独立的 Node.js 测试：
+两个确定性 Runner 使用独立的 Node.js 测试：
 
 ```bash
+node --test code-review/scripts/review.test.mjs
 node --test evals/tests/review-design-contracts/review-design.test.mjs
 ```
 

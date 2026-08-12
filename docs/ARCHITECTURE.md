@@ -21,6 +21,8 @@ L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增�
 
 `brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first` 与 `code-review` 是相互独立的运行时 skill。它们的开发期行为评测位于仓库级 `evals/`：共享最小集成 Runner、Schema 和本地测试，与 `evals/suites/<skill-name>/` 中的 suite 数据分离，避免开发资源进入运行时分发包。
 
+`code-review` 采用 Skill-fronted Agent 边界：`SKILL.md` 与按需模块负责语义审查路由，`scripts/review.mjs` 负责 Git 分层输入或显式 current-state 文件冻结、完整 Manifest、Agent 紧凑队列、声明式 disposition、输入失效、Finding 锚点校验和结论门禁。Runner 不启动或监控模型，不能证明 Agent 实际完成了语义分析，也不判断 Finding 的业务真伪或执行目标仓库提供的命令。
+
 ## 依赖方向
 
 观察到的条件依赖方向为：
@@ -29,6 +31,8 @@ L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增�
 review-design-contracts ──仓库文档缺失或可能陈旧时──> repo-map-first
 review-design-contracts ──每次运行──> Codex Native subagent 工具
 review-design.mjs ──读取──> review.config.json + references/
+code-review/SKILL.md ──调用──> code-review/scripts/review.mjs
+code-review/scripts/review.mjs ──读取并执行──> code-review/references/findings.schema.json
 brainstorming ──用户接受视觉伴侣时──> brainstorming/scripts/
 evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 ```
@@ -46,11 +50,14 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 7. 人工确认完整批次后，Runner 校验机器枚举、非空理由和批次覆盖，并保存可审计决定；只有明确接受才生成摘要绑定的修复队列。
 8. 修复后的 `verify-fixes` 不续写旧队列状态，而是创建绑定当前目标的 Manifest v6：确定性分类器先检查 finding 层级、支持输入、标题结构和修改范围；只有局部自洽修复进入单任务验证，其余结果要求当前目标重新执行完整评审。
 
+代码审查的独立控制流为：Codex 解析 authority 和目标后调用 `prepare`；Runner 将 workspace 的 `HEAD -> index`、`index -> worktree` 与 untracked 分层冻结，或冻结固定三点比较、无需 Git 的显式 current-state 文件集，并从完整 Manifest 派生不含摘要噪音的紧凑队列供 Agent 阅读。Codex 按工作流审查并用串行化的 `mark` 声明逐项 disposition；该声明不是语义审查已发生的机械证明。候选 Finding 经 `validate` 绑定当前 disposition 摘要并按 `item_id` 校验 Schema、快照、精确代码行或 Git metadata；后续 `mark` 会使旧 Finding 集失效。`finalize` 根据声明完整性和 P0-P2 finding 决定允许的结论。输入漂移使活动运行进入 `INVALIDATED`，空范围、排除项和未完成项均不能得到 `APPROVE`。
+
 ## 状态与数据所有权
 
 - Runner 拥有 `.superpowers/design-reviews/<target-sha>/<run-id>/` 下的运行状态和所有中间制品。
 - Runner 额外拥有不参与审查判断的 `metrics.json`，只记录任务输入、Schema、指令、响应大小和观察时间。
 - Manifest v6 修复复核运行拥有 `fix-impact.json` 与 `fix-verification-results.json`；前者记录确定性分流证据，后者只证明已接受违反路径的局部关闭状态，不等价于全量无发现结论。
+- Code Review Runner 拥有系统临时目录 `code-review-runs/<input-digest>-*/` 下的不可变 Manifest、紧凑 Agent 队列、受锁保护的 disposition 状态、已验证 Finding 和最终门禁结果；目标仓库保持只读。超过 8 MiB 的文件作为显式排除项记账而不生成内容快照。
 - Native subagent 仅拥有自己任务目录中的 `response.json` 写权限语义，不拥有运行状态迁移权。
 - 每个 Native task descriptor 拥有阶段特定的等待预算；宿主负责宽限期复查，Runner 的 `fail-task` 负责在失败落盘前再次确认响应不存在。
 - 人工拥有 finding 的最终接纳权；Codex 只负责把短编号、中文菜单或自然语言理由转换为 Runner 输入，模型输出不能直接授权修复。
@@ -62,6 +69,7 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 - 运行依赖当前 Codex 环境提供 `spawn_agent`、`wait_agent` 和 `interrupt_agent`。
 - 行为评测依赖本机 Codex CLI；真实模型 case 需要显式允许访问 Codex 服务，static 和 fake-Codex 单测不需要网络。
 - GitHub Actions 仅运行仓库已有的确定性 Python 与 Node.js 测试及空白字符检查；发布标签由 GitHub Ruleset 保护，避免已发布的版本标签被更新或删除。
-- 行为评测只保留 `static`、单个 `case` 和最小 `smoke`：前两类本地结构/假执行测试零外部调用；`brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first`、`code-review` 的真实 smoke 上限分别为 2、8、2、2、2、4 次。没有语义判分、baseline、重复 trial、regression 或 differential；多案例 smoke 在调用前必须同时满足 manifest 硬上限和显式 `--max-codex-calls` 预算。
+- 行为评测只保留 `static`、单个 `case` 和最小 `smoke`：前两类本地结构/假执行测试零外部调用；`brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first`、`code-review` 的真实 smoke 上限分别为 2、8、2、2、2、5 次。没有语义判分、baseline、重复 trial、regression 或 differential；多案例 smoke 在调用前必须同时满足 manifest 硬上限和显式 `--max-codex-calls` 预算。
 - Runner 仅允许执行 `review.config.json` 中白名单声明的确定性验证命令。
+- Code Review Runner 只以参数数组执行自身固定的 Git 读取操作，不执行被审代码或仓库声明的测试命令；无法表示的远程或粘贴目标只能降级为明确的 `UNMANAGED_REVIEW`，且不能批准。
 - skill 包本身不保存评审运行数据，也不自动创建外部 issue、PR 或工单。

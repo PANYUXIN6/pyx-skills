@@ -9,7 +9,7 @@ authority_status: observed
 
 - `repo-map-first/`：在代码归属不明、跨模块边界或地图可疑时定位行为改动；显式调用强制完成地图工作，并维护结构变化后的仓库地图与架构文档。
 - `review-design-contracts/`：使用分层 Codex Native subagent 审查 Markdown 设计文档，最终由人工决定是否进入修复队列。
-- `code-review/`：根据审查目标和维度路由日常、验收与专项代码审查工作流。
+- `code-review/`：根据审查目标和维度路由日常、验收与专项代码审查，并用确定性 Runner 冻结输入、校验 Finding 锚点、记录声明式 disposition 和约束批准结论。
 - `brainstorming/`：按不确定性、影响范围和可逆性选择快速执行、设计简报或完整设计，并按需提供可视化设计伴侣。
 - `using-superpowers/`：在跨 skill 选择会实质改变流程时组织最小有用集合；单一明显匹配可直接进入领域 skill，组合需求由 Router 协调。
 - `reliable-task-execution/`：按风险按需分发验证、安全操作、诊断恢复、任务连续性、委派和独立审查规范。
@@ -32,6 +32,9 @@ authority_status: observed
 - `using-superpowers/SKILL.md`：需要跨 skill 取舍或组合时的最小集合路由入口。
 - `reliable-task-execution/SKILL.md` 与 `references/`：可靠执行路由入口和六个按需规范。
 - `tdd/SKILL.md`：风险驱动的测试先行入口；技能包不携带通用测试教程或开发期评测内容。
+- `code-review/SKILL.md`：Skill-fronted Review Agent 入口；把意图、契约、行为和风险推理留给 Codex，把可机械判定的完整性责任交给 Runner。
+- `code-review/scripts/review.mjs`：代码审查确定性 Runner，负责 staged、unstaged、untracked 分层 workspace，三点比较或无 Git 显式 current-state 文件 Manifest，供 Agent 读取的紧凑队列，受锁保护且与 Finding 摘要绑定的逐项声明状态，8 MiB 输入上限、输入失效、Finding Schema/代码行/Git metadata 校验与结论门禁。
+- `code-review/scripts/review.test.mjs`：上述 Runner 的 Node.js 回归测试。
 - `evals/scripts/run_eval.py`：六套 skill 共用的最小集成评测 Runner；只支持静态校验、定点 case 和小规模 smoke，并负责隔离执行、成本预估、profile 硬上限和显式调用预算门禁。`evals/suites/<skill-name>/` 共保留二十个具有确定性证据的案例；`brainstorming` 检查普通设计约束与依赖任务 Full Design 两类边界，`code-review` 检查日常、专项、当前状态验收与 comparison baseline 四类边界，`using-superpowers` 检查单 skill、组合 skill、选择歧义、显式调用、topic-only 与无需路由等边界，TDD 和 repo-map-first 各检查一正一负两个路由边界。
 - `<skill-name>/SKILL.md`：后续迁入个人 skill 的标准入口。
 
@@ -54,6 +57,7 @@ authority_status: observed
 7. Runner 校验原因 code、非空理由和批次完整性；只有人工明确接受的 finding 才能进入 `fix-queue.json`。
 8. 修复前由 `verify-queue` 校验摘要绑定；修复后 `verify-fixes` 创建独立 Manifest v6 运行。架构 finding、支持输入漂移、章节结构变化或越出已接受契约标题的修改确定性要求全量重审；其余自洽修复只派发一个封闭证据复核任务。
 9. GitHub Actions 在推送到 `main` 或面向 `main` 的 Pull Request 上运行本地确定性验证，不运行真实 Codex smoke。
+10. 代码审查先由 Runner 在系统临时目录冻结分层 workspace、固定 range 或显式 current-state Manifest，并派生紧凑队列供 Codex 阅读；Codex 逐项声明 disposition 后，Runner 将候选 Finding 绑定当前 disposition 摘要并校验精确快照或 metadata 锚点，最后按声明完整性和阻塞严重度给出允许的结论集合。Runner 不证明 Agent 实际完成了语义分析。
 
 ## 公共契约与测试证据
 
@@ -63,3 +67,6 @@ authority_status: observed
 - `review-design-contracts/references/*.schema.json`：模型结果、证据卡和拒绝记录的机器可校验契约。
 - `review-design-contracts/references/architecture-shard-role.md`、`architecture-merge-role.md` 与 `architecture-shard-result.schema.json`：Manifest v7 超限 L2 的封闭分片、支持契约提取和跨分片增量发现契约。
 - `evals/tests/review-design-contracts/review-design.test.mjs`：上述流程及迁移兼容性的回归证据。
+- `code-review/references/review-runtime-protocol.md`：宿主 Agent 与确定性 Runner 的职责、命令、降级和信任边界。
+- `code-review/references/findings.schema.json`：Runner 直接读取的候选 Finding v2 契约，区分精确代码行与 Git metadata file anchor。
+- `code-review/scripts/review.test.mjs`：分层输入、rename 坐标、current-state 非 Git 目标、紧凑队列、超大文件排除、并发状态、漂移失效、Finding/disposition 绑定、锚点验证与批准门禁的回归证据。

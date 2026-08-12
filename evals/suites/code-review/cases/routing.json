@@ -3,7 +3,7 @@
     "id": "automatic-routine-review",
     "title": "Route a proposed patch through routine correctness review",
     "module": "routine",
-    "tags": ["smoke"],
+    "tags": ["smoke", "critical"],
     "activation": "automatic",
     "skill_invocation_expected": true,
     "prompt": "Review change.diff as the complete proposed change. This is a routine code review, not an acceptance review. Report evidence-backed findings only and keep the workspace unchanged.",
@@ -12,14 +12,19 @@
       {"id": "routine-skill-read", "kind": "event_matches", "pattern": "code-review[^\\n]*SKILL\\.md", "critical": false},
       {"id": "routine-workflow-read", "kind": "event_matches", "pattern": "routine-review\\.md", "critical": false},
       {"id": "routine-correctness-read", "kind": "event_matches", "pattern": "correctness-quality\\.md", "critical": false},
-      {"id": "routine-result", "kind": "final_matches", "pattern": "(?:REQUEST_CHANGES|finding|injection|shell=True)", "critical": false}
+      {"id": "routine-runtime-not-read", "kind": "event_not_matches", "pattern": "review-runtime-protocol\\.md", "critical": false},
+      {"id": "routine-runtime-prepare", "kind": "event_matches", "pattern": "review\\.mjs prepare", "critical": true},
+      {"id": "routine-runtime-mark", "kind": "event_matches", "pattern": "review\\.mjs mark", "critical": false},
+      {"id": "routine-runtime-validate", "kind": "event_matches", "pattern": "review\\.mjs validate", "critical": false},
+      {"id": "routine-runtime-finalize", "kind": "event_matches", "pattern": "review\\.mjs finalize", "critical": false},
+      {"id": "routine-result", "kind": "final_matches", "pattern": "REQUEST_CHANGES", "critical": true}
     ]
   },
   {
     "id": "automatic-focused-security-review",
     "title": "Keep a security-only review focused",
     "module": "focused",
-    "tags": ["smoke"],
+    "tags": ["smoke", "critical"],
     "activation": "automatic",
     "skill_invocation_expected": true,
     "prompt": "Perform only a focused security review of app.py. Report evidence-backed findings and covered scope; keep the workspace unchanged.",
@@ -29,14 +34,19 @@
       {"id": "focused-workflow-read", "kind": "event_matches", "pattern": "focused-review\\.md", "critical": false},
       {"id": "focused-security-read", "kind": "event_matches", "pattern": "security-reliability\\.md", "critical": false},
       {"id": "focused-correctness-not-read", "kind": "event_not_matches", "pattern": "correctness-quality\\.md", "critical": false},
-      {"id": "focused-result", "kind": "final_matches", "pattern": "(?:security|injection|shell=True|REQUEST_CHANGES)", "critical": false}
+      {"id": "focused-runtime-not-read", "kind": "event_not_matches", "pattern": "review-runtime-protocol\\.md", "critical": false},
+      {"id": "focused-runtime-prepare", "kind": "event_matches", "pattern": "review\\.mjs prepare", "critical": true},
+      {"id": "focused-runtime-mark", "kind": "event_matches", "pattern": "review\\.mjs mark", "critical": false},
+      {"id": "focused-runtime-validate", "kind": "event_matches", "pattern": "review\\.mjs validate", "critical": false},
+      {"id": "focused-runtime-finalize", "kind": "event_matches", "pattern": "review\\.mjs finalize", "critical": false},
+      {"id": "focused-result", "kind": "final_matches", "pattern": "REQUEST_CHANGES", "critical": true}
     ]
   },
   {
     "id": "automatic-current-state-acceptance",
     "title": "Review current implementation acceptance without requiring a baseline",
     "module": "acceptance",
-    "tags": ["smoke"],
+    "tags": ["smoke", "critical"],
     "activation": "automatic",
     "skill_invocation_expected": true,
     "prompt": "Verify whether the current implementation in app.py satisfies SPEC.md as a final acceptance review. I am asking about current-state conformance, not what changed relative to Git history. I have not provided a Git baseline; keep the workspace unchanged.",
@@ -45,7 +55,12 @@
       {"id": "acceptance-skill-read", "kind": "event_matches", "pattern": "code-review[^\\n]*SKILL\\.md", "critical": false},
       {"id": "acceptance-workflow-read", "kind": "event_matches", "pattern": "acceptance-review\\.md", "critical": false},
       {"id": "spec-compliance-read", "kind": "event_matches", "pattern": "spec-compliance\\.md", "critical": false},
-      {"id": "current-state-conclusion", "kind": "final_matches", "pattern": "(?:REQUEST_CHANGES|finding|injection|shell=True|does not satisfy|non-compliant)", "critical": false},
+      {"id": "acceptance-runtime-not-read", "kind": "event_not_matches", "pattern": "review-runtime-protocol\\.md", "critical": false},
+      {"id": "acceptance-runtime-prepare", "kind": "event_matches", "pattern": "review\\.mjs prepare", "critical": true},
+      {"id": "acceptance-runtime-mark", "kind": "event_matches", "pattern": "review\\.mjs mark", "critical": false},
+      {"id": "acceptance-runtime-validate", "kind": "event_matches", "pattern": "review\\.mjs validate", "critical": false},
+      {"id": "acceptance-runtime-finalize", "kind": "event_matches", "pattern": "review\\.mjs finalize", "critical": false},
+      {"id": "current-state-conclusion", "kind": "final_matches", "pattern": "REQUEST_CHANGES", "critical": true},
       {"id": "history-limitation", "kind": "final_matches", "pattern": "(?:baseline|history|historical|change set|attribut)", "critical": false}
     ]
   },
@@ -53,7 +68,7 @@
     "id": "automatic-comparison-invalid-baseline",
     "title": "Stop comparison acceptance when its explicit baseline is invalid",
     "module": "acceptance",
-    "tags": ["smoke"],
+    "tags": ["smoke", "critical"],
     "activation": "automatic",
     "skill_invocation_expected": true,
     "prompt": "As a final acceptance review, determine whether the change set since Git baseline missing-ref satisfies SPEC.md. The comparison and change attribution are required; stop without a conclusion if that baseline is invalid. Keep the workspace unchanged.",
@@ -61,8 +76,24 @@
     "deterministic_assertions": [
       {"id": "comparison-skill-read", "kind": "event_matches", "pattern": "code-review[^\\n]*SKILL\\.md", "critical": false},
       {"id": "comparison-workflow-read", "kind": "event_matches", "pattern": "acceptance-review\\.md", "critical": false},
-      {"id": "invalid-baseline-reported", "kind": "final_matches", "pattern": "(?:missing-ref|baseline).*(?:invalid|cannot|not.*(?:exist|resolve)|unable)", "critical": false},
+      {"id": "invalid-baseline-reported", "kind": "final_matches", "pattern": "(?:missing-ref|baseline).*(?:invalid|cannot|not.*(?:exist|resolve)|unable)", "critical": true},
       {"id": "comparison-spec-not-read", "kind": "event_not_matches", "pattern": "spec-compliance\\.md", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-prose-document-review-excluded",
+    "title": "Do not route a prose document review to code-review",
+    "module": "boundary",
+    "tags": ["smoke", "critical"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "Review PROPOSAL.md itself for clarity, structure, internal consistency, and design quality. This is a prose-document review, not a review of code or software implementation behavior. Keep the workspace unchanged.",
+    "workspace": {"fixture": "document-review", "git": false},
+    "deterministic_assertions": [
+      {"id": "document-read", "kind": "event_matches", "pattern": "PROPOSAL\\.md", "critical": true},
+      {"id": "code-review-skill-not-read", "kind": "event_not_matches", "pattern": "code-review[^\\n]*SKILL\\.md", "critical": true},
+      {"id": "code-review-runtime-not-run", "kind": "event_not_matches", "pattern": "code-review[^\\n]*review\\.mjs", "critical": false},
+      {"id": "document-response", "kind": "final_matches", "pattern": "proposal", "critical": false}
     ]
   }
 ]
