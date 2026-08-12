@@ -6,14 +6,23 @@
     },
     "architecture": {
       "model": "gpt-5.6-sol",
-      "reasoning_effort": "max"
+      "reasoning_effort": "high"
     },
     "adversarial": {
       "model": "gpt-5.6-sol",
       "reasoning_effort": "max"
     }
   },
-  "subagent_timeout_ms": 900000,
+  "timeouts_ms": {
+    "self_consistency": 600000,
+    "architecture": 720000,
+    "architecture_merge": 720000,
+    "adversarial": 600000,
+    "fix_verification": 480000,
+    "command": 120000,
+    "response_grace": 60000
+  },
+  "architecture_max_input_bytes": 122880,
   "max_parallel_subagents": 3,
   "authority_files": ["docs/REPO_MAP.md", "docs/ARCHITECTURE.md"],
   "command_allowlist": ["node --version"],

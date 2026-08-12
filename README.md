@@ -79,7 +79,7 @@ python3 evals/scripts/run_eval.py \
 `review-design-contracts` 的确定性 Runner 使用独立的 Node.js 测试：
 
 ```bash
-node --test review-design-contracts/scripts/review-design.test.mjs
+node --test evals/tests/review-design-contracts/review-design.test.mjs
 ```
 
 这些评测证明的是可观察的触发、路由、文件状态和命令证据，不宣称某个设计或代码审查在所有上下文中全局最优，也不等同于跨模型、重复 trial 或统计稳定性评估。

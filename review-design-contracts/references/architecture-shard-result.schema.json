@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "architecture-shard-result.schema.json",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contracts", "candidates"],
+      "properties": {
+        "contracts": {
+          "$ref": "contract-ledger.schema.json#/properties/contracts"
+        },
+        "candidates": {
+          "$ref": "candidate-finding.schema.json#/$defs/candidate_list"
+        }
+      }
+    },
+    {
+      "$ref": "insufficient-result.schema.json"
+    }
+  ]
+}

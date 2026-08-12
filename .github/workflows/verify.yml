@@ -23,5 +23,5 @@ jobs:
         with:
           node-version: "22"
       - run: python3 -m unittest discover -s evals/tests -p 'test_*.py'
-      - run: node --test review-design-contracts/scripts/review-design.test.mjs
+      - run: node --test evals/tests/review-design-contracts/review-design.test.mjs
       - run: git diff --check "$(git hash-object -t tree /dev/null)" HEAD

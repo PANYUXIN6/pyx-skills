@@ -28,6 +28,7 @@ const statusText = Object.freeze({
   CREATED: '评审已创建',
   PACKED: '自洽检查任务已准备',
   SELF_CHECKED: '自洽检查已完成',
+  ARCHITECTURE_SHARDED: '架构分片检查已完成',
   ARCHITECTURE_CHECKED: '架构检查已完成',
   CHALLENGED: '对抗验证已完成',
   DETERMINISTICALLY_GATED: '证据门禁已完成',
@@ -37,6 +38,10 @@ const statusText = Object.freeze({
   FAILED: '评审失败',
   INVALIDATED: '评审已失效',
   VALID: '修复队列校验通过',
+  FIX_VERIFICATION_PACKED: '局部修复复核任务已准备',
+  FIXES_VERIFIED: '局部修复复核通过',
+  FIXES_INCOMPLETE: '局部修复尚未完成',
+  FULL_REVIEW_REQUIRED: '需要全量重新审核',
 })
 
 const reasonText = Object.freeze({
@@ -44,6 +49,9 @@ const reasonText = Object.freeze({
   INSUFFICIENT_INPUT: '评审材料不足',
   MODEL_OUTPUT_INVALID: '模型输出不符合约定格式',
   INFRASTRUCTURE_FAILURE: '评审任务执行失败',
+  ACCEPTED_FINDINGS_CLOSED: '已接受问题的违反路径均已关闭',
+  ACCEPTED_FINDING_REMAINS: '仍有已接受问题未修复',
+  FIX_SCOPE_EXCEEDED: '修复影响超出局部复核范围',
 })
 
 function fail(message) {
@@ -365,6 +373,11 @@ function parseMarkdownSections(content) {
   })
 }
 
+function markdownPreamble(content) {
+  const firstHeading = /^(#{1,6})[ \t]+(.+?)\s*$/m.exec(content)
+  return firstHeading ? content.slice(0, firstHeading.index) : content
+}
+
 function parseAuthorityStatus(content, requestedPath) {
   const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)
   if (!frontmatter) {
@@ -406,6 +419,164 @@ function projectTaskDocument(document) {
     sha256: document.sha256,
     content: document.content,
     authority_status: document.authority_status,
+  }
+}
+
+function serializedInputBytes(input) {
+  return Buffer.byteLength(`${JSON.stringify(input, null, 2)}\n`)
+}
+
+function architectureInput(target, supportDocuments, contractLedger) {
+  return {
+    stage: 'architecture_shard',
+    target: projectTaskDocument(target),
+    support_documents: supportDocuments,
+    contract_ledger: contractLedger,
+  }
+}
+
+function projectDocumentSections(document, sections, index) {
+  const preamble = index === 0 ? markdownPreamble(document.content).trimEnd() : ''
+  const content = [preamble, ...sections.map((section) => section.content)]
+    .filter(Boolean)
+    .join('\n\n')
+  return {
+    ...projectTaskDocument(document),
+    sha256: sha256(content),
+    content,
+    source_sha256: document.sha256,
+    projection: {
+      kind: 'section_group',
+      index,
+      headings: sections.map((section) => section.heading),
+    },
+  }
+}
+
+function splitArchitectureSupportDocument(
+  target,
+  document,
+  contractLedger,
+  maxInputBytes,
+) {
+  const projected = projectTaskDocument(document)
+  if (
+    serializedInputBytes(architectureInput(target, [projected], contractLedger)) <=
+    maxInputBytes
+  ) {
+    return [projected]
+  }
+  if (document.sections.length === 0) {
+    return [projected]
+  }
+  const projections = []
+  let currentSections = []
+  for (const section of document.sections) {
+    const candidateSections = [...currentSections, section]
+    const candidate = projectDocumentSections(
+      document,
+      candidateSections,
+      projections.length,
+    )
+    if (
+      currentSections.length > 0 &&
+      serializedInputBytes(
+        architectureInput(target, [candidate], contractLedger),
+      ) > maxInputBytes
+    ) {
+      projections.push(
+        projectDocumentSections(document, currentSections, projections.length),
+      )
+      currentSections = [section]
+    } else {
+      currentSections = candidateSections
+    }
+  }
+  if (currentSections.length > 0) {
+    projections.push(
+      projectDocumentSections(document, currentSections, projections.length),
+    )
+  }
+  return projections
+}
+
+function createArchitectureShardPlan({
+  target,
+  supportDocuments,
+  contractLedger,
+  maxInputBytes,
+}) {
+  const baseInput = architectureInput(target, [], contractLedger)
+  if (serializedInputBytes(baseInput) > maxInputBytes) {
+    throw new ReviewFailure(
+      'architecture',
+      'INSUFFICIENT_INPUT',
+      '完整目标与 Contract Ledger 已超过架构分片输入上限',
+    )
+  }
+  const fullInput = {
+    stage: 'architecture',
+    target: projectTaskDocument(target),
+    authorities: supportDocuments
+      .filter((document) => document.role === 'authority')
+      .map(projectTaskDocument),
+    repository_contexts: supportDocuments
+      .filter((document) => document.role === 'context')
+      .map(projectTaskDocument),
+    contract_ledger: contractLedger,
+  }
+  if (
+    supportDocuments.length === 0 ||
+    serializedInputBytes(fullInput) <= maxInputBytes
+  ) {
+    return { mode: 'single', input: fullInput }
+  }
+  const projections = supportDocuments.flatMap((document) =>
+    splitArchitectureSupportDocument(
+      target,
+      document,
+      contractLedger,
+      maxInputBytes,
+    ),
+  )
+  const oversizedProjection = projections.find(
+    (projection) =>
+      serializedInputBytes(
+        architectureInput(target, [projection], contractLedger),
+      ) > maxInputBytes,
+  )
+  if (oversizedProjection) {
+    throw new ReviewFailure(
+      'architecture',
+      'INSUFFICIENT_INPUT',
+      `支持文档 ${oversizedProjection.path} 包含无法在章节边界内安全切分的超限内容`,
+    )
+  }
+  const groups = []
+  let currentGroup = []
+  for (const projection of projections) {
+    const candidateGroup = [...currentGroup, projection]
+    if (
+      currentGroup.length > 0 &&
+      serializedInputBytes(
+        architectureInput(target, candidateGroup, contractLedger),
+      ) > maxInputBytes
+    ) {
+      groups.push(currentGroup)
+      currentGroup = [projection]
+    } else {
+      currentGroup = candidateGroup
+    }
+  }
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup)
+  }
+  return {
+    mode: 'sharded',
+    shards: groups.map((group, index) => ({
+      logical_id: `architecture-shard-${index + 1}`,
+      input: architectureInput(target, group, contractLedger),
+    })),
   }
 }
 
@@ -577,10 +748,23 @@ class ReviewFailure extends Error {
 }
 
 function validateConfig(config) {
-  const requiredLayers = ['self_consistency', 'architecture', 'adversarial']
+  const requiredLayers = [
+    'self_consistency',
+    'architecture',
+    'adversarial',
+  ]
+  const requiredTimeouts = [
+    'self_consistency',
+    'architecture',
+    'architecture_merge',
+    'adversarial',
+    'fix_verification',
+    'command',
+    'response_grace',
+  ]
   if (
-    !Number.isInteger(config.subagent_timeout_ms) ||
-    config.subagent_timeout_ms <= 0 ||
+    !Number.isInteger(config.architecture_max_input_bytes) ||
+    config.architecture_max_input_bytes <= 0 ||
     !Number.isInteger(config.max_parallel_subagents) ||
     config.max_parallel_subagents <= 0 ||
     !Array.isArray(config.authority_files) ||
@@ -589,6 +773,14 @@ function validateConfig(config) {
     config.human_batch_size <= 0
   ) {
     throw new Error('review.config.json 结构无效')
+  }
+  for (const timeout of requiredTimeouts) {
+    if (
+      !Number.isInteger(config.timeouts_ms?.[timeout]) ||
+      config.timeouts_ms[timeout] <= 0
+    ) {
+      throw new Error(`review.config.json 的 ${timeout} 超时配置无效`)
+    }
   }
   for (const layer of requiredLayers) {
     const modelConfig = config.models?.[layer]
@@ -636,6 +828,8 @@ function createNativeTask({
   input,
   logicalId = stage,
   retryMessage = null,
+  timeoutMs,
+  responseGraceMs,
 }) {
   const taskId = `${logicalId}-attempt-${attempt}`
   const taskPath = path.join(runDirectory, 'tasks', taskId)
@@ -644,7 +838,10 @@ function createNativeTask({
   const stageName = {
     self_consistency: 'l1',
     architecture: 'l2',
+    architecture_shard: 'l2s',
+    architecture_merge: 'l2m',
     adversarial: 'l3',
+    fix_verification: 'fix',
   }[stage]
   const agentTaskName = [
     'review',
@@ -657,6 +854,7 @@ function createNativeTask({
   const inputSha256 = sha256(inputText)
   const responsePath = path.join(taskPath, 'response.json')
   const spawnMessage = [
+    '这是封闭任务，不要调用任何 Skill、Git、Web、MCP 或 Subagent。允许使用 Shell，但仅限当前 task_path 内任务文件的本地读取、response_path 写入和本地 JSON/Schema 校验；不要运行项目命令或访问父级、兄弟目录。',
     `读取 ${path.join(taskPath, 'task.json')} 与同目录 instructions.md，执行其中指定的单一设计评审任务。`,
     `只把最终 JSON 响应写入 ${responsePath}。`,
     `完成后仅报告任务 ${taskId} 已写入响应。`,
@@ -673,6 +871,8 @@ function createNativeTask({
     task_path: taskPath,
     response_path: responsePath,
     input_sha256: inputSha256,
+    timeout_ms: timeoutMs,
+    response_grace_ms: responseGraceMs,
     spawn_message: spawnMessage,
   }
   const outputSchema = {
@@ -829,7 +1029,7 @@ function prepareReview(argumentsList) {
   }
   atomicWriteJson(path.join(runDirectory, 'state.json'), state)
   const manifest = {
-    version: 5,
+    version: 7,
     input_digest: inputDigest,
     config_sha256: sha256(configText),
     target_document: target.path,
@@ -842,6 +1042,8 @@ function prepareReview(argumentsList) {
       },
       l2: {
         target: 'full',
+        max_input_bytes: config.architecture_max_input_bytes,
+        oversized_strategy: 'support-document-section-shards-plus-merge',
         authorities: authorities.map((authority) => authority.path).sort(),
         repository_contexts: repositoryContexts.map((document) =>
           document.path,
@@ -867,6 +1069,8 @@ function prepareReview(argumentsList) {
     modelConfig: config.models.self_consistency,
     roleFileName: 'self-consistency-role.md',
     schemaFileName: 'self-consistency-result.schema.json',
+    timeoutMs: config.timeouts_ms.self_consistency,
+    responseGraceMs: config.timeouts_ms.response_grace,
     input: {
       stage: 'self_consistency',
       target: projectTaskDocument(target),
@@ -876,6 +1080,294 @@ function prepareReview(argumentsList) {
     active_tasks: [task.task_id],
     task_attempts: {
       self_consistency: 1,
+    },
+  })
+  return {
+    status: state.status,
+    run_dir: runDirectory,
+    tasks: [task],
+  }
+}
+
+function fixImpact(baselineTarget, currentTarget, queue, supportingInputChanged) {
+  const reasons = []
+  const addReason = (reason) => {
+    if (!reasons.includes(reason)) {
+      reasons.push(reason)
+    }
+  }
+  if (queue.some((item) => item.evidence_card.layer === 'architecture')) {
+    addReason('ARCHITECTURE_FINDING')
+  }
+  if (supportingInputChanged) {
+    addReason('AUTHORITY_OR_CONTEXT_CHANGED')
+  }
+
+  const baselineShape = baselineTarget.sections.map((section) => ({
+    heading: section.heading,
+    level: section.level,
+  }))
+  const currentShape = currentTarget.sections.map((section) => ({
+    heading: section.heading,
+    level: section.level,
+  }))
+  if (
+    JSON.stringify(baselineShape) !== JSON.stringify(currentShape) ||
+    sha256(markdownPreamble(baselineTarget.content)) !==
+      sha256(markdownPreamble(currentTarget.content))
+  ) {
+    addReason('DOCUMENT_STRUCTURE_CHANGED')
+  }
+
+  const changedSections = []
+  const comparableSectionCount = Math.min(
+    baselineTarget.sections.length,
+    currentTarget.sections.length,
+  )
+  for (let index = 0; index < comparableSectionCount; index += 1) {
+    if (
+      baselineTarget.sections[index].sha256 !==
+      currentTarget.sections[index].sha256
+    ) {
+      changedSections.push(currentTarget.sections[index].heading)
+    }
+  }
+
+  const acceptedHeadings = new Set()
+  for (const item of queue) {
+    const card = item.evidence_card
+    if (card.contract.source !== baselineTarget.path) {
+      addReason('CHANGE_OUTSIDE_ACCEPTED_CONTRACTS')
+      continue
+    }
+    acceptedHeadings.add(card.contract.heading)
+    const baselineMatches = baselineTarget.sections.filter(
+      (section) => section.heading === card.contract.heading,
+    )
+    const currentMatches = currentTarget.sections.filter(
+      (section) => section.heading === card.contract.heading,
+    )
+    if (baselineMatches.length !== 1 || currentMatches.length !== 1) {
+      addReason('DOCUMENT_STRUCTURE_CHANGED')
+    }
+  }
+  if (changedSections.some((heading) => !acceptedHeadings.has(heading))) {
+    addReason('CHANGE_OUTSIDE_ACCEPTED_CONTRACTS')
+  }
+
+  return {
+    review_mode: reasons.length === 0 ? 'targeted' : 'full',
+    reasons,
+    changed_sections: changedSections,
+  }
+}
+
+function prepareFixVerification(argumentsList) {
+  if (argumentsList.length !== 1) {
+    throw new Error('用法：review-design.mjs verify-fixes <run-directory>')
+  }
+  const repositoryRoot = findRepositoryRoot(process.cwd())
+  const sourceRun = loadRun(repositoryRoot, argumentsList[0])
+  if (sourceRun.state.status !== 'QUEUED') {
+    throw new Error(
+      `只有 QUEUED 运行可以启动修复复核：${sourceRun.state.status}`,
+    )
+  }
+  if (sourceRun.manifest.mode === 'fix_verification') {
+    throw new Error('修复复核运行不能作为新的修复队列来源')
+  }
+  const queue = JSON.parse(
+    readFileSync(path.join(sourceRun.runDirectory, 'fix-queue.json'), 'utf8'),
+  )
+  if (!Array.isArray(queue) || queue.length === 0) {
+    throw new Error('修复队列为空')
+  }
+  const queueIds = queue.map((item) => item.finding_id)
+  const sourceCards = JSON.parse(
+    readFileSync(
+      path.join(sourceRun.runDirectory, 'evidence-cards.json'),
+      'utf8',
+    ),
+  )
+  const sourceDecisions = JSON.parse(
+    readFileSync(path.join(sourceRun.runDirectory, 'decisions.json'), 'utf8'),
+  )
+  for (const card of sourceCards) {
+    assertSchema(card, 'evidence-card.schema.json', '来源 Evidence Card')
+  }
+  const acceptedIds = new Set(
+    sourceDecisions
+      .filter((decision) => decision.decision === 'accept')
+      .map((decision) => decision.finding_id),
+  )
+  const expectedQueue = sourceCards
+    .filter((card) => acceptedIds.has(card.finding_id))
+    .map((card) => ({
+      finding_id: card.finding_id,
+      target_path: sourceRun.state.target_path,
+      target_sha256: sourceRun.state.target_sha256,
+      evidence_card: card,
+    }))
+  if (
+    new Set(queueIds).size !== queueIds.length ||
+    JSON.stringify(canonicalize(queue)) !==
+      JSON.stringify(canonicalize(expectedQueue)) ||
+    queue.some(
+      (item) =>
+        item.target_path !== sourceRun.state.target_path ||
+        item.target_sha256 !== sourceRun.state.target_sha256 ||
+        item.evidence_card?.finding_id !== item.finding_id,
+    )
+  ) {
+    throw new Error('修复队列与来源运行不一致')
+  }
+
+  const baselineTarget = sourceRun.manifest.documents.find(
+    (document) => document.role === 'target',
+  )
+  if (
+    sourceRun.manifest.documents.some(
+      (document) => sha256(document.content) !== document.sha256,
+    )
+  ) {
+    throw new Error('来源 Manifest 的文档内容摘要不匹配')
+  }
+  if (!baselineTarget) {
+    throw new Error('来源运行缺少目标文档')
+  }
+  const missingSupportingDocuments = []
+  const currentDocuments = []
+  for (const document of sourceRun.manifest.documents) {
+    if (
+      document.role !== 'target' &&
+      !existsSync(path.resolve(repositoryRoot, document.path))
+    ) {
+      missingSupportingDocuments.push(document.path)
+      continue
+    }
+    currentDocuments.push(
+      loadDocument(repositoryRoot, document.path, document.role),
+    )
+  }
+  const currentTarget = currentDocuments.find(
+    (document) => document.role === 'target',
+  )
+  if (currentTarget.sha256 === baselineTarget.sha256) {
+    throw new Error('目标文档尚未发生变化，没有修复可供复核')
+  }
+
+  const configText = readFileSync(configPath, 'utf8')
+  const config = JSON.parse(configText)
+  validateConfig(config)
+  const supportingInputChanged =
+    missingSupportingDocuments.length > 0 ||
+    sha256(configText) !== sourceRun.manifest.config_sha256 ||
+    sourceRun.manifest.documents.some((document) => {
+      if (document.role === 'target') {
+        return false
+      }
+      const currentDocument = currentDocuments.find(
+        (candidateDocument) => candidateDocument.path === document.path,
+      )
+      return currentDocument.sha256 !== document.sha256
+    })
+  const impact = fixImpact(
+    baselineTarget,
+    currentTarget,
+    queue,
+    supportingInputChanged,
+  )
+  const inputDigest = sha256(
+    JSON.stringify({
+      config: sha256(configText),
+      source_run_id: sourceRun.state.run_id,
+      source_queue: sha256(JSON.stringify(canonicalize(queue))),
+      documents: currentDocuments.map((document) => ({
+        role: document.role,
+        path: document.path,
+        sha256: document.sha256,
+      })),
+      missing_supporting_documents: missingSupportingDocuments,
+    }),
+  )
+  const runId = createRunId()
+  const runDirectory = path.join(
+    repositoryRoot,
+    '.superpowers',
+    'design-reviews',
+    currentTarget.sha256,
+    runId,
+  )
+  mkdirSync(runDirectory, { recursive: true })
+  const createdAt = new Date().toISOString()
+  let state = {
+    run_id: runId,
+    retry_of: null,
+    verification_of: sourceRun.runDirectory,
+    repository_root: repositoryRoot,
+    target_path: currentTarget.path,
+    target_sha256: currentTarget.sha256,
+    input_digest: inputDigest,
+    status: 'CREATED',
+    created_at: createdAt,
+    updated_at: createdAt,
+    quality_flags: [],
+    current_batch: null,
+    total_batches: 0,
+    active_tasks: [],
+    task_attempts: {},
+    coverage: sourceRun.state.coverage ?? sourceRun.manifest.coverage,
+    history: [{ status: 'CREATED', at: createdAt }],
+  }
+  atomicWriteJson(path.join(runDirectory, 'state.json'), state)
+  writeJson(path.join(runDirectory, 'manifest.json'), {
+    version: 6,
+    mode: 'fix_verification',
+    input_digest: inputDigest,
+    config_sha256: sha256(configText),
+    target_document: currentTarget.path,
+    source_run_id: sourceRun.state.run_id,
+    source_target_sha256: baselineTarget.sha256,
+    missing_supporting_documents: missingSupportingDocuments,
+    documents: currentDocuments,
+    coverage: state.coverage,
+    accepted_findings: queue.map((item) => item.evidence_card),
+  })
+  writeJson(path.join(runDirectory, 'fix-impact.json'), impact)
+
+  if (impact.review_mode === 'full') {
+    state = transition(runDirectory, state, 'FULL_REVIEW_REQUIRED', {
+      completion_reason: 'FIX_SCOPE_EXCEEDED',
+      full_review_reasons: impact.reasons,
+    })
+    return {
+      status: state.status,
+      run_dir: runDirectory,
+      tasks: [],
+    }
+  }
+
+  const task = createNativeTask({
+    runDirectory,
+    stage: 'fix_verification',
+    attempt: 1,
+    modelConfig: config.models.self_consistency,
+    roleFileName: 'fix-verification-role.md',
+    schemaFileName: 'fix-verification-result.schema.json',
+    timeoutMs: config.timeouts_ms.fix_verification,
+    responseGraceMs: config.timeouts_ms.response_grace,
+    input: {
+      stage: 'fix_verification',
+      accepted_findings: queue.map((item) => item.evidence_card),
+      changed_sections: impact.changed_sections,
+      baseline_target: projectTaskDocument(baselineTarget),
+      current_target: projectTaskDocument(currentTarget),
+    },
+  })
+  state = transition(runDirectory, state, 'FIX_VERIFICATION_PACKED', {
+    active_tasks: [task.task_id],
+    task_attempts: {
+      fix_verification: 1,
     },
   })
   return {
@@ -1002,6 +1494,8 @@ function createAdversarialTask({
         ? 'adversarial-result.schema.json'
         : 'adversarial-result-legacy.schema.json',
     logicalId: `adversarial-${preparedCandidate.finding_id}`,
+    timeoutMs: config.timeouts_ms.adversarial,
+    responseGraceMs: config.timeouts_ms.response_grace,
     retryMessage,
     input: {
       stage: 'adversarial',
@@ -1111,12 +1605,150 @@ function consumeAdversarialResponses({
   }
 }
 
+function invalidTaskResult(task, message) {
+  const failure = new ReviewFailure(
+    task.stage,
+    'MODEL_OUTPUT_INVALID',
+    `${task.task_id} 响应内容无效：${message}`,
+  )
+  failure.taskId = task.task_id
+  throw failure
+}
+
+function requireFullReviewAfterTargetedCheck(run, reason) {
+  const impactPath = path.join(run.runDirectory, 'fix-impact.json')
+  const impact = JSON.parse(readFileSync(impactPath, 'utf8'))
+  impact.review_mode = 'full'
+  if (!impact.reasons.includes(reason)) {
+    impact.reasons.push(reason)
+  }
+  writeJson(impactPath, impact)
+  const state = transition(
+    run.runDirectory,
+    run.state,
+    'FULL_REVIEW_REQUIRED',
+    {
+      active_tasks: [],
+      completion_reason: 'FIX_SCOPE_EXCEEDED',
+      full_review_reasons: impact.reasons,
+    },
+  )
+  return {
+    status: state.status,
+    run_dir: run.runDirectory,
+    tasks: [],
+  }
+}
+
+function advanceFixVerification(run, repositoryRoot) {
+  if (
+    [
+      'FAILED',
+      'INVALIDATED',
+      'FIXES_VERIFIED',
+      'FIXES_INCOMPLETE',
+      'FULL_REVIEW_REQUIRED',
+    ].includes(run.state.status)
+  ) {
+    throw new Error(`当前终态不能继续推进：${run.state.status}`)
+  }
+  const inputChange = changedInput(run.manifest, repositoryRoot)
+  if (inputChange) {
+    const invalidated = transition(run.runDirectory, run.state, 'INVALIDATED', {
+      invalidation_reason: inputChange,
+      active_tasks: [],
+    })
+    return {
+      status: invalidated.status,
+      run_dir: run.runDirectory,
+      tasks: [],
+    }
+  }
+  if (run.state.status !== 'FIX_VERIFICATION_PACKED') {
+    throw new Error(`尚未实现的修复复核推进阶段：${run.state.status}`)
+  }
+  if (run.state.active_tasks.length !== 1) {
+    throw new Error('FIX_VERIFICATION_PACKED 状态必须且只能有一个任务')
+  }
+  const task = loadTask(run.runDirectory, run.state.active_tasks[0])
+  if (task.stage !== 'fix_verification') {
+    throw new Error('FIX_VERIFICATION_PACKED 状态的活动任务类型错误')
+  }
+  const response = readTaskResponse(task)
+  if (!response) {
+    return {
+      status: run.state.status,
+      run_dir: run.runDirectory,
+      tasks: [],
+      waiting_for: [task.task_id],
+    }
+  }
+  if (isInsufficientInput(response.result)) {
+    writeJson(
+      path.join(run.runDirectory, 'fix-verification-results.json'),
+      response.result,
+    )
+    return requireFullReviewAfterTargetedCheck(
+      run,
+      'INSUFFICIENT_TARGETED_EVIDENCE',
+    )
+  }
+
+  const expectedIds = run.manifest.accepted_findings.map(
+    (finding) => finding.finding_id,
+  )
+  const actualIds = response.result.finding_results.map(
+    (finding) => finding.finding_id,
+  )
+  if (
+    new Set(actualIds).size !== actualIds.length ||
+    actualIds.length !== expectedIds.length ||
+    expectedIds.some((findingId) => !actualIds.includes(findingId))
+  ) {
+    invalidTaskResult(task, 'finding_results 必须且只能覆盖全部已接受 finding')
+  }
+  writeJson(
+    path.join(run.runDirectory, 'fix-verification-results.json'),
+    response.result,
+  )
+  if (
+    response.result.scope_assessment.outcome === 'full_review_required'
+  ) {
+    return requireFullReviewAfterTargetedCheck(
+      run,
+      'TARGETED_SCOPE_EXPANDED',
+    )
+  }
+  const hasUnresolved = response.result.finding_results.some(
+    (finding) => finding.outcome === 'unresolved',
+  )
+  const state = transition(
+    run.runDirectory,
+    run.state,
+    hasUnresolved ? 'FIXES_INCOMPLETE' : 'FIXES_VERIFIED',
+    {
+      active_tasks: [],
+      completion_reason: hasUnresolved
+        ? 'ACCEPTED_FINDING_REMAINS'
+        : 'ACCEPTED_FINDINGS_CLOSED',
+    },
+  )
+  return {
+    status: state.status,
+    run_dir: run.runDirectory,
+    tasks: [],
+  }
+}
+
 function advanceReviewOnce(argumentsList) {
   if (argumentsList.length !== 1) {
     throw new Error('用法：review-design.mjs advance <run-directory>')
   }
   const repositoryRoot = findRepositoryRoot(process.cwd())
   const run = loadRun(repositoryRoot, argumentsList[0])
+  if (run.manifest.mode === 'fix_verification') {
+    return advanceFixVerification(run, repositoryRoot)
+  }
   if (
     ['FAILED', 'INVALIDATED', 'QUEUED', 'CLOSED'].includes(run.state.status)
   ) {
@@ -1203,6 +1835,71 @@ function advanceReviewOnce(argumentsList) {
     const repositoryContexts = run.manifest.documents.filter(
       (document) => document.role === 'context',
     )
+    let architecturePlan = null
+    try {
+      architecturePlan =
+        run.manifest.version >= 7
+          ? createArchitectureShardPlan({
+              target,
+              supportDocuments: [...authorities, ...repositoryContexts],
+              contractLedger,
+              maxInputBytes: config.architecture_max_input_bytes,
+            })
+          : null
+    } catch (error) {
+      if (
+        !(error instanceof ReviewFailure) ||
+        error.reasonCode !== 'INSUFFICIENT_INPUT'
+      ) {
+        throw error
+      }
+      writeJson(path.join(run.runDirectory, 'failure.json'), {
+        failed_stage: error.stage,
+        reason_code: error.reasonCode,
+        message: error.message,
+      })
+      const failed = transition(run.runDirectory, run.state, 'FAILED', {
+        active_tasks: [],
+        failed_stage: error.stage,
+        failure_reason_code: error.reasonCode,
+      })
+      return {
+        status: failed.status,
+        run_dir: run.runDirectory,
+        tasks: [],
+      }
+    }
+    if (architecturePlan?.mode === 'sharded') {
+      writeJson(
+        path.join(run.runDirectory, 'architecture-shard-plan.json'),
+        architecturePlan,
+      )
+      writeJson(
+        path.join(run.runDirectory, 'architecture-shard-results.json'),
+        [],
+      )
+      const tasks = createArchitectureShardTasks({
+        runDirectory: run.runDirectory,
+        shards: architecturePlan.shards,
+        startIndex: 0,
+        config,
+      })
+      const taskAttempts = { ...run.state.task_attempts }
+      for (const task of tasks) {
+        taskAttempts[task.logical_id] = 1
+      }
+      const state = transition(run.runDirectory, run.state, 'SELF_CHECKED', {
+        active_tasks: tasks.map((task) => task.task_id),
+        task_attempts: taskAttempts,
+        architecture_mode: 'sharded',
+        next_architecture_shard_index: tasks.length,
+      })
+      return {
+        status: state.status,
+        run_dir: run.runDirectory,
+        tasks,
+      }
+    }
     const l2Task = createNativeTask({
       runDirectory: run.runDirectory,
       stage: 'architecture',
@@ -1210,20 +1907,24 @@ function advanceReviewOnce(argumentsList) {
       modelConfig: config.models.architecture,
       roleFileName: 'architecture-role.md',
       schemaFileName: 'candidate-finding.schema.json',
-      input: {
-        stage: 'architecture',
-        target:
-          run.manifest.version >= 4 ? projectTaskDocument(target) : target,
-        authorities:
-          run.manifest.version >= 4
-            ? authorities.map(projectTaskDocument)
-            : authorities,
-        repository_contexts:
-          run.manifest.version >= 4
-            ? repositoryContexts.map(projectTaskDocument)
-            : repositoryContexts,
-        contract_ledger: contractLedger,
-      },
+      timeoutMs: config.timeouts_ms.architecture,
+      responseGraceMs: config.timeouts_ms.response_grace,
+      input:
+        architecturePlan?.input ??
+        {
+          stage: 'architecture',
+          target:
+            run.manifest.version >= 4 ? projectTaskDocument(target) : target,
+          authorities:
+            run.manifest.version >= 4
+              ? authorities.map(projectTaskDocument)
+              : authorities,
+          repository_contexts:
+            run.manifest.version >= 4
+              ? repositoryContexts.map(projectTaskDocument)
+              : repositoryContexts,
+          contract_ledger: contractLedger,
+        },
     })
     const earlyCandidateLimit =
       run.manifest.version >= 4
@@ -1260,6 +1961,127 @@ function advanceReviewOnce(argumentsList) {
     const activeTasks = run.state.active_tasks.map((taskId) =>
       loadTask(run.runDirectory, taskId),
     )
+    if (run.state.architecture_mode === 'sharded') {
+      if (
+        activeTasks.length === 0 ||
+        activeTasks.some((task) => task.stage !== 'architecture_shard')
+      ) {
+        throw new Error('分片 SELF_CHECKED 状态必须只包含 L2 分片任务')
+      }
+      const waitingFor = activeTasks
+        .filter((task) => !existsSync(task.response_path))
+        .map((task) => task.task_id)
+      if (waitingFor.length > 0) {
+        return {
+          status: run.state.status,
+          run_dir: run.runDirectory,
+          tasks: [],
+          waiting_for: waitingFor,
+        }
+      }
+      const taskResponses = activeTasks.map((task) => ({
+        task,
+        response: readTaskResponse(task),
+      }))
+      const insufficientTask = taskResponses.find(({ response }) =>
+        isInsufficientInput(response.result),
+      )
+      if (insufficientTask) {
+        return failForInsufficientInput(
+          run.runDirectory,
+          run.state,
+          insufficientTask.task,
+          insufficientTask.response.result,
+        )
+      }
+      const shardResults = readJsonOr(
+        path.join(run.runDirectory, 'architecture-shard-results.json'),
+        [],
+      )
+      shardResults.push(
+        ...taskResponses.map(({ task, response }) => ({
+          logical_id: task.logical_id,
+          contracts: response.result.contracts,
+          candidates: response.result.candidates,
+        })),
+      )
+      writeJson(
+        path.join(run.runDirectory, 'architecture-shard-results.json'),
+        shardResults,
+      )
+      const plan = JSON.parse(
+        readFileSync(
+          path.join(run.runDirectory, 'architecture-shard-plan.json'),
+          'utf8',
+        ),
+      )
+      const nextIndex = run.state.next_architecture_shard_index
+      if (nextIndex < plan.shards.length) {
+        const tasks = createArchitectureShardTasks({
+          runDirectory: run.runDirectory,
+          shards: plan.shards,
+          startIndex: nextIndex,
+          config,
+        })
+        const taskAttempts = { ...run.state.task_attempts }
+        for (const task of tasks) {
+          taskAttempts[task.logical_id] = 1
+        }
+        const state = updateState(run.runDirectory, run.state, {
+          active_tasks: tasks.map((task) => task.task_id),
+          task_attempts: taskAttempts,
+          next_architecture_shard_index: nextIndex + tasks.length,
+        })
+        return {
+          status: state.status,
+          run_dir: run.runDirectory,
+          tasks,
+        }
+      }
+      const contractLedger = JSON.parse(
+        readFileSync(
+          path.join(run.runDirectory, 'contract-ledger.json'),
+          'utf8',
+        ),
+      )
+      const mergeTask = createNativeTask({
+        runDirectory: run.runDirectory,
+        stage: 'architecture_merge',
+        attempt: 1,
+        modelConfig: config.models.architecture,
+        roleFileName: 'architecture-merge-role.md',
+        schemaFileName: 'candidate-finding.schema.json',
+        timeoutMs: config.timeouts_ms.architecture_merge,
+        responseGraceMs: config.timeouts_ms.response_grace,
+        input: {
+          stage: 'architecture_merge',
+          target_contract_ledger: contractLedger,
+          architecture_contracts: {
+            contracts: dedupeCanonical(
+              shardResults.flatMap((result) => result.contracts),
+            ),
+          },
+          shard_results: shardResults,
+        },
+      })
+      const state = transition(
+        run.runDirectory,
+        run.state,
+        'ARCHITECTURE_SHARDED',
+        {
+          active_tasks: [mergeTask.task_id],
+          task_attempts: {
+            ...run.state.task_attempts,
+            architecture_merge: 1,
+          },
+        },
+      )
+      return {
+        status: state.status,
+        run_dir: run.runDirectory,
+        tasks: [mergeTask],
+      }
+    }
     const l2Tasks = activeTasks.filter((task) => task.stage === 'architecture')
     const earlyAdversarialTasks = activeTasks.filter(
       (task) => task.stage === 'adversarial',
@@ -1396,6 +2218,50 @@ function advanceReviewOnce(argumentsList) {
       tasks,
     }
   }
+  if (run.state.status === 'ARCHITECTURE_SHARDED') {
+    if (run.state.active_tasks.length !== 1) {
+      throw new Error('ARCHITECTURE_SHARDED 状态必须包含一个合并任务')
+    }
+    const mergeTask = loadTask(
+      run.runDirectory,
+      run.state.active_tasks[0],
+    )
+    if (mergeTask.stage !== 'architecture_merge') {
+      throw new Error('ARCHITECTURE_SHARDED 活动任务不是架构合并任务')
+    }
+    const mergeResponse = readTaskResponse(mergeTask)
+    if (!mergeResponse) {
+      return {
+        status: run.state.status,
+        run_dir: run.runDirectory,
+        tasks: [],
+        waiting_for: [mergeTask.task_id],
+      }
+    }
+    if (isInsufficientInput(mergeResponse.result)) {
+      return failForInsufficientInput(
+        run.runDirectory,
+        run.state,
+        mergeTask,
+        mergeResponse.result,
+      )
+    }
+    const shardResults = JSON.parse(
+      readFileSync(
+        path.join(run.runDirectory, 'architecture-shard-results.json'),
+        'utf8',
+      ),
+    )
+    return proceedFromArchitectureCandidates({
+      repositoryRoot,
+      run,
+      config,
+      architectureCandidates: [
+        ...shardResults.flatMap((result) => result.candidates),
+        ...mergeResponse.result.candidates,
+      ],
+    })
+  }
   if (run.state.status === 'ARCHITECTURE_CHECKED') {
     const activeTasks = run.state.active_tasks.map((taskId) =>
       loadTask(run.runDirectory, taskId),
@@ -1522,11 +2388,29 @@ function retryNativeTask(
       modelConfig: config.models.self_consistency,
       roleFileName: 'self-consistency-role.md',
       schemaFileName: 'self-consistency-result.schema.json',
+      timeoutMs: config.timeouts_ms.self_consistency,
+      responseGraceMs: config.timeouts_ms.response_grace,
     },
     architecture: {
       modelConfig: config.models.architecture,
       roleFileName: 'architecture-role.md',
       schemaFileName: 'candidate-finding.schema.json',
+      timeoutMs: config.timeouts_ms.architecture,
+      responseGraceMs: config.timeouts_ms.response_grace,
+    },
+    architecture_shard: {
+      modelConfig: config.models.architecture,
+      roleFileName: 'architecture-shard-role.md',
+      schemaFileName: 'architecture-shard-result.schema.json',
+      timeoutMs: config.timeouts_ms.architecture,
+      responseGraceMs: config.timeouts_ms.response_grace,
+    },
+    architecture_merge: {
+      modelConfig: config.models.architecture,
+      roleFileName: 'architecture-merge-role.md',
+      schemaFileName: 'candidate-finding.schema.json',
+      timeoutMs: config.timeouts_ms.architecture_merge,
+      responseGraceMs: config.timeouts_ms.response_grace,
     },
     adversarial: {
       modelConfig: config.models.adversarial,
@@ -1538,6 +2422,15 @@ function retryNativeTask(
         manifestVersion >= 5
           ? 'adversarial-result.schema.json'
           : 'adversarial-result-legacy.schema.json',
+      timeoutMs: config.timeouts_ms.adversarial,
+      responseGraceMs: config.timeouts_ms.response_grace,
+    },
+    fix_verification: {
+      modelConfig: config.models.self_consistency,
+      roleFileName: 'fix-verification-role.md',
+      schemaFileName: 'fix-verification-result.schema.json',
+      timeoutMs: config.timeouts_ms.fix_verification,
+      responseGraceMs: config.timeouts_ms.response_grace,
     },
   }
   const settings = stageSettings[task.stage]
@@ -1639,7 +2532,15 @@ function failTask(argumentsList) {
   const repositoryRoot = findRepositoryRoot(process.cwd())
   const run = loadRun(repositoryRoot, requestedRunDirectory)
   if (
-    ['FAILED', 'INVALIDATED', 'QUEUED', 'CLOSED'].includes(run.state.status)
+    [
+      'FAILED',
+      'INVALIDATED',
+      'QUEUED',
+      'CLOSED',
+      'FIXES_VERIFIED',
+      'FIXES_INCOMPLETE',
+      'FULL_REVIEW_REQUIRED',
+    ].includes(run.state.status)
   ) {
     throw new Error(`当前终态不能记录任务失败：${run.state.status}`)
   }
@@ -1647,6 +2548,14 @@ function failTask(argumentsList) {
     throw new Error(`任务不是当前活动任务：${taskId}`)
   }
   const task = loadTask(run.runDirectory, taskId)
+  if (existsSync(task.response_path)) {
+    return {
+      status: run.state.status,
+      run_dir: run.runDirectory,
+      tasks: [],
+      response_available: true,
+    }
+  }
   const diagnostic = message.trim().slice(0, 4000)
   writeJson(path.join(run.runDirectory, 'failure.json'), {
     failed_stage: task.stage,
@@ -1893,7 +2802,7 @@ function executeAllowlistedVerifications(cards, config, repositoryRoot) {
       const result = spawnSync('/bin/sh', ['-lc', command], {
         cwd: repositoryRoot,
         encoding: 'utf8',
-        timeout: config.subagent_timeout_ms,
+        timeout: config.timeouts_ms.command,
         env: {
           LANG: 'C',
           PATH: process.env.PATH ?? '',
@@ -2088,6 +2997,103 @@ function finishReview({
   }
 }
 
+function createArchitectureShardTasks({
+  runDirectory,
+  shards,
+  startIndex,
+  config,
+}) {
+  return shards
+    .slice(startIndex, startIndex + config.max_parallel_subagents)
+    .map((shard) =>
+      createNativeTask({
+        runDirectory,
+        stage: 'architecture_shard',
+        attempt: 1,
+        modelConfig: config.models.architecture,
+        roleFileName: 'architecture-shard-role.md',
+        schemaFileName: 'architecture-shard-result.schema.json',
+        logicalId: shard.logical_id,
+        timeoutMs: config.timeouts_ms.architecture,
+        responseGraceMs: config.timeouts_ms.response_grace,
+        input: shard.input,
+      }),
+    )
+}
+
+function proceedFromArchitectureCandidates({
+  repositoryRoot,
+  run,
+  config,
+  architectureCandidates,
+}) {
+  const l1Candidates = JSON.parse(
+    readFileSync(path.join(run.runDirectory, 'l1-candidates.json'), 'utf8'),
+  )
+  const contractLedger = JSON.parse(
+    readFileSync(path.join(run.runDirectory, 'contract-ledger.json'), 'utf8'),
+  )
+  const l1Layer = enforceCandidateLayer(
+    l1Candidates.candidates,
+    'self_consistency',
+  )
+  const l2Layer = enforceCandidateLayer(
+    architectureCandidates,
+    'architecture',
+  )
+  const prepared = prepareCandidates(
+    [...l1Layer.accepted, ...l2Layer.accepted],
+    run.manifest.documents,
+    config.command_allowlist,
+  )
+  prepared.rejected.unshift(...l1Layer.rejected, ...l2Layer.rejected)
+  writeJson(path.join(run.runDirectory, 'candidates.json'), prepared.accepted)
+  writeJson(path.join(run.runDirectory, 'rejected.json'), prepared.rejected)
+  writeJson(path.join(run.runDirectory, 'adversarial-results.json'), [])
+  writeJson(path.join(run.runDirectory, 'evidence-cards.json'), [])
+  const nextCandidates = prepared.accepted.slice(
+    0,
+    config.max_parallel_subagents,
+  )
+  const tasks = createAdversarialBatch({
+    candidates: nextCandidates,
+    runDirectory: run.runDirectory,
+    manifest: run.manifest,
+    contractLedger,
+    config,
+  })
+  const taskAttempts = { ...run.state.task_attempts }
+  for (const task of tasks) {
+    taskAttempts[task.logical_id] = 1
+  }
+  const state = transition(
+    run.runDirectory,
+    run.state,
+    'ARCHITECTURE_CHECKED',
+    {
+      active_tasks: tasks.map((task) => task.task_id),
+      task_attempts: taskAttempts,
+      next_adversarial_index: tasks.length,
+    },
+  )
+  if (tasks.length === 0) {
+    return finishReview({
+      repositoryRoot,
+      runDirectory: run.runDirectory,
+      state,
+      config,
+      adversarialResults: [],
+      rejected: prepared.rejected,
+      evidenceCards: [],
+    })
+  }
+  return {
+    status: state.status,
+    run_dir: run.runDirectory,
+    tasks,
+  }
+}
+
 function loadRun(repositoryRoot, requestedRunDirectory) {
   const runDirectory = canonicalDirectory(repositoryRoot, requestedRunDirectory)
   const reviewsRoot = path.join(
@@ -2106,8 +3112,11 @@ function loadRun(repositoryRoot, requestedRunDirectory) {
   const manifest = JSON.parse(
     readFileSync(path.join(runDirectory, 'manifest.json'), 'utf8'),
   )
-  if (![3, 4, 5].includes(manifest.version)) {
+  if (![3, 4, 5, 6, 7].includes(manifest.version)) {
     throw new Error(`不支持的 Manifest 版本：${manifest.version}`)
+  }
+  if (manifest.version === 6 && manifest.mode !== 'fix_verification') {
+    throw new Error('Manifest 版本 6 仅支持 fix_verification 模式')
   }
   return {
     runDirectory,
@@ -2334,8 +3343,11 @@ function main() {
   if (command === 'verify-queue') {
     return verifyQueue(argumentsList)
   }
+  if (command === 'verify-fixes') {
+    return prepareFixVerification(argumentsList)
+  }
   throw new Error(
-    '支持的命令：prepare、advance、fail-task、decide、verify-queue',
+    '支持的命令：prepare、advance、fail-task、decide、verify-queue、verify-fixes',
   )
 }
 

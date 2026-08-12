@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fix-verification-result.schema.json",
+  "oneOf": [
+    {
+      "$ref": "insufficient-result.schema.json"
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_status", "finding_results", "scope_assessment"],
+      "properties": {
+        "task_status": {
+          "const": "completed"
+        },
+        "finding_results": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["finding_id", "outcome", "evidence"],
+            "properties": {
+              "finding_id": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "outcome": {
+                "enum": ["verified", "unresolved"]
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "scope_assessment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["outcome", "details"],
+          "properties": {
+            "outcome": {
+              "enum": ["contained", "full_review_required"]
+            },
+            "details": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  ]
+}
