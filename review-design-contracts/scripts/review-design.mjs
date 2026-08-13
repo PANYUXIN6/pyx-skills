@@ -32,6 +32,8 @@ const statusText = Object.freeze({
   ARCHITECTURE_CHECKED: '架构检查已完成',
   CHALLENGED: '对抗验证已完成',
   DETERMINISTICALLY_GATED: '证据门禁已完成',
+  AWAITING_AUTHOR_RESPONSE: '等待作者一次性答辩',
+  VERIFYING_AUTHOR_RESPONSE: '正在复查作者反证',
   AWAITING_HUMAN: '等待人工判断',
   QUEUED: '已进入修复队列',
   CLOSED: '评审已结束',
@@ -46,7 +48,9 @@ const statusText = Object.freeze({
 
 const reasonText = Object.freeze({
   NO_ADMISSIBLE_FINDINGS: '没有发现需要人工判断的问题',
+  ALL_FINDINGS_REFUTED_BY_AUTHOR: '作者反证复查后没有剩余争议项',
   INSUFFICIENT_INPUT: '评审材料不足',
+  EVIDENCE_EXPANDED: '已自动扩展候选的冻结证据范围',
   MODEL_OUTPUT_INVALID: '模型输出不符合约定格式',
   INFRASTRUCTURE_FAILURE: '评审任务执行失败',
   ACCEPTED_FINDINGS_CLOSED: '已接受问题的违反路径均已关闭',
@@ -649,6 +653,88 @@ function updateTaskMetric(runDirectory, taskId, patch) {
   atomicWriteJson(metricsPath, metrics)
 }
 
+function updateReviewMetric(runDirectory, patch) {
+  const metricsPath = path.join(runDirectory, 'metrics.json')
+  const metrics = readJsonOr(metricsPath, {
+    version: 1,
+    tasks: {},
+  })
+  metrics.review = {
+    ...(metrics.review ?? {}),
+    ...patch,
+  }
+  atomicWriteJson(metricsPath, metrics)
+}
+
+function recordRunTiming(runDirectory, state, maxParallelSubagents) {
+  const metricsPath = path.join(runDirectory, 'metrics.json')
+  const metrics = readJsonOr(metricsPath, {
+    version: 1,
+    tasks: {},
+  })
+  const start = Date.parse(state.created_at)
+  const end = Date.parse(state.updated_at)
+  const intervals = Object.values(metrics.tasks)
+    .filter((task) => task.response_written_at)
+    .map((task) => [
+      Date.parse(task.created_at),
+      Date.parse(task.response_written_at),
+    ])
+    .filter(
+      ([left, right]) =>
+        Number.isFinite(left) && Number.isFinite(right) && right >= left,
+    )
+    .sort((left, right) => left[0] - right[0])
+  let agentCoverageMs = 0
+  let current = null
+  for (const interval of intervals) {
+    if (!current) {
+      current = [...interval]
+    } else if (interval[0] <= current[1]) {
+      current[1] = Math.max(current[1], interval[1])
+    } else {
+      agentCoverageMs += current[1] - current[0]
+      current = [...interval]
+    }
+  }
+  if (current) {
+    agentCoverageMs += current[1] - current[0]
+  }
+  const wallClockMs = Math.max(0, end - start)
+  const totalAgentMs = intervals.reduce(
+    (total, interval) => total + interval[1] - interval[0],
+    0,
+  )
+  const slotCapacityMs = wallClockMs * maxParallelSubagents
+  metrics.review = {
+    ...(metrics.review ?? {}),
+    wall_clock_ms: wallClockMs,
+    agent_coverage_ms: agentCoverageMs,
+    host_gap_ms: Math.max(0, wallClockMs - agentCoverageMs),
+    host_gap_ratio:
+      wallClockMs === 0 ? 0 : (wallClockMs - agentCoverageMs) / wallClockMs,
+    total_agent_ms: totalAgentMs,
+    slot_capacity_ms: slotCapacityMs,
+    slot_idle_ms: Math.max(0, slotCapacityMs - totalAgentMs),
+    slot_utilization:
+      slotCapacityMs === 0 ? 0 : totalAgentMs / slotCapacityMs,
+    protocol_bytes: Object.values(metrics.tasks).reduce(
+      (total, task) =>
+        total + (task.instructions_bytes ?? 0) + (task.output_schema_bytes ?? 0),
+      0,
+    ),
+    evidence_input_bytes: Object.values(metrics.tasks).reduce(
+      (total, task) => total + (task.input_bytes ?? 0),
+      0,
+    ),
+    queue_wait_ms: Object.values(metrics.tasks).reduce(
+      (total, task) => total + (task.queue_wait_ms ?? 0),
+      0,
+    ),
+  }
+  atomicWriteJson(metricsPath, metrics)
+}
+
 function addHumanReadableResult(result) {
   const state = result.run_dir
     ? readJsonOr(path.join(result.run_dir, 'state.json'), {})
@@ -674,6 +760,11 @@ function addHumanReadableResult(result) {
       `显式 authority：${state.coverage.explicit_authorities.join('、')}`,
     )
   }
+  if (state.coverage?.discovered_authorities?.length) {
+    coverageParts.push(
+      `自动发现 authority：${state.coverage.discovered_authorities.join('、')}`,
+    )
+  }
   if (state.coverage?.observed_contexts?.length) {
     coverageParts.push(
       state.coverage.confirmed_authorities?.length
@@ -683,6 +774,16 @@ function addHumanReadableResult(result) {
   } else if (state.coverage?.missing_default_documents?.length) {
     coverageParts.push(
       `缺少默认仓库文档：${state.coverage.missing_default_documents.join('、')}`,
+    )
+  }
+  if (state.incomplete_challenge_count > 0) {
+    coverageParts.push(
+      `${state.incomplete_challenge_count} 条候选在 Runner 自动补入完整冻结证据后仍证据不足，已单独淘汰，未中断其他候选`,
+    )
+  }
+  if (state.author_response_summary) {
+    coverageParts.push(
+      `作者已确认 ${state.author_response_summary.acknowledged} 条；反证后归档 ${state.author_response_summary.refuted} 条；仍需人工判断 ${state.author_response_summary.remaining} 条`,
     )
   }
   const coverageSummary = coverageParts.join('；') || null
@@ -700,11 +801,12 @@ function addHumanReadableResult(result) {
 function parsePrepareArguments(argumentsList) {
   if (argumentsList.length === 0) {
     throw new Error(
-      '用法：review-design.mjs prepare <design.md> [--authority <file>] [--retry-of <run-directory>]',
+      '用法：review-design.mjs prepare <design.md> [--authority <file>] [--discovered-authority <file>] [--retry-of <run-directory>]',
     )
   }
   const target = argumentsList[0]
   const authorities = []
+  const discoveredAuthorities = []
   let retryOf
   for (let index = 1; index < argumentsList.length; index += 1) {
     const option = argumentsList[index]
@@ -714,6 +816,13 @@ function parsePrepareArguments(argumentsList) {
         throw new Error('--authority 需要文件路径')
       }
       authorities.push(value)
+      index += 1
+    } else if (option === '--discovered-authority') {
+      const value = argumentsList[index + 1]
+      if (!value) {
+        throw new Error('--discovered-authority 需要文件路径')
+      }
+      discoveredAuthorities.push(value)
       index += 1
     } else if (option === '--retry-of') {
       const value = argumentsList[index + 1]
@@ -726,7 +835,7 @@ function parsePrepareArguments(argumentsList) {
       throw new Error(`未知参数：${option}`)
     }
   }
-  return { target, authorities, retryOf }
+  return { target, authorities, discoveredAuthorities, retryOf }
 }
 
 function parseFileOption(argumentsList, optionName, usage) {
@@ -830,7 +939,9 @@ function createNativeTask({
   retryMessage = null,
   timeoutMs,
   responseGraceMs,
+  queueReadyAt = null,
 }) {
+  const createdAt = new Date()
   const taskId = `${logicalId}-attempt-${attempt}`
   const taskPath = path.join(runDirectory, 'tasks', taskId)
   mkdirSync(taskPath, { recursive: true })
@@ -841,6 +952,7 @@ function createNativeTask({
     architecture_shard: 'l2s',
     architecture_merge: 'l2m',
     adversarial: 'l3',
+    author_rebuttal: 'author',
     fix_verification: 'fix',
   }[stage]
   const agentTaskName = [
@@ -904,7 +1016,7 @@ function createNativeTask({
     rolePrompt(roleFileName, retryMessage),
     '',
   ].join('\n')
-  const outputSchemaText = `${JSON.stringify(outputSchema, null, 2)}\n`
+  const outputSchemaText = `${JSON.stringify(outputSchema)}\n`
   writeJson(path.join(taskPath, 'task.json'), task)
   writeFileSync(path.join(taskPath, 'input.json'), inputText)
   writeFileSync(path.join(taskPath, 'output.schema.json'), outputSchemaText)
@@ -913,12 +1025,20 @@ function createNativeTask({
     task_id: taskId,
     stage,
     candidate_layer: input.candidate?.layer ?? null,
+    evidence_scope: input.evidence_scope ?? null,
     attempt,
-    created_at: new Date().toISOString(),
+    created_at: createdAt.toISOString(),
     input_bytes: Buffer.byteLength(inputText),
     instructions_bytes: Buffer.byteLength(instructions),
     output_schema_bytes: Buffer.byteLength(outputSchemaText),
     response_bytes: null,
+    response_written_at: null,
+    response_consumed_at: null,
+    host_transition_ms: null,
+    queue_ready_at: queueReadyAt,
+    queue_wait_ms: queueReadyAt
+      ? Math.max(0, createdAt.getTime() - Date.parse(queueReadyAt))
+      : 0,
     response_observed_at: null,
     response_valid: null,
   })
@@ -953,6 +1073,26 @@ function prepareReview(argumentsList) {
   const explicitAuthorityPaths = new Set(
     explicitAuthorities.map((document) => document.path),
   )
+  const discoveredAuthorities = [
+    ...new Set(options.discoveredAuthorities),
+  ]
+    .map((authorityPath) =>
+      loadDocument(repositoryRoot, authorityPath, 'authority'),
+    )
+    .filter((document) => !explicitAuthorityPaths.has(document.path))
+    .sort((left, right) => left.path.localeCompare(right.path))
+  const observedDiscovery = discoveredAuthorities.find(
+    (document) => document.authority_status === 'observed',
+  )
+  if (observedDiscovery) {
+    throw new Error(
+      `自动发现的 authority 不能是 observed 文档：${observedDiscovery.path}`,
+    )
+  }
+  const suppliedAuthorityPaths = new Set([
+    ...explicitAuthorityPaths,
+    ...discoveredAuthorities.map((document) => document.path),
+  ])
   const defaultDocuments = []
   const missingDefaultDocuments = []
   for (const authorityPath of [...new Set(config.authority_files)].sort()) {
@@ -961,7 +1101,7 @@ function prepareReview(argumentsList) {
       continue
     }
     const document = loadDocument(repositoryRoot, authorityPath, 'authority')
-    if (explicitAuthorityPaths.has(document.path)) {
+    if (suppliedAuthorityPaths.has(document.path)) {
       continue
     }
     if (document.authority_status === 'observed') {
@@ -976,8 +1116,14 @@ function prepareReview(argumentsList) {
   }
   const authorities = [
     ...explicitAuthorities,
+    ...discoveredAuthorities,
     ...defaultDocuments.filter((document) => document.role === 'authority'),
-  ].sort((left, right) => left.path.localeCompare(right.path))
+  ]
+    .filter(
+      (document, index, documents) =>
+        documents.findIndex((item) => item.path === document.path) === index,
+    )
+    .sort((left, right) => left.path.localeCompare(right.path))
   const repositoryContexts = defaultDocuments
     .filter((document) => document.role === 'context')
     .sort((left, right) => left.path.localeCompare(right.path))
@@ -985,6 +1131,9 @@ function prepareReview(argumentsList) {
   const coverage = {
     target: target.path,
     explicit_authorities: explicitAuthorities.map((document) => document.path),
+    discovered_authorities: discoveredAuthorities.map(
+      (document) => document.path,
+    ),
     confirmed_authorities: authorities.map((document) => document.path),
     observed_contexts: repositoryContexts.map((document) => document.path),
     missing_default_documents: missingDefaultDocuments,
@@ -1029,7 +1178,7 @@ function prepareReview(argumentsList) {
   }
   atomicWriteJson(path.join(runDirectory, 'state.json'), state)
   const manifest = {
-    version: 7,
+    version: 8,
     input_digest: inputDigest,
     config_sha256: sha256(configText),
     target_document: target.path,
@@ -1395,10 +1544,17 @@ function readTaskResponse(task) {
   }
   const runDirectory = path.dirname(path.dirname(task.task_path))
   const responseText = readFileSync(task.response_path, 'utf8')
-  const responseObservedAt = statSync(task.response_path).mtime.toISOString()
+  const responseWrittenAt = statSync(task.response_path).mtime
+  const responseConsumedAt = new Date()
   updateTaskMetric(runDirectory, task.task_id, {
     response_bytes: Buffer.byteLength(responseText),
-    response_observed_at: responseObservedAt,
+    response_written_at: responseWrittenAt.toISOString(),
+    response_consumed_at: responseConsumedAt.toISOString(),
+    host_transition_ms: Math.max(
+      0,
+      responseConsumedAt.getTime() - responseWrittenAt.getTime(),
+    ),
+    response_observed_at: responseWrittenAt.toISOString(),
   })
   let response
   try {
@@ -1468,6 +1624,7 @@ function createAdversarialTask({
   preparedCandidate,
   config,
   attempt,
+  expandEvidence = false,
   retryMessage = null,
 }) {
   const citedDocument = manifest.documents.find(
@@ -1480,6 +1637,40 @@ function createAdversarialTask({
   )
   const isArchitectureCandidate =
     preparedCandidate.candidate.layer === 'architecture'
+  const canExpandContractSource = expandEvidence && !isArchitectureCandidate
+  const requestedEvidence = isArchitectureCandidate
+    ? preparedCandidate.candidate.evidence_sections ?? []
+    : []
+  const projectedArchitectureEvidence = []
+  let architectureProjectionValid = requestedEvidence.length > 0
+  for (const reference of requestedEvidence) {
+    const document = manifest.documents.find(
+      (item) => item.path === reference.source,
+    )
+    const matchingSections = document?.sections.filter(
+      (section) => section.heading === reference.heading,
+    ) ?? []
+    if (!document || matchingSections.length !== 1) {
+      architectureProjectionValid = false
+      break
+    }
+    projectedArchitectureEvidence.push({
+      role: document.role,
+      path: document.path,
+      sha256: matchingSections[0].sha256,
+      content: matchingSections[0].content,
+      authority_status: document.authority_status,
+      source_sha256: document.sha256,
+      projection: {
+        kind: 'evidence_section',
+        heading: matchingSections[0].heading,
+      },
+    })
+  }
+  const useArchitectureProjection =
+    isArchitectureCandidate && !expandEvidence && architectureProjectionValid
+  const contractSource =
+    citedDocument?.path ?? preparedCandidate.candidate.contract.source
   return createNativeTask({
     runDirectory,
     stage: 'adversarial',
@@ -1496,9 +1687,18 @@ function createAdversarialTask({
     logicalId: `adversarial-${preparedCandidate.finding_id}`,
     timeoutMs: config.timeouts_ms.adversarial,
     responseGraceMs: config.timeouts_ms.response_grace,
+    queueReadyAt:
+      attempt === 1 ? preparedCandidate.queue_ready_at ?? null : null,
     retryMessage,
     input: {
       stage: 'adversarial',
+      evidence_scope: isArchitectureCandidate
+        ? useArchitectureProjection
+          ? 'architecture_sections'
+          : 'all_review_documents'
+        : canExpandContractSource
+          ? 'contract_source_document'
+          : 'cited_section',
       candidate: preparedCandidate.candidate,
       cited_sections: citedSection
         ? [
@@ -1511,12 +1711,30 @@ function createAdversarialTask({
           ]
         : [],
       context_documents: isArchitectureCandidate
-        ? manifest.version >= 4
-          ? manifest.documents.map(projectTaskDocument)
-          : manifest.documents
+        ? useArchitectureProjection
+          ? projectedArchitectureEvidence
+          : manifest.version >= 4
+            ? manifest.documents.map(projectTaskDocument)
+            : manifest.documents
+        : canExpandContractSource
+          ? citedDocument
+            ? [projectTaskDocument(citedDocument)]
+            : []
         : [],
       contract_ledger_entries: isArchitectureCandidate
-        ? contractLedger.contracts
+        ? useArchitectureProjection
+          ? contractLedger.contracts.filter((entry) =>
+              requestedEvidence.some(
+                (reference) =>
+                  reference.source === entry.source &&
+                  reference.heading === entry.heading,
+              ),
+            )
+          : contractLedger.contracts
+        : canExpandContractSource
+          ? contractLedger.contracts.filter(
+              (entry) => entry.source === contractSource,
+            )
         : contractLedger.contracts.filter(
             (entry) =>
               entry.source === preparedCandidate.candidate.contract.source &&
@@ -1524,6 +1742,92 @@ function createAdversarialTask({
           ),
     },
   })
+}
+
+function recoverAdversarialInsufficient({
+  taskResponses,
+  preparedCandidates,
+  runDirectory,
+  manifest,
+  contractLedger,
+  config,
+}) {
+  const consumable = []
+  const retryTasks = []
+  const exhausted = []
+  for (const taskResponse of taskResponses) {
+    if (!isInsufficientInput(taskResponse.response.result)) {
+      consumable.push(taskResponse)
+      continue
+    }
+    const findingId = taskResponse.task.logical_id.replace(
+      /^adversarial-/,
+      '',
+    )
+    const preparedCandidate = preparedCandidates.find(
+      (candidateItem) => candidateItem.finding_id === findingId,
+    )
+    if (!preparedCandidate) {
+      throw new Error(
+        `材料不足的 L3 任务找不到对应候选：${taskResponse.task.task_id}`,
+      )
+    }
+    const taskInput = JSON.parse(
+      readFileSync(
+        path.join(taskResponse.task.task_path, 'input.json'),
+        'utf8',
+      ),
+    )
+    if (
+      taskInput.evidence_scope === 'cited_section' ||
+      taskInput.evidence_scope === 'architecture_sections' ||
+      (taskInput.evidence_scope === undefined &&
+        preparedCandidate.candidate.layer === 'self_consistency')
+    ) {
+      retryTasks.push(
+        createAdversarialTask({
+          runDirectory,
+          manifest,
+          contractLedger,
+          preparedCandidate,
+          config,
+          attempt: taskResponse.task.attempt + 1,
+          expandEvidence: true,
+          retryMessage:
+            preparedCandidate.candidate.layer === 'architecture'
+              ? `上一次封闭任务包的架构证据投影不足：${taskResponse.response.result.missing_inputs.join('；')}。本次已由 Runner 补入全部冻结评审文档和完整 Contract Ledger；只基于扩展后的冻结证据重新判断同一候选。`
+              : `上一次封闭任务包的章节投影不足：${taskResponse.response.result.missing_inputs.join('；')}。本次已由 Runner 补入完整契约来源文档和同来源 Contract Ledger；只基于扩展后的冻结证据重新判断同一候选。`,
+        }),
+      )
+      continue
+    }
+    exhausted.push({
+      task: taskResponse.task,
+      preparedCandidate,
+      result: taskResponse.response.result,
+    })
+  }
+  return { consumable, retryTasks, exhausted }
+}
+
+function recordExhaustedAdversarialEvidence({
+  exhausted,
+  adversarialResults,
+  rejected,
+}) {
+  for (const item of exhausted) {
+    adversarialResults.push({
+      finding_id: item.preparedCandidate.finding_id,
+      result: item.result,
+    })
+    rejected.push(
+      automaticRejection(
+        item.preparedCandidate.finding_id,
+        'INCOMPLETE_CHALLENGE_EVIDENCE',
+        `Runner 已补入完整冻结的契约来源证据，但仍缺少：${item.result.missing_inputs.join('；')}`,
+      ),
+    )
+  }
 }
 
 function createAdversarialBatch({
@@ -1652,7 +1956,9 @@ function advanceFixVerification(run, repositoryRoot) {
   ) {
     throw new Error(`当前终态不能继续推进：${run.state.status}`)
   }
-  const inputChange = changedInput(run.manifest, repositoryRoot)
+  const inputChange =
+    changedInput(run.manifest, repositoryRoot) ??
+    changedAuthorAnchor(run, repositoryRoot)
   if (inputChange) {
     const invalidated = transition(run.runDirectory, run.state, 'INVALIDATED', {
       invalidation_reason: inputChange,
@@ -1754,7 +2060,9 @@ function advanceReviewOnce(argumentsList) {
   ) {
     throw new Error(`当前终态不能继续推进：${run.state.status}`)
   }
-  const inputChange = changedInput(run.manifest, repositoryRoot)
+  const inputChange =
+    changedInput(run.manifest, repositoryRoot) ??
+    changedAuthorAnchor(run, repositoryRoot)
   if (inputChange) {
     const invalidated = transition(run.runDirectory, run.state, 'INVALIDATED', {
       invalidation_reason: inputChange,
@@ -1768,6 +2076,9 @@ function advanceReviewOnce(argumentsList) {
   }
   const config = JSON.parse(readFileSync(configPath, 'utf8'))
   validateConfig(config)
+  if (run.state.status === 'VERIFYING_AUTHOR_RESPONSE') {
+    return advanceAuthorResponse(run, repositoryRoot, config)
+  }
   if (run.state.status === 'PACKED') {
     if (run.state.active_tasks.length !== 1) {
       throw new Error('PACKED 状态必须且只能有一个 L1 任务')
@@ -1810,10 +2121,12 @@ function advanceReviewOnce(argumentsList) {
       l1Response.result.candidates,
       'self_consistency',
     )
-    const preparedL1 = prepareCandidates(
-      l1Layer.accepted,
-      run.manifest.documents,
-      config.command_allowlist,
+    const preparedL1 = assignCandidateQueueTimes(
+      prepareCandidates(
+        l1Layer.accepted,
+        run.manifest.documents,
+        config.command_allowlist,
+      ),
     )
     preparedL1.rejected.unshift(...l1Layer.rejected)
     writeJson(
@@ -1968,18 +2281,18 @@ function advanceReviewOnce(argumentsList) {
       ) {
         throw new Error('分片 SELF_CHECKED 状态必须只包含 L2 分片任务')
       }
-      const waitingFor = activeTasks
-        .filter((task) => !existsSync(task.response_path))
-        .map((task) => task.task_id)
-      if (waitingFor.length > 0) {
+      const completedTasks = activeTasks.filter((task) =>
+        existsSync(task.response_path),
+      )
+      if (completedTasks.length === 0) {
         return {
           status: run.state.status,
           run_dir: run.runDirectory,
           tasks: [],
-          waiting_for: waitingFor,
+          waiting_for: activeTasks.map((task) => task.task_id),
         }
       }
-      const taskResponses = activeTasks.map((task) => ({
+      const taskResponses = completedTasks.map((task) => ({
         task,
         response: readTaskResponse(task),
       }))
@@ -2003,6 +2316,7 @@ function advanceReviewOnce(argumentsList) {
           logical_id: task.logical_id,
           contracts: response.result.contracts,
           candidates: response.result.candidates,
+          cross_shard_signals: response.result.cross_shard_signals ?? [],
         })),
       )
       writeJson(
@@ -2016,19 +2330,29 @@ function advanceReviewOnce(argumentsList) {
         ),
       )
       const nextIndex = run.state.next_architecture_shard_index
-      if (nextIndex < plan.shards.length) {
+      const pendingTasks = activeTasks.filter(
+        (task) => !existsSync(task.response_path),
+      )
+      if (nextIndex < plan.shards.length || pendingTasks.length > 0) {
         const tasks = createArchitectureShardTasks({
           runDirectory: run.runDirectory,
           shards: plan.shards,
           startIndex: nextIndex,
           config,
+          limit: Math.max(
+            0,
+            config.max_parallel_subagents - pendingTasks.length,
+          ),
         })
         const taskAttempts = { ...run.state.task_attempts }
         for (const task of tasks) {
           taskAttempts[task.logical_id] = 1
         }
         const state = updateState(run.runDirectory, run.state, {
-          active_tasks: tasks.map((task) => task.task_id),
+          active_tasks: [
+            ...pendingTasks.map((task) => task.task_id),
+            ...tasks.map((task) => task.task_id),
+          ],
           task_attempts: taskAttempts,
           next_architecture_shard_index: nextIndex + tasks.length,
         })
@@ -2037,6 +2361,40 @@ function advanceReviewOnce(argumentsList) {
           run_dir: run.runDirectory,
           tasks,
         }
+      }
+      const mergeSignals = crossShardMergeSignals(
+        plan,
+        shardResults,
+        run.manifest,
+      )
+      updateReviewMetric(run.runDirectory, {
+        architecture_shards: plan.shards.length,
+        architecture_shard_candidates: shardResults.reduce(
+          (total, result) => total + result.candidates.length,
+          0,
+        ),
+        cross_shard_signals_reported: shardResults.reduce(
+          (total, result) =>
+            total + (result.cross_shard_signals?.length ?? 0),
+          0,
+        ),
+        cross_shard_signals_valid: mergeSignals.length,
+        architecture_merge_triggered: mergeSignals.length > 0,
+      })
+      if (mergeSignals.length === 0) {
+        return proceedFromArchitectureCandidates({
+          repositoryRoot,
+          run: {
+            ...run,
+            state: updateState(run.runDirectory, run.state, {
+              active_tasks: [],
+            }),
+          },
+          config,
+          architectureCandidates: shardResults.flatMap(
+            (result) => result.candidates,
+          ),
+        })
       }
       const contractLedger = JSON.parse(
         readFileSync(
@@ -2061,6 +2419,7 @@ function advanceReviewOnce(argumentsList) {
               shardResults.flatMap((result) => result.contracts),
             ),
           },
+          cross_shard_signals: mergeSignals,
           shard_results: shardResults,
         },
       })
@@ -2092,35 +2451,37 @@ function advanceReviewOnce(argumentsList) {
     ) {
       throw new Error('SELF_CHECKED 状态必须包含一个 L2 和零到多个 L3 任务')
     }
-    const waitingFor = activeTasks
-      .filter((task) => !existsSync(task.response_path))
-      .map((task) => task.task_id)
-    if (waitingFor.length > 0) {
+    const completedTasks = activeTasks.filter((task) =>
+      existsSync(task.response_path),
+    )
+    if (completedTasks.length === 0) {
       return {
         status: run.state.status,
         run_dir: run.runDirectory,
         tasks: [],
-        waiting_for: waitingFor,
+        waiting_for: activeTasks.map((task) => task.task_id),
       }
     }
-    const taskResponses = activeTasks.map((task) => ({
+    const taskResponses = completedTasks.map((task) => ({
       task,
       response: readTaskResponse(task),
     }))
-    const insufficientTask = taskResponses.find(({ response }) =>
-      isInsufficientInput(response.result),
+    const insufficientArchitectureTask = taskResponses.find(
+      ({ task, response }) =>
+        task.stage === 'architecture' &&
+        isInsufficientInput(response.result),
     )
-    if (insufficientTask) {
+    if (insufficientArchitectureTask) {
       return failForInsufficientInput(
         run.runDirectory,
         run.state,
-        insufficientTask.task,
-        insufficientTask.response.result,
+        insufficientArchitectureTask.task,
+        insufficientArchitectureTask.response.result,
       )
     }
-    const l2Response = taskResponses.find(
+    const l2TaskResponse = taskResponses.find(
       ({ task }) => task.stage === 'architecture',
-    ).response
+    )
     const l1Candidates = JSON.parse(
       readFileSync(path.join(run.runDirectory, 'l1-candidates.json'), 'utf8'),
     )
@@ -2131,40 +2492,163 @@ function advanceReviewOnce(argumentsList) {
       l1Candidates.candidates,
       'self_consistency',
     )
-    const l2Layer = enforceCandidateLayer(
-      l2Response.result.candidates,
-      'architecture',
-    )
-    const prepared = prepareCandidates(
-      [...l1Layer.accepted, ...l2Layer.accepted],
-      run.manifest.documents,
-      config.command_allowlist,
-    )
-    prepared.rejected.unshift(...l1Layer.rejected, ...l2Layer.rejected)
-    writeJson(path.join(run.runDirectory, 'candidates.json'), prepared.accepted)
-    const earlyTaskResponses = taskResponses.filter(
+    const completedEarlyResponses = taskResponses.filter(
       ({ task }) => task.stage === 'adversarial',
     )
-    const expectedEarlyIds = prepared.accepted
-      .slice(0, earlyTaskResponses.length)
-      .map((candidateItem) => candidateItem.finding_id)
-    const actualEarlyIds = earlyTaskResponses.map(({ task }) =>
+    const pendingTasks = activeTasks.filter(
+      (task) => !existsSync(task.response_path),
+    )
+    if (!l2TaskResponse) {
+      const preparedL1 = JSON.parse(
+        readFileSync(path.join(run.runDirectory, 'candidates.json'), 'utf8'),
+      )
+      const recovered = recoverAdversarialInsufficient({
+        taskResponses: completedEarlyResponses,
+        preparedCandidates: preparedL1,
+        runDirectory: run.runDirectory,
+        manifest: run.manifest,
+        contractLedger,
+        config,
+      })
+      const adversarialResults = readJsonOr(
+        path.join(run.runDirectory, 'adversarial-results.json'),
+        [],
+      )
+      const rejected = readJsonOr(
+        path.join(run.runDirectory, 'rejected.json'),
+        [],
+      )
+      const evidenceCards = readJsonOr(
+        path.join(run.runDirectory, 'evidence-cards.json'),
+        [],
+      )
+      consumeAdversarialResponses({
+        taskResponses: recovered.consumable,
+        preparedCandidates: preparedL1,
+        documents: run.manifest.documents,
+        commandAllowlist: config.command_allowlist,
+        adversarialResults,
+        rejected,
+        evidenceCards,
+      })
+      recordExhaustedAdversarialEvidence({
+        exhausted: recovered.exhausted,
+        adversarialResults,
+        rejected,
+      })
+      writeJson(
+        path.join(run.runDirectory, 'adversarial-results.json'),
+        adversarialResults,
+      )
+      writeJson(path.join(run.runDirectory, 'rejected.json'), rejected)
+      writeJson(
+        path.join(run.runDirectory, 'evidence-cards.json'),
+        evidenceCards,
+      )
+      const availableSlots = Math.max(
+        0,
+        config.max_parallel_subagents -
+          pendingTasks.length -
+          recovered.retryTasks.length,
+      )
+      const nextIndex = run.state.next_adversarial_index
+      const freshTasks = createAdversarialBatch({
+        candidates: preparedL1.slice(nextIndex, nextIndex + availableSlots),
+        runDirectory: run.runDirectory,
+        manifest: run.manifest,
+        contractLedger,
+        config,
+      })
+      const tasks = [...recovered.retryTasks, ...freshTasks]
+      const taskAttempts = { ...run.state.task_attempts }
+      for (const task of tasks) {
+        taskAttempts[task.logical_id] = task.attempt
+      }
+      const state = updateState(run.runDirectory, run.state, {
+        active_tasks: [
+          ...pendingTasks.map((task) => task.task_id),
+          ...tasks.map((task) => task.task_id),
+        ],
+        task_attempts: taskAttempts,
+        next_adversarial_index: nextIndex + freshTasks.length,
+      })
+      return {
+        status: state.status,
+        run_dir: run.runDirectory,
+        tasks,
+        ...(recovered.retryTasks.length > 0
+          ? { retry_reason: 'EVIDENCE_EXPANDED' }
+          : {}),
+        waiting_for: pendingTasks.map((task) => task.task_id),
+      }
+    }
+    const l2Layer = enforceCandidateLayer(
+      l2TaskResponse.response.result.candidates,
+      'architecture',
+    )
+    const prepared = assignCandidateQueueTimes(
+      prepareCandidates(
+        [...l1Layer.accepted, ...l2Layer.accepted],
+        run.manifest.documents,
+        config.command_allowlist,
+      ),
+      JSON.parse(
+        readFileSync(path.join(run.runDirectory, 'candidates.json'), 'utf8'),
+      ),
+    )
+    prepared.rejected.unshift(...l1Layer.rejected, ...l2Layer.rejected)
+    updateReviewMetric(run.runDirectory, {
+      candidates_before_gate:
+        l1Candidates.candidates.length +
+        l2TaskResponse.response.result.candidates.length,
+      candidates_after_gate: prepared.accepted.length,
+      candidates_rejected_before_l3: prepared.rejected.length,
+    })
+    writeJson(path.join(run.runDirectory, 'candidates.json'), prepared.accepted)
+    const expectedEarlyIds = new Set(
+      prepared.accepted
+        .slice(0, run.state.next_adversarial_index)
+        .map((candidateItem) => candidateItem.finding_id),
+    )
+    const actualEarlyIds = completedEarlyResponses.map(({ task }) =>
       task.logical_id.replace(/^adversarial-/, ''),
     )
-    if (JSON.stringify(actualEarlyIds) !== JSON.stringify(expectedEarlyIds)) {
+    if (actualEarlyIds.some((findingId) => !expectedEarlyIds.has(findingId))) {
       throw new Error('提前启动的 L3 候选与合并候选前缀不一致')
     }
-    const adversarialResults = []
-    const rejected = [...prepared.rejected]
-    const evidenceCards = []
+    const recoveredEarly = recoverAdversarialInsufficient({
+      taskResponses: completedEarlyResponses,
+      preparedCandidates: prepared.accepted,
+      runDirectory: run.runDirectory,
+      manifest: run.manifest,
+      contractLedger,
+      config,
+    })
+    const adversarialResults = readJsonOr(
+      path.join(run.runDirectory, 'adversarial-results.json'),
+      [],
+    )
+    const rejected = dedupeCanonical([
+      ...readJsonOr(path.join(run.runDirectory, 'rejected.json'), []),
+      ...prepared.rejected,
+    ])
+    const evidenceCards = readJsonOr(
+      path.join(run.runDirectory, 'evidence-cards.json'),
+      [],
+    )
     consumeAdversarialResponses({
-      taskResponses: earlyTaskResponses,
+      taskResponses: recoveredEarly.consumable,
       preparedCandidates: prepared.accepted,
       documents: run.manifest.documents,
       commandAllowlist: config.command_allowlist,
       adversarialResults,
       rejected,
       evidenceCards,
+    })
+    recordExhaustedAdversarialEvidence({
+      exhausted: recoveredEarly.exhausted,
+      adversarialResults,
+      rejected,
     })
     writeJson(
       path.join(run.runDirectory, 'adversarial-results.json'),
@@ -2173,35 +2657,48 @@ function advanceReviewOnce(argumentsList) {
     writeJson(path.join(run.runDirectory, 'rejected.json'), rejected)
     writeJson(path.join(run.runDirectory, 'evidence-cards.json'), evidenceCards)
 
-    const nextIndex = earlyTaskResponses.length
+    const nextIndex = run.state.next_adversarial_index
+    const stillPending = pendingTasks.filter(
+      (task) => task.stage === 'adversarial',
+    )
+    const availableSlots = Math.max(
+      0,
+      config.max_parallel_subagents -
+        stillPending.length -
+        recoveredEarly.retryTasks.length,
+    )
     const nextCandidates = prepared.accepted.slice(
       nextIndex,
-      nextIndex + config.max_parallel_subagents,
+      nextIndex + availableSlots,
     )
-    const tasks = createAdversarialBatch({
+    const freshTasks = createAdversarialBatch({
       candidates: nextCandidates,
       runDirectory: run.runDirectory,
       manifest: run.manifest,
       contractLedger,
       config,
     })
+    const tasks = [...recoveredEarly.retryTasks, ...freshTasks]
     const taskAttempts = {
       ...run.state.task_attempts,
     }
     for (const task of tasks) {
-      taskAttempts[task.logical_id] = 1
+      taskAttempts[task.logical_id] = task.attempt
     }
     const awaitingChallenges = transition(
       run.runDirectory,
       run.state,
       'ARCHITECTURE_CHECKED',
       {
-        active_tasks: tasks.map((task) => task.task_id),
+        active_tasks: [
+          ...stillPending.map((task) => task.task_id),
+          ...tasks.map((task) => task.task_id),
+        ],
         task_attempts: taskAttempts,
-        next_adversarial_index: nextIndex + tasks.length,
+        next_adversarial_index: nextIndex + freshTasks.length,
       },
     )
-    if (tasks.length === 0) {
+    if (stillPending.length === 0 && tasks.length === 0) {
       return finishReview({
         repositoryRoot,
         runDirectory: run.runDirectory,
@@ -2216,6 +2713,10 @@ function advanceReviewOnce(argumentsList) {
       status: awaitingChallenges.status,
       run_dir: run.runDirectory,
       tasks,
+      ...(recoveredEarly.retryTasks.length > 0
+        ? { retry_reason: 'EVIDENCE_EXPANDED' }
+        : {}),
+      waiting_for: stillPending.map((task) => task.task_id),
     }
   }
   if (run.state.status === 'ARCHITECTURE_SHARDED') {
@@ -2252,6 +2753,23 @@ function advanceReviewOnce(argumentsList) {
         'utf8',
       ),
     )
+    const shardCandidateFingerprints = new Set(
+      shardResults
+        .flatMap((result) => result.candidates)
+        .map((candidate) =>
+          JSON.stringify(findingIdentity(candidate).fingerprint),
+        ),
+    )
+    updateReviewMetric(run.runDirectory, {
+      architecture_merge_candidates: mergeResponse.result.candidates.length,
+      architecture_merge_unique_candidates:
+        mergeResponse.result.candidates.filter(
+          (candidate) =>
+            !shardCandidateFingerprints.has(
+              JSON.stringify(findingIdentity(candidate).fingerprint),
+            ),
+        ).length,
+    })
     return proceedFromArchitectureCandidates({
       repositoryRoot,
       run,
@@ -2266,15 +2784,15 @@ function advanceReviewOnce(argumentsList) {
     const activeTasks = run.state.active_tasks.map((taskId) =>
       loadTask(run.runDirectory, taskId),
     )
-    const waitingFor = activeTasks
-      .filter((task) => !existsSync(task.response_path))
-      .map((task) => task.task_id)
-    if (waitingFor.length > 0) {
+    const completedTasks = activeTasks.filter((task) =>
+      existsSync(task.response_path),
+    )
+    if (completedTasks.length === 0) {
       return {
         status: run.state.status,
         run_dir: run.runDirectory,
         tasks: [],
-        waiting_for: waitingFor,
+        waiting_for: activeTasks.map((task) => task.task_id),
       }
     }
     for (const task of activeTasks) {
@@ -2284,21 +2802,10 @@ function advanceReviewOnce(argumentsList) {
         )
       }
     }
-    const taskResponses = activeTasks.map((task) => ({
+    const taskResponses = completedTasks.map((task) => ({
       task,
       response: readTaskResponse(task),
     }))
-    const insufficientTask = taskResponses.find(({ response }) =>
-      isInsufficientInput(response.result),
-    )
-    if (insufficientTask) {
-      return failForInsufficientInput(
-        run.runDirectory,
-        run.state,
-        insufficientTask.task,
-        insufficientTask.response.result,
-      )
-    }
     const preparedCandidates = JSON.parse(
       readFileSync(path.join(run.runDirectory, 'candidates.json'), 'utf8'),
     )
@@ -2317,14 +2824,27 @@ function advanceReviewOnce(argumentsList) {
       path.join(run.runDirectory, 'evidence-cards.json'),
       [],
     )
-    consumeAdversarialResponses({
+    const recovered = recoverAdversarialInsufficient({
       taskResponses,
+      preparedCandidates,
+      runDirectory: run.runDirectory,
+      manifest: run.manifest,
+      contractLedger,
+      config,
+    })
+    consumeAdversarialResponses({
+      taskResponses: recovered.consumable,
       preparedCandidates,
       documents: run.manifest.documents,
       commandAllowlist: config.command_allowlist,
       adversarialResults,
       rejected,
       evidenceCards,
+    })
+    recordExhaustedAdversarialEvidence({
+      exhausted: recovered.exhausted,
+      adversarialResults,
+      rejected,
     })
     writeJson(
       path.join(run.runDirectory, 'adversarial-results.json'),
@@ -2334,35 +2854,62 @@ function advanceReviewOnce(argumentsList) {
     writeJson(path.join(run.runDirectory, 'evidence-cards.json'), evidenceCards)
 
     const nextIndex = run.state.next_adversarial_index
+    const pendingTasks = activeTasks.filter(
+      (task) => !existsSync(task.response_path),
+    )
+    const availableSlots = Math.max(
+      0,
+      config.max_parallel_subagents -
+        pendingTasks.length -
+        recovered.retryTasks.length,
+    )
     const nextCandidates = preparedCandidates.slice(
       nextIndex,
-      nextIndex + config.max_parallel_subagents,
+      nextIndex + availableSlots,
     )
-    if (nextCandidates.length > 0) {
-      const tasks = createAdversarialBatch({
-        candidates: nextCandidates,
-        runDirectory: run.runDirectory,
-        manifest: run.manifest,
-        contractLedger,
-        config,
-      })
+    const freshTasks = createAdversarialBatch({
+      candidates: nextCandidates,
+      runDirectory: run.runDirectory,
+      manifest: run.manifest,
+      contractLedger,
+      config,
+    })
+    const tasks = [...recovered.retryTasks, ...freshTasks]
+    if (pendingTasks.length > 0 || tasks.length > 0) {
       const taskAttempts = {
         ...run.state.task_attempts,
       }
       for (const task of tasks) {
-        taskAttempts[task.logical_id] = 1
+        taskAttempts[task.logical_id] = task.attempt
       }
       const state = updateState(run.runDirectory, run.state, {
-        active_tasks: tasks.map((task) => task.task_id),
+        active_tasks: [
+          ...pendingTasks.map((task) => task.task_id),
+          ...tasks.map((task) => task.task_id),
+        ],
         task_attempts: taskAttempts,
-        next_adversarial_index: nextIndex + tasks.length,
+        next_adversarial_index: nextIndex + freshTasks.length,
       })
       return {
         status: state.status,
         run_dir: run.runDirectory,
         tasks,
+        ...(recovered.retryTasks.length > 0
+          ? { retry_reason: 'EVIDENCE_EXPANDED' }
+          : {}),
+        waiting_for: pendingTasks.map((task) => task.task_id),
       }
     }
+    updateReviewMetric(run.runDirectory, {
+      l3_candidates: preparedCandidates.length,
+      l3_refuted: rejected.filter(
+        (item) => item.reason_code === 'REFUTED_BY_COUNTEREXAMPLE',
+      ).length,
+      l3_insufficient: rejected.filter(
+        (item) => item.reason_code === 'INCOMPLETE_CHALLENGE_EVIDENCE',
+      ).length,
+      l3_survived: evidenceCards.length,
+    })
     return finishReview({
       repositoryRoot,
       runDirectory: run.runDirectory,
@@ -2430,6 +2977,13 @@ function retryNativeTask(
       roleFileName: 'fix-verification-role.md',
       schemaFileName: 'fix-verification-result.schema.json',
       timeoutMs: config.timeouts_ms.fix_verification,
+      responseGraceMs: config.timeouts_ms.response_grace,
+    },
+    author_rebuttal: {
+      modelConfig: config.models.adversarial,
+      roleFileName: 'author-rebuttal-role.md',
+      schemaFileName: 'author-rebuttal-result.schema.json',
+      timeoutMs: config.timeouts_ms.adversarial,
       responseGraceMs: config.timeouts_ms.response_grace,
     },
   }
@@ -2689,6 +3243,7 @@ function prepareCandidates(rawCandidates, documents, commandAllowlist) {
     fingerprints.add(fingerprintKey)
     accepted.push({
       finding_id: identity.findingId,
+      queue_ready_at: null,
       quote_hash: identity.quoteHash,
       cited_section: {
         source: document.path,
@@ -2699,6 +3254,17 @@ function prepareCandidates(rawCandidates, documents, commandAllowlist) {
     })
   }
   return { accepted, rejected }
+}
+
+function assignCandidateQueueTimes(prepared, previousCandidates = []) {
+  const previous = new Map(
+    previousCandidates.map((item) => [item.finding_id, item.queue_ready_at]),
+  )
+  const readyAt = new Date().toISOString()
+  for (const item of prepared.accepted) {
+    item.queue_ready_at = previous.get(item.finding_id) ?? readyAt
+  }
+  return prepared
 }
 
 function createRunId() {
@@ -2829,48 +3395,118 @@ function executeAllowlistedVerifications(cards, config, repositoryRoot) {
     })
 }
 
-function renderHumanReview(cards, currentBatch, batchSize, coverage) {
+function findingBody(card, number) {
+  const initialState = card.trigger.initial_state
+    .map((item) => `  - ${item}`)
+    .join('\n')
+  const steps = card.trigger.steps
+    .map(
+      (step, stepIndex) =>
+        `  ${stepIndex + 1}. ${step.actor}：${step.action} → ${step.result}`,
+    )
+    .join('\n')
+  return [
+    `## 发现 ${number}`,
+    '',
+    `<!-- finding_id: ${card.finding_id} -->`,
+    '',
+    `结论：${card.claim}`,
+    '',
+    `契约来源：${card.contract.source} · ${card.contract.heading}`,
+    '',
+    `契约原文：${card.contract.quote}`,
+    '',
+    '初始状态：',
+    initialState,
+    '',
+    '触发步骤：',
+    steps,
+    '',
+    `推导结果：${card.trigger.derived_outcome}`,
+    '',
+    `契约违反：期望「${card.violation.expected}」，实际「${card.violation.actual}」`,
+    '',
+    `对抗检查：尝试「${card.falsification.attempt}」；仍有证据「${card.falsification.remaining_evidence}」`,
+    '',
+    `验证方法与 Oracle：${card.verification.procedure}；成立标志为「${card.verification.oracle}」`,
+  ].join('\n')
+}
+
+function renderAuthorResponseRequest(cards, targetPath) {
+  return [
+    '# 设计评审作者答辩',
+    '',
+    `目标文档：${targetPath}`,
+    '',
+    '请一次性处理下面全部发现。此阶段不要修改设计文档。',
+    '',
+    '对每条发现只能选择：',
+    '',
+    '- `acknowledge`：确认该问题真实。',
+    '- `counterevidence`：提供能打断违反路径的文件、标题与原文锚点。',
+    '- `unrecorded_intent`：相关意图存在，但尚未写入评审材料。',
+    '',
+    ...cards.map((card, index) => findingBody(card, index + 1)),
+    '',
+    '请填写同目录的 `author-response-template.json`，并将完整响应保存为 `author-response.json`。',
+    '',
+  ].join('\n')
+}
+
+function authorResponseTemplate(cards) {
+  return {
+    responses: cards.map((card) => ({
+      finding_id: card.finding_id,
+      position: 'acknowledge',
+    })),
+  }
+}
+
+function renderHumanReview(
+  cards,
+  currentBatch,
+  batchSize,
+  coverage,
+  authorReview = null,
+) {
   if (cards.length === 0) {
     return '# 设计评审\n\n没有候选意见需要人工仲裁。\n'
   }
   const totalBatches = Math.ceil(cards.length / batchSize)
   const startIndex = (currentBatch - 1) * batchSize
   const batch = cards.slice(startIndex, startIndex + batchSize)
+  const responseById = new Map(
+    (authorReview?.responses ?? []).map((response) => [
+      response.finding_id,
+      response,
+    ]),
+  )
+  const rebuttalById = new Map(
+    (authorReview?.rebuttal_results ?? []).map((result) => [
+      result.finding_id,
+      result,
+    ]),
+  )
   const sections = batch.map((card, index) => {
-    const initialState = card.trigger.initial_state
-      .map((item) => `  - ${item}`)
-      .join('\n')
-    const steps = card.trigger.steps
-      .map(
-        (step, stepIndex) =>
-          `  ${stepIndex + 1}. ${step.actor}：${step.action} → ${step.result}`,
-      )
-      .join('\n')
-    return [
-      `## 发现 ${index + 1}`,
-      '',
-      `<!-- finding_id: ${card.finding_id} -->`,
-      '',
-      `结论：${card.claim}`,
-      '',
-      `契约来源：${card.contract.source} · ${card.contract.heading}`,
-      '',
-      `契约原文：${card.contract.quote}`,
-      '',
-      '初始状态：',
-      initialState,
-      '',
-      '触发步骤：',
-      steps,
-      '',
-      `推导结果：${card.trigger.derived_outcome}`,
-      '',
-      `契约违反：期望「${card.violation.expected}」，实际「${card.violation.actual}」`,
-      '',
-      `对抗检查：尝试「${card.falsification.attempt}」；仍有证据「${card.falsification.remaining_evidence}」`,
-      '',
-      `验证方法与 Oracle：${card.verification.procedure}；成立标志为「${card.verification.oracle}」`,
-    ].join('\n')
+    const response = responseById.get(card.finding_id)
+    const rebuttal = rebuttalById.get(card.finding_id)
+    const authorLines = response
+      ? [
+          '',
+          '作者答辩：',
+          response.position === 'acknowledge'
+            ? '- 作者确认该问题。'
+            : response.position === 'unrecorded_intent'
+              ? `- 作者声明存在未写入材料的意图：${response.reason}`
+              : `- 作者提供反证：${response.reason}`,
+          ...(rebuttal
+            ? [
+                `- 反证复查结果：${rebuttal.outcome === 'survives' ? '原发现仍成立' : '需要新增权威后重新判断'}；${rebuttal.evidence}`,
+              ]
+            : []),
+        ]
+      : []
+    return [findingBody(card, index + 1), ...authorLines].join('\n')
   })
   const coverageLines = []
   if (coverage?.target) {
@@ -2879,6 +3515,11 @@ function renderHumanReview(cards, currentBatch, batchSize, coverage) {
   if (coverage?.explicit_authorities?.length) {
     coverageLines.push(
       `显式 authority：${coverage.explicit_authorities.join('、')}`,
+    )
+  }
+  if (coverage?.discovered_authorities?.length) {
+    coverageLines.push(
+      `自动发现 authority：${coverage.discovered_authorities.join('、')}。这些文档基于目标或已确认权威中的明确治理关系纳入。`,
     )
   }
   if (coverage?.observed_contexts?.length) {
@@ -2928,6 +3569,9 @@ function finishReview({
   rejected,
   evidenceCards,
 }) {
+  const incompleteChallengeCount = rejected.filter(
+    (item) => item.reason_code === 'INCOMPLETE_CHALLENGE_EVIDENCE',
+  ).length
   writeJson(
     path.join(runDirectory, 'adversarial-results.json'),
     adversarialResults,
@@ -2935,6 +3579,7 @@ function finishReview({
   writeJson(path.join(runDirectory, 'rejected.json'), rejected)
   let state = transition(runDirectory, startingState, 'CHALLENGED', {
     active_tasks: [],
+    incomplete_challenge_count: incompleteChallengeCount,
   })
   const sortedEvidenceCards = sortEvidenceCards(evidenceCards)
   const verificationResults = executeAllowlistedVerifications(
@@ -2957,6 +3602,7 @@ function finishReview({
       current_batch: null,
       total_batches: 0,
     })
+    recordRunTiming(runDirectory, state, config.max_parallel_subagents)
     return {
       status: state.status,
       run_dir: runDirectory,
@@ -2964,36 +3610,49 @@ function finishReview({
     }
   }
 
-  const totalBatches = Math.ceil(
-    sortedEvidenceCards.length / config.human_batch_size,
-  )
-  writeFileSync(
-    path.join(runDirectory, 'human-review.md'),
-    renderHumanReview(
+  if (readJsonOr(path.join(runDirectory, 'manifest.json'), {}).version < 8) {
+    const run = {
+      runDirectory,
+      state,
+    }
+    const result = enterHumanArbitration(
+      run,
       sortedEvidenceCards,
-      1,
-      config.human_batch_size,
-      {
-        target: startingState.target_path,
-        ...(startingState.coverage ?? {}),
-      },
-    ),
+      config,
+    )
+    recordRunTiming(
+      runDirectory,
+      readJsonOr(path.join(runDirectory, 'state.json'), state),
+      config.max_parallel_subagents,
+    )
+    return result
+  }
+  writeFileSync(
+    path.join(runDirectory, 'author-response-request.md'),
+    renderAuthorResponseRequest(sortedEvidenceCards, startingState.target_path),
   )
-  const qualityFlags =
-    sortedEvidenceCards.length > config.human_batch_size
-      ? ['REVIEW_OVERLOAD']
-      : []
-  state = transition(runDirectory, state, 'AWAITING_HUMAN', {
-    current_batch: 1,
-    total_batches: totalBatches,
-    quality_flags: qualityFlags,
+  writeJson(
+    path.join(runDirectory, 'author-response-template.json'),
+    authorResponseTemplate(sortedEvidenceCards),
+  )
+  state = transition(runDirectory, state, 'AWAITING_AUTHOR_RESPONSE', {
+    current_batch: null,
+    total_batches: 0,
+    quality_flags: [],
   })
+  recordRunTiming(runDirectory, state, config.max_parallel_subagents)
   return {
     status: state.status,
     run_dir: runDirectory,
     tasks: [],
-    current_batch: state.current_batch,
-    total_batches: state.total_batches,
+    author_response_request: path.join(
+      runDirectory,
+      'author-response-request.md',
+    ),
+    author_response_template: path.join(
+      runDirectory,
+      'author-response-template.json',
+    ),
   }
 }
 
@@ -3002,9 +3661,10 @@ function createArchitectureShardTasks({
   shards,
   startIndex,
   config,
+  limit = config.max_parallel_subagents,
 }) {
   return shards
-    .slice(startIndex, startIndex + config.max_parallel_subagents)
+    .slice(startIndex, startIndex + limit)
     .map((shard) =>
       createNativeTask({
         runDirectory,
@@ -3019,6 +3679,65 @@ function createArchitectureShardTasks({
         input: shard.input,
       }),
     )
+}
+
+function shardSectionLocations(plan, manifest) {
+  const locations = new Map()
+  const add = (source, heading, logicalId) => {
+    const key = JSON.stringify([source, heading])
+    const values = locations.get(key) ?? new Set()
+    values.add(logicalId)
+    locations.set(key, values)
+  }
+  const documents = new Map(
+    manifest.documents.map((document) => [document.path, document]),
+  )
+  for (const shard of plan.shards) {
+    for (const projection of shard.input.support_documents) {
+      const headings =
+        projection.projection?.headings ??
+        documents
+          .get(projection.path)
+          ?.sections.map((section) => section.heading) ??
+        []
+      for (const heading of headings) {
+        add(projection.path, heading, shard.logical_id)
+      }
+    }
+  }
+  return locations
+}
+
+function crossShardMergeSignals(plan, shardResults, manifest) {
+  const locations = shardSectionLocations(plan, manifest)
+  const accepted = []
+  const fingerprints = new Set()
+  for (const result of shardResults) {
+    for (const signal of result.cross_shard_signals ?? []) {
+      const sourceLocations = locations.get(
+        JSON.stringify([signal.source, signal.heading]),
+      )
+      const counterpartLocations = locations.get(
+        JSON.stringify([
+          signal.counterpart_source,
+          signal.counterpart_heading,
+        ]),
+      )
+      if (
+        !sourceLocations?.has(result.logical_id) ||
+        !counterpartLocations ||
+        [...counterpartLocations].every((item) => item === result.logical_id)
+      ) {
+        continue
+      }
+      const fingerprint = JSON.stringify(canonicalize(signal))
+      if (!fingerprints.has(fingerprint)) {
+        fingerprints.add(fingerprint)
+        accepted.push(signal)
+      }
+    }
+  }
+  return accepted
 }
 
 function proceedFromArchitectureCandidates({
@@ -3041,12 +3760,20 @@ function proceedFromArchitectureCandidates({
     architectureCandidates,
     'architecture',
   )
-  const prepared = prepareCandidates(
-    [...l1Layer.accepted, ...l2Layer.accepted],
-    run.manifest.documents,
-    config.command_allowlist,
+  const prepared = assignCandidateQueueTimes(
+    prepareCandidates(
+      [...l1Layer.accepted, ...l2Layer.accepted],
+      run.manifest.documents,
+      config.command_allowlist,
+    ),
   )
   prepared.rejected.unshift(...l1Layer.rejected, ...l2Layer.rejected)
+  updateReviewMetric(run.runDirectory, {
+    candidates_before_gate:
+      l1Candidates.candidates.length + architectureCandidates.length,
+    candidates_after_gate: prepared.accepted.length,
+    candidates_rejected_before_l3: prepared.rejected.length,
+  })
   writeJson(path.join(run.runDirectory, 'candidates.json'), prepared.accepted)
   writeJson(path.join(run.runDirectory, 'rejected.json'), prepared.rejected)
   writeJson(path.join(run.runDirectory, 'adversarial-results.json'), [])
@@ -3112,7 +3839,7 @@ function loadRun(repositoryRoot, requestedRunDirectory) {
   const manifest = JSON.parse(
     readFileSync(path.join(runDirectory, 'manifest.json'), 'utf8'),
   )
-  if (![3, 4, 5, 6, 7].includes(manifest.version)) {
+  if (![3, 4, 5, 6, 7, 8].includes(manifest.version)) {
     throw new Error(`不支持的 Manifest 版本：${manifest.version}`)
   }
   if (manifest.version === 6 && manifest.mode !== 'fix_verification') {
@@ -3125,6 +3852,307 @@ function loadRun(repositoryRoot, requestedRunDirectory) {
     ),
     manifest,
   }
+}
+
+function adjudicationCards(runDirectory) {
+  return readJsonOr(
+    path.join(runDirectory, 'human-cards.json'),
+    JSON.parse(
+      readFileSync(path.join(runDirectory, 'evidence-cards.json'), 'utf8'),
+    ),
+  )
+}
+
+function authorReview(runDirectory) {
+  return readJsonOr(path.join(runDirectory, 'author-review.json'), null)
+}
+
+function enterHumanArbitration(run, cards, config, review = null) {
+  const refutedIds = new Set(
+    (review?.rebuttal_results ?? [])
+      .filter((result) => result.outcome === 'refuted')
+      .map((result) => result.finding_id),
+  )
+  const remainingIds = new Set(cards.map((card) => card.finding_id))
+  const authorResponseSummary = review
+    ? {
+        acknowledged: review.responses.filter(
+          (response) =>
+            response.position === 'acknowledge' &&
+            remainingIds.has(response.finding_id),
+        ).length,
+        refuted: refutedIds.size,
+        remaining: cards.length,
+      }
+    : null
+  writeJson(path.join(run.runDirectory, 'human-cards.json'), cards)
+  if (cards.length === 0) {
+    const state = transition(run.runDirectory, run.state, 'CLOSED', {
+      active_tasks: [],
+      completion_reason: review
+        ? 'ALL_FINDINGS_REFUTED_BY_AUTHOR'
+        : 'NO_ADMISSIBLE_FINDINGS',
+      current_batch: null,
+      total_batches: 0,
+      ...(authorResponseSummary
+        ? { author_response_summary: authorResponseSummary }
+        : {}),
+    })
+    return {
+      status: state.status,
+      run_dir: run.runDirectory,
+      tasks: [],
+    }
+  }
+  const totalBatches = Math.ceil(cards.length / config.human_batch_size)
+  writeFileSync(
+    path.join(run.runDirectory, 'human-review.md'),
+    renderHumanReview(
+      cards,
+      1,
+      config.human_batch_size,
+      {
+        target: run.state.target_path,
+        ...(run.state.coverage ?? {}),
+      },
+      review,
+    ),
+  )
+  const state = transition(run.runDirectory, run.state, 'AWAITING_HUMAN', {
+    active_tasks: [],
+    current_batch: 1,
+    total_batches: totalBatches,
+    quality_flags:
+      cards.length > config.human_batch_size ? ['REVIEW_OVERLOAD'] : [],
+    ...(authorResponseSummary
+      ? { author_response_summary: authorResponseSummary }
+      : {}),
+  })
+  return {
+    status: state.status,
+    run_dir: run.runDirectory,
+    tasks: [],
+    current_batch: state.current_batch,
+    total_batches: state.total_batches,
+  }
+}
+
+function freezeAuthorAnchor(repositoryRoot, manifest, anchor) {
+  const resolved = canonicalPath(repositoryRoot, anchor.path)
+  const content = readFileSync(resolved.absolutePath, 'utf8')
+  const sections = parseMarkdownSections(content)
+  let section = null
+  if (anchor.heading !== undefined) {
+    const matches = sections.filter(
+      (candidateSection) => candidateSection.heading === anchor.heading,
+    )
+    if (matches.length !== 1) {
+      throw new Error(
+        `锚点标题必须唯一存在：${resolved.relativePath} · ${anchor.heading}`,
+      )
+    }
+    ;[section] = matches
+    if (!section.content.includes(anchor.quote)) {
+      throw new Error(
+        `锚点原文不在指定标题内：${resolved.relativePath} · ${anchor.heading}`,
+      )
+    }
+  } else if (!content.includes(anchor.quote)) {
+    throw new Error(`锚点原文不存在：${resolved.relativePath}`)
+  }
+  const declared = manifest.documents.find(
+    (document) => document.path === resolved.relativePath,
+  )
+  return {
+    path: resolved.relativePath,
+    sha256: sha256(content),
+    role: declared?.role ?? 'repository_fact',
+    authority_status: declared?.authority_status ?? null,
+    ...(anchor.heading !== undefined ? { heading: anchor.heading } : {}),
+    quote: anchor.quote,
+    content: section?.content ?? anchor.quote,
+  }
+}
+
+function prepareAuthorResponse(argumentsList) {
+  const parsed = parseFileOption(
+    argumentsList,
+    '--response',
+    '用法：review-design.mjs author-response <run-directory> --response <author-response.json>',
+  )
+  const repositoryRoot = findRepositoryRoot(process.cwd())
+  const run = loadRun(repositoryRoot, parsed.subject)
+  if (run.state.status !== 'AWAITING_AUTHOR_RESPONSE') {
+    throw new Error(`当前状态不接受作者答辩：${run.state.status}`)
+  }
+  const inputChange = changedInput(run.manifest, repositoryRoot)
+  if (inputChange) {
+    const invalidated = transition(run.runDirectory, run.state, 'INVALIDATED', {
+      invalidation_reason: inputChange,
+    })
+    return { status: invalidated.status, run_dir: run.runDirectory }
+  }
+  const responsePath = canonicalPath(repositoryRoot, parsed.file).absolutePath
+  const submitted = JSON.parse(readFileSync(responsePath, 'utf8'))
+  assertSchema(submitted, 'author-response.schema.json', '作者答辩')
+  const cards = adjudicationCards(run.runDirectory)
+  const expectedIds = new Set(cards.map((card) => card.finding_id))
+  const submittedIds = new Set(
+    submitted.responses.map((response) => response.finding_id),
+  )
+  if (
+    submitted.responses.length !== submittedIds.size ||
+    submittedIds.size !== expectedIds.size ||
+    [...expectedIds].some((findingId) => !submittedIds.has(findingId))
+  ) {
+    throw new Error('作者答辩必须且只能一次性覆盖全部 Evidence Cards')
+  }
+  const rebuttalItems = []
+  const deterministicResults = []
+  for (const response of submitted.responses) {
+    if (response.position !== 'counterevidence') {
+      continue
+    }
+    try {
+      rebuttalItems.push({
+        finding: cards.find(
+          (card) => card.finding_id === response.finding_id,
+        ),
+        response: {
+          finding_id: response.finding_id,
+          reason: response.reason,
+          anchors: response.anchors.map((anchor) =>
+            freezeAuthorAnchor(repositoryRoot, run.manifest, anchor),
+          ),
+        },
+      })
+    } catch (error) {
+      deterministicResults.push({
+        finding_id: response.finding_id,
+        outcome: 'survives',
+        evidence: `Runner 未能验证作者反证锚点：${error instanceof Error ? error.message : String(error)}`,
+      })
+    }
+  }
+  const review = {
+    responses: submitted.responses,
+    rebuttal_results: deterministicResults,
+    anchors: rebuttalItems.flatMap((item) => item.response.anchors),
+    submitted_sha256: sha256(readFileSync(responsePath, 'utf8')),
+  }
+  writeJson(path.join(run.runDirectory, 'author-response.json'), submitted)
+  writeJson(path.join(run.runDirectory, 'author-review.json'), review)
+  const config = JSON.parse(readFileSync(configPath, 'utf8'))
+  validateConfig(config)
+  if (rebuttalItems.length === 0) {
+    return enterHumanArbitration(run, cards, config, review)
+  }
+  const task = createNativeTask({
+    runDirectory: run.runDirectory,
+    stage: 'author_rebuttal',
+    attempt: 1,
+    modelConfig: config.models.adversarial,
+    roleFileName: 'author-rebuttal-role.md',
+    schemaFileName: 'author-rebuttal-result.schema.json',
+    timeoutMs: config.timeouts_ms.adversarial,
+    responseGraceMs: config.timeouts_ms.response_grace,
+    input: {
+      stage: 'author_rebuttal',
+      items: rebuttalItems,
+    },
+  })
+  const state = transition(
+    run.runDirectory,
+    run.state,
+    'VERIFYING_AUTHOR_RESPONSE',
+    {
+      active_tasks: [task.task_id],
+      task_attempts: {
+        ...run.state.task_attempts,
+        [task.logical_id]: 1,
+      },
+    },
+  )
+  return {
+    status: state.status,
+    run_dir: run.runDirectory,
+    tasks: [task],
+  }
+}
+
+function advanceAuthorResponse(run, repositoryRoot, config) {
+  if (run.state.active_tasks.length !== 1) {
+    throw new Error('VERIFYING_AUTHOR_RESPONSE 状态必须且只能有一个任务')
+  }
+  const task = loadTask(run.runDirectory, run.state.active_tasks[0])
+  if (task.stage !== 'author_rebuttal') {
+    throw new Error('VERIFYING_AUTHOR_RESPONSE 活动任务类型错误')
+  }
+  const taskInput = JSON.parse(
+    readFileSync(path.join(task.task_path, 'input.json'), 'utf8'),
+  )
+  for (const item of taskInput.items) {
+    for (const anchor of item.response.anchors) {
+      const current = canonicalPath(repositoryRoot, anchor.path)
+      if (sha256(readFileSync(current.absolutePath, 'utf8')) !== anchor.sha256) {
+        const invalidated = transition(
+          run.runDirectory,
+          run.state,
+          'INVALIDATED',
+          {
+            invalidation_reason: `作者反证锚点摘要已变化：${anchor.path}`,
+            active_tasks: [],
+          },
+        )
+        return { status: invalidated.status, run_dir: run.runDirectory, tasks: [] }
+      }
+    }
+  }
+  const response = readTaskResponse(task)
+  if (!response) {
+    return {
+      status: run.state.status,
+      run_dir: run.runDirectory,
+      tasks: [],
+      waiting_for: [task.task_id],
+    }
+  }
+  const expectedIds = taskInput.items.map((item) => item.finding.finding_id)
+  const actualIds = response.result.results.map((result) => result.finding_id)
+  if (
+    new Set(actualIds).size !== actualIds.length ||
+    actualIds.length !== expectedIds.length ||
+    expectedIds.some((findingId) => !actualIds.includes(findingId))
+  ) {
+    invalidTaskResult(task, 'results 必须且只能覆盖全部作者反证 finding')
+  }
+  const review = authorReview(run.runDirectory)
+  review.rebuttal_results.push(...response.result.results)
+  writeJson(path.join(run.runDirectory, 'author-review.json'), review)
+  const refutedIds = new Set(
+    review.rebuttal_results
+      .filter((result) => result.outcome === 'refuted')
+      .map((result) => result.finding_id),
+  )
+  const rejected = JSON.parse(
+    readFileSync(path.join(run.runDirectory, 'rejected.json'), 'utf8'),
+  )
+  for (const result of review.rebuttal_results.filter(
+    (item) => item.outcome === 'refuted',
+  )) {
+    rejected.push(
+      automaticRejection(
+        result.finding_id,
+        'REFUTED_BY_AUTHOR_COUNTEREVIDENCE',
+        result.evidence,
+      ),
+    )
+  }
+  writeJson(path.join(run.runDirectory, 'rejected.json'), rejected)
+  const cards = JSON.parse(
+    readFileSync(path.join(run.runDirectory, 'evidence-cards.json'), 'utf8'),
+  ).filter((card) => !refutedIds.has(card.finding_id))
+  return enterHumanArbitration(run, cards, config, review)
 }
 
 function changedInput(manifest, repositoryRoot) {
@@ -3145,6 +4173,20 @@ function changedInput(manifest, repositoryRoot) {
   return null
 }
 
+function changedAuthorAnchor(run, repositoryRoot) {
+  const review = authorReview(run.runDirectory)
+  for (const anchor of review?.anchors ?? []) {
+    const currentPath = path.join(repositoryRoot, anchor.path)
+    if (!existsSync(currentPath)) {
+      return `作者反证锚点已不存在：${anchor.path}`
+    }
+    if (sha256(readFileSync(currentPath, 'utf8')) !== anchor.sha256) {
+      return `作者反证锚点摘要已变化：${anchor.path}`
+    }
+  }
+  return null
+}
+
 function decideReview(argumentsList) {
   const parsed = parseFileOption(
     argumentsList,
@@ -3156,7 +4198,9 @@ function decideReview(argumentsList) {
   if (run.state.status !== 'AWAITING_HUMAN') {
     throw new Error(`当前状态不接受人工决策：${run.state.status}`)
   }
-  const inputChange = changedInput(run.manifest, repositoryRoot)
+  const inputChange =
+    changedInput(run.manifest, repositoryRoot) ??
+    changedAuthorAnchor(run, repositoryRoot)
   if (inputChange) {
     const invalidated = transition(run.runDirectory, run.state, 'INVALIDATED', {
       invalidation_reason: inputChange,
@@ -3172,9 +4216,7 @@ function decideReview(argumentsList) {
   if (!submitted || !Array.isArray(submitted.decisions)) {
     throw new Error('decisions.json 必须包含 decisions 数组')
   }
-  const cards = JSON.parse(
-    readFileSync(path.join(run.runDirectory, 'evidence-cards.json'), 'utf8'),
-  )
+  const cards = adjudicationCards(run.runDirectory)
   const config = JSON.parse(readFileSync(configPath, 'utf8'))
   const startIndex = (run.state.current_batch - 1) * config.human_batch_size
   const currentCards = cards.slice(
@@ -3259,6 +4301,7 @@ function decideReview(argumentsList) {
           target: run.state.target_path,
           ...(run.state.coverage ?? {}),
         },
+        authorReview(run.runDirectory),
       ),
     )
     const awaiting = transition(run.runDirectory, run.state, 'AWAITING_HUMAN', {
@@ -3337,6 +4380,9 @@ function main() {
   if (command === 'fail-task') {
     return failTask(argumentsList)
   }
+  if (command === 'author-response') {
+    return prepareAuthorResponse(argumentsList)
+  }
   if (command === 'decide') {
     return decideReview(argumentsList)
   }
@@ -3347,7 +4393,7 @@ function main() {
     return prepareFixVerification(argumentsList)
   }
   throw new Error(
-    '支持的命令：prepare、advance、fail-task、decide、verify-queue、verify-fixes',
+    '支持的命令：prepare、advance、fail-task、author-response、decide、verify-queue、verify-fixes',
   )
 }
 

@@ -84,6 +84,15 @@ When a Full Design must be implemented through multiple tasks that share contrac
 
 Determine this relationship by contract ownership, not task chronology. A predecessor task's design is governing only when it owns a shared constraint that the current task must obey.
 
+When writing a child-task design, make that relationship cheaply discoverable. Follow the repository's existing metadata convention when one exists; otherwise prefer this optional frontmatter:
+
+```yaml
+design_role: child
+governing_design: ./governing-design.md
+```
+
+Resolve `governing_design` relative to the child document. If frontmatter is unsuitable, add one direct Markdown link that labels the governing design. Do not add relationship metadata to standalone designs, duplicate a repository-wide document index, or require design documents to remain after implementation.
+
 Skip this coordination for implementation tasks that are genuinely independent.
 
 Present large designs in digestible sections, but do not require approval after every section unless incremental confirmation would genuinely reduce misunderstanding.

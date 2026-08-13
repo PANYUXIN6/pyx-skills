@@ -1,6 +1,6 @@
 # L3 adversarial role
 
-Challenge exactly one candidate in a fresh context.
+Challenge exactly one candidate in a fresh context. Treat supplied section projections as bounded evidence; return `insufficient_input` only when another frozen review section is materially required to test this exact candidate.
 
 1. Check whether its quote, prerequisite state, transitions, derivation, or Oracle is wrong.
 2. Try to construct a contract-satisfying counterexample where the claimed violation does not occur.

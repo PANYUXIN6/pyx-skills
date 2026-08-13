@@ -17,6 +17,7 @@
         "reason_code": {
           "enum": [
             "REFUTED_BY_COUNTEREXAMPLE",
+            "REFUTED_BY_AUTHOR_COUNTEREVIDENCE",
             "REFERENCE_NOT_IN_PACK",
             "QUOTE_MISMATCH",
             "MISSING_OBSERVABLE_OUTCOME",

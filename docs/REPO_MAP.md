@@ -23,8 +23,9 @@ authority_status: observed
 ## Skill 入口与职责
 
 - `repo-map-first/SKILL.md`：自动落点风险、显式地图工作，以及依赖 skill 仓库上下文引导和验证的四模式入口。
+- `brainstorming/SKILL.md`：负责产出需要持久化的设计文档；子设计可用 `design_role` 和 `governing_design` 或等价的直接 Markdown 链接桥接上位设计，不要求实现完成后保留历史设计。
 - `review-design-contracts/SKILL.md`：设计审查编排入口；负责预检查上位设计（governing design）authority 与仓库上下文、启动 Runner，并按任务描述调度 Native subagent。上位关系由共享契约的归属决定，不等同于上一个任务。
-- `review-design-contracts/scripts/review-design.mjs`：确定性 Runner，负责紧凑任务投影、超限 L2 的支持文档分片与契约合并、分阶段超时描述、迟到响应竞态保护、任务成本指标、状态迁移、证据门禁、人工仲裁、修复队列，以及根据队列与实际文档变化在局部修复复核和全量重审之间分流。
+- `review-design-contracts/scripts/review-design.mjs`：确定性 Runner，负责工作保持型执行槽调度、紧凑任务投影、L3 候选级渐进证据与冻结证据恢复、超限 L2 分片及条件式跨片合并、一次性作者答辩与单批反证复查、分阶段超时、迟到响应竞态保护、Harness 成本指标、状态迁移、证据门禁、人工仲裁、修复队列，以及局部修复复核/全量重审分流。
 - `evals/tests/review-design-contracts/review-design.test.mjs`：设计审查 Runner 的端到端 Node.js 回归测试；其固定人工确认案例位于同目录 `fixtures/`，两者均不进入运行时 Skill 包。
 - `review-design-contracts/references/human-rejection-reasons.json`：人工驳回原因的中文菜单、内部 code 映射和默认审计理由。
 - `review-design-contracts/references/adversarial-result.schema.json` 与 `adversarial-role.md`：新运行的增量 L3 契约；legacy Schema 与角色仅用于继续 v3/v4 历史运行。
@@ -49,10 +50,10 @@ authority_status: observed
 ## 关键流程
 
 1. Codex 根据 `SKILL.md` 的 description 选择工作流。
-2. `review-design-contracts` 检查目标是否依赖用户确认的上位设计，并检查目标仓库中的 `docs/REPO_MAP.md` 与 `docs/ARCHITECTURE.md`。
-3. 任一仓库文档缺失时，它调用 `repo-map-first` 的仓库上下文引导模式；相关上下文可能陈旧时，调用验证模式，并保持被审设计不变。
-4. Runner 将目标设计、显式与默认 confirmed authority、观察性 context 分开打包，记录覆盖范围，并产出固定模型和推理强度的 Native subagent 任务。
-5. L1 完成后，未超输入上限的 L2 可与已验证 L1 候选的首批 L3 并行；超限 L2 保留完整目标与 Ledger，只在 Markdown 章节边界切分 supporting documents，分批完成后由一个紧凑任务发现跨分片路径。无法安全切分时明确返回输入不足。Runner 无损合并候选，再继续固定并发的 L3。每个任务描述携带分阶段超时与短暂响应宽限，`fail-task` 不会覆盖已经迟到落盘的响应。
+2. `review-design-contracts` 先在内部执行轻量权威预检查：优先解析子设计桥接与正文直接链接；只有目标声明存在外部契约但路径不足时，才有界搜索同目录和直接引用的设计索引。相邻性只定位候选，不建立权威。
+3. 任一仓库文档缺失时，它调用 `repo-map-first` 的仓库上下文引导模式；相关上下文可能陈旧时，调用验证模式，并保持被审设计不变。观察性地图只能定位候选，不能建立规范性权威。
+4. Runner 将目标设计、用户指定 authority、自动发现 authority、默认 confirmed authority 和观察性 context 分开记账和打包，并产出固定模型和推理强度的 Native subagent 任务；自动发现参数不能覆盖 observed provenance。
+5. L1 完成后，未超输入上限的 L2 与已验证 L1 候选的 L3 共享固定执行槽；任何响应完成即消费并补位。超限 L2 保留完整目标与 Ledger，只在 Markdown 章节边界切分 supporting documents；只有精确跨片章节信号通过 Runner 验证时才启动 merge。自洽与架构 L3 都先使用最小验证证据，材料不足时分别回退到完整契约来源或全部冻结评审文档；补证仍不足仅拒绝该候选。每个任务携带独立超时与宽限，`fail-task` 不覆盖已落盘响应。
 6. Runner 用短编号展示当前批次；Codex 以中文收集决定和自然语言驳回理由，完成整批确认后再生成机器 decisions JSON。
 7. Runner 校验原因 code、非空理由和批次完整性；只有人工明确接受的 finding 才能进入 `fix-queue.json`。
 8. 修复前由 `verify-queue` 校验摘要绑定；修复后 `verify-fixes` 创建独立 Manifest v6 运行。架构 finding、支持输入漂移、章节结构变化或越出已接受契约标题的修改确定性要求全量重审；其余自洽修复只派发一个封闭证据复核任务。
@@ -65,7 +66,8 @@ authority_status: observed
 - `review-design-contracts/references/review-protocol.md`：审查状态机、authority/context provenance 与人工仲裁协议。
 - `review-design-contracts/references/human-rejection-reasons.json`：用户可见拒绝原因与机器枚举之间的受校验映射。
 - `review-design-contracts/references/*.schema.json`：模型结果、证据卡和拒绝记录的机器可校验契约。
-- `review-design-contracts/references/architecture-shard-role.md`、`architecture-merge-role.md` 与 `architecture-shard-result.schema.json`：Manifest v7 超限 L2 的封闭分片、支持契约提取和跨分片增量发现契约。
+- `review-design-contracts/references/architecture-shard-role.md`、`architecture-merge-role.md` 与 `architecture-shard-result.schema.json`：Manifest v7+ 超限 L2 的封闭分片、支持契约提取和跨分片增量发现契约。
+- `review-design-contracts/references/author-response.schema.json`、`author-rebuttal-role.md` 与 `author-rebuttal-result.schema.json`：Manifest v8 的完整作者答辩输入和带锚点反证批量复查契约。
 - `evals/tests/review-design-contracts/review-design.test.mjs`：上述流程及迁移兼容性的回归证据。
 - `code-review/references/review-runtime-protocol.md`：宿主 Agent 与确定性 Runner 的职责、命令、降级和信任边界。
 - `code-review/references/findings.schema.json`：Runner 直接读取的候选 Finding v2 契约，区分精确代码行与 Git metadata file anchor。
