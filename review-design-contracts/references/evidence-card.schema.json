@@ -25,6 +25,37 @@
       "type": "string",
       "minLength": 1
     },
+    "evidence_sections": {
+      "$ref": "candidate-finding.schema.json#/$defs/candidate/properties/evidence_sections"
+    },
+    "repair_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "headings"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["heading", "level", "sha256"],
+            "properties": {
+              "heading": { "type": "string", "minLength": 1 },
+              "level": { "type": "number" },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
     "contract": {
       "type": "object",
       "additionalProperties": false,

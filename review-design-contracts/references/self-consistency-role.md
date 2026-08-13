@@ -7,3 +7,5 @@ Produce only document-internal contradictions with a concrete initial state and 
 Do not redesign the architecture, apply generic best practices, review writing style, or speculate about undeclared future behavior.
 
 Return at most one candidate per unique contract-violation path. Use the shortest sufficient contiguous contract quote and keep each trigger, violation, and verification minimal but complete.
+
+Every candidate must include the smallest exact `evidence_sections` set containing its finite path. Name every target heading whose contract must change to close that path; the Runner derives the immutable repair scope from those target sections.
