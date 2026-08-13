@@ -1238,6 +1238,39 @@ function prepareReview(argumentsList) {
   }
 }
 
+function markdownSubtreeEnd(sections, rootIndex) {
+  const rootLevel = sections[rootIndex].level
+  let end = rootIndex + 1
+  while (end < sections.length && sections[end].level > rootLevel) {
+    end += 1
+  }
+  return end
+}
+
+function sectionShape(section) {
+  return `${section.level}\u0000${section.heading}`
+}
+
+function subsequenceMapping(baselineSections, currentSections) {
+  const mapping = []
+  let currentIndex = 0
+  for (const baselineSection of baselineSections) {
+    const expectedShape = sectionShape(baselineSection)
+    while (
+      currentIndex < currentSections.length &&
+      sectionShape(currentSections[currentIndex]) !== expectedShape
+    ) {
+      currentIndex += 1
+    }
+    if (currentIndex === currentSections.length) {
+      return null
+    }
+    mapping.push(currentIndex)
+    currentIndex += 1
+  }
+  return mapping
+}
+
 function fixImpact(baselineTarget, currentTarget, queue, supportingInputChanged) {
   const reasons = []
   const addReason = (reason) => {
@@ -1252,44 +1285,23 @@ function fixImpact(baselineTarget, currentTarget, queue, supportingInputChanged)
     addReason('AUTHORITY_OR_CONTEXT_CHANGED')
   }
 
-  const baselineShape = baselineTarget.sections.map((section) => ({
-    heading: section.heading,
-    level: section.level,
-  }))
-  const currentShape = currentTarget.sections.map((section) => ({
-    heading: section.heading,
-    level: section.level,
-  }))
   if (
-    JSON.stringify(baselineShape) !== JSON.stringify(currentShape) ||
     sha256(markdownPreamble(baselineTarget.content)) !==
-      sha256(markdownPreamble(currentTarget.content))
+    sha256(markdownPreamble(currentTarget.content))
   ) {
     addReason('DOCUMENT_STRUCTURE_CHANGED')
   }
-
-  const changedSections = []
-  const comparableSectionCount = Math.min(
-    baselineTarget.sections.length,
-    currentTarget.sections.length,
-  )
-  for (let index = 0; index < comparableSectionCount; index += 1) {
-    if (
-      baselineTarget.sections[index].sha256 !==
-      currentTarget.sections[index].sha256
-    ) {
-      changedSections.push(currentTarget.sections[index].heading)
-    }
+  if (!subsequenceMapping(baselineTarget.sections, currentTarget.sections)) {
+    addReason('DOCUMENT_STRUCTURE_CHANGED')
   }
 
-  const acceptedHeadings = new Set()
+  const acceptedScopes = []
   for (const item of queue) {
     const card = item.evidence_card
     if (card.contract.source !== baselineTarget.path) {
       addReason('CHANGE_OUTSIDE_ACCEPTED_CONTRACTS')
       continue
     }
-    acceptedHeadings.add(card.contract.heading)
     const baselineMatches = baselineTarget.sections.filter(
       (section) => section.heading === card.contract.heading,
     )
@@ -1298,10 +1310,94 @@ function fixImpact(baselineTarget, currentTarget, queue, supportingInputChanged)
     )
     if (baselineMatches.length !== 1 || currentMatches.length !== 1) {
       addReason('DOCUMENT_STRUCTURE_CHANGED')
+      continue
+    }
+    const baselineIndex = baselineTarget.sections.indexOf(baselineMatches[0])
+    const currentIndex = currentTarget.sections.indexOf(currentMatches[0])
+    if (baselineMatches[0].level !== currentMatches[0].level) {
+      addReason('DOCUMENT_STRUCTURE_CHANGED')
+      continue
+    }
+    acceptedScopes.push({
+      heading: card.contract.heading,
+      baselineIndex,
+      baselineEnd: markdownSubtreeEnd(
+        baselineTarget.sections,
+        baselineIndex,
+      ),
+      currentIndex,
+      currentEnd: markdownSubtreeEnd(currentTarget.sections, currentIndex),
+    })
+  }
+
+  const baselineAccepted = baselineTarget.sections.map(() => false)
+  const currentAccepted = currentTarget.sections.map(() => false)
+  for (const scope of acceptedScopes) {
+    baselineAccepted.fill(true, scope.baselineIndex, scope.baselineEnd)
+    currentAccepted.fill(true, scope.currentIndex, scope.currentEnd)
+  }
+
+  const baselineOutside = baselineTarget.sections.filter(
+    (_section, index) => !baselineAccepted[index],
+  )
+  const currentOutside = currentTarget.sections.filter(
+    (_section, index) => !currentAccepted[index],
+  )
+  if (
+    JSON.stringify(baselineOutside.map(sectionShape)) !==
+    JSON.stringify(currentOutside.map(sectionShape))
+  ) {
+    addReason('DOCUMENT_STRUCTURE_CHANGED')
+  } else if (
+    baselineOutside.some(
+      (section, index) => section.sha256 !== currentOutside[index].sha256,
+    )
+  ) {
+    addReason('CHANGE_OUTSIDE_ACCEPTED_CONTRACTS')
+  }
+
+  const topLevelScopes = acceptedScopes.filter(
+    (scope) =>
+      !acceptedScopes.some(
+        (candidate) =>
+          candidate !== scope &&
+          candidate.baselineIndex <= scope.baselineIndex &&
+          scope.baselineIndex < candidate.baselineEnd,
+      ),
+  )
+  const changedSections = []
+  const addChangedSection = (heading) => {
+    if (!changedSections.includes(heading)) {
+      changedSections.push(heading)
     }
   }
-  if (changedSections.some((heading) => !acceptedHeadings.has(heading))) {
-    addReason('CHANGE_OUTSIDE_ACCEPTED_CONTRACTS')
+  for (const scope of topLevelScopes) {
+    const baselineSubtree = baselineTarget.sections.slice(
+      scope.baselineIndex,
+      scope.baselineEnd,
+    )
+    const currentSubtree = currentTarget.sections.slice(
+      scope.currentIndex,
+      scope.currentEnd,
+    )
+    const mapping = subsequenceMapping(baselineSubtree, currentSubtree)
+    if (!mapping) {
+      addReason('DOCUMENT_STRUCTURE_CHANGED')
+      continue
+    }
+    const retainedIndexes = new Set(mapping)
+    const changedIndexes = new Set()
+    baselineSubtree.forEach((section, index) => {
+      const currentSection = currentSubtree[mapping[index]]
+      if (section.sha256 !== currentSection.sha256) {
+        changedIndexes.add(mapping[index])
+      }
+    })
+    currentSubtree.forEach((section, index) => {
+      if (!retainedIndexes.has(index) || changedIndexes.has(index)) {
+        addChangedSection(section.heading)
+      }
+    })
   }
 
   return {

@@ -2908,6 +2908,237 @@ test('verify-fixes creates one bounded local verification task for a contained s
   )
 })
 
+test('verify-fixes keeps review targeted when a repair adds headings inside the accepted contract subtree', () => {
+  const repositoryRoot = createRepository()
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Session design',
+      '',
+      '## State contract',
+      '',
+      'A completed run must be terminal.',
+      '',
+      '### Existing transition',
+      '',
+      'Cleanup preserves the terminal state.',
+      '',
+      '## Unrelated contract',
+      '',
+      'The owner remains unchanged.',
+      '',
+    ].join('\n'),
+  )
+  const queued = createQueuedReview(repositoryRoot)
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Session design',
+      '',
+      '## State contract',
+      '',
+      'A completed run transitions immediately to a terminal state.',
+      '',
+      '### Error response',
+      '',
+      'A failed transition returns a terminal-state conflict.',
+      '',
+      '### Existing transition',
+      '',
+      'Cleanup preserves the terminal state.',
+      '',
+      '## Unrelated contract',
+      '',
+      'The owner remains unchanged.',
+      '',
+    ].join('\n'),
+  )
+
+  const prepared = runCli(repositoryRoot, ['verify-fixes', queued.run_dir])
+  const impact = JSON.parse(
+    readFileSync(path.join(prepared.run_dir, 'fix-impact.json'), 'utf8'),
+  )
+
+  assert.equal(prepared.status, 'FIX_VERIFICATION_PACKED')
+  assert.equal(prepared.tasks.length, 1)
+  assert.equal(impact.review_mode, 'targeted')
+  assert.deepEqual(impact.reasons, [])
+  assert.deepEqual(impact.changed_sections, [
+    'State contract',
+    'Error response',
+  ])
+})
+
+test('verify-fixes requires a full review when a repair changes an existing heading inside the accepted subtree', () => {
+  const repositoryRoot = createRepository()
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Session design',
+      '',
+      '## State contract',
+      '',
+      'A completed run must be terminal.',
+      '',
+      '### Existing transition',
+      '',
+      'Cleanup preserves the terminal state.',
+      '',
+    ].join('\n'),
+  )
+  const queued = createQueuedReview(repositoryRoot)
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Session design',
+      '',
+      '## State contract',
+      '',
+      'A completed run transitions immediately to a terminal state.',
+      '',
+      '### Renamed transition',
+      '',
+      'Cleanup preserves the terminal state.',
+      '',
+    ].join('\n'),
+  )
+
+  const result = runCli(repositoryRoot, ['verify-fixes', queued.run_dir])
+  const impact = JSON.parse(
+    readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
+  )
+
+  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
+  assert.equal(
+    impact.reasons.includes('DOCUMENT_STRUCTURE_CHANGED'),
+    true,
+  )
+})
+
+test('verify-fixes requires a full review when a repair adds a sibling contract', () => {
+  const repositoryRoot = createRepository()
+  const queued = createQueuedReview(repositoryRoot)
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Session design',
+      '',
+      '## State contract',
+      '',
+      'A completed run transitions immediately to a terminal state.',
+      '',
+      '## Recovery ownership',
+      '',
+      'Recovery may reopen a completed run.',
+      '',
+    ].join('\n'),
+  )
+
+  const result = runCli(repositoryRoot, ['verify-fixes', queued.run_dir])
+  const impact = JSON.parse(
+    readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
+  )
+
+  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
+  assert.equal(
+    impact.reasons.includes('DOCUMENT_STRUCTURE_CHANGED'),
+    true,
+  )
+})
+
+test('verify-fixes requires a full review when an accepted contract moves across a sibling', () => {
+  const repositoryRoot = createRepository()
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Session design',
+      '',
+      '## State contract',
+      '',
+      'A completed run must be terminal.',
+      '',
+      '## Unrelated contract',
+      '',
+      'The owner remains unchanged.',
+      '',
+    ].join('\n'),
+  )
+  const queued = createQueuedReview(repositoryRoot)
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Session design',
+      '',
+      '## Unrelated contract',
+      '',
+      'The owner remains unchanged.',
+      '',
+      '## State contract',
+      '',
+      'A completed run transitions immediately to a terminal state.',
+      '',
+    ].join('\n'),
+  )
+
+  const result = runCli(repositoryRoot, ['verify-fixes', queued.run_dir])
+  const impact = JSON.parse(
+    readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
+  )
+
+  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
+  assert.equal(
+    impact.reasons.includes('DOCUMENT_STRUCTURE_CHANGED'),
+    true,
+  )
+})
+
+test('verify-fixes keeps review targeted when existing accepted descendants only change content', () => {
+  const repositoryRoot = createRepository()
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Session design',
+      '',
+      '## State contract',
+      '',
+      'A completed run must be terminal.',
+      '',
+      '### Error response',
+      '',
+      'The response is unspecified.',
+      '',
+    ].join('\n'),
+  )
+  const queued = createQueuedReview(repositoryRoot)
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    [
+      '# Session design',
+      '',
+      '## State contract',
+      '',
+      'A completed run transitions immediately to a terminal state.',
+      '',
+      '### Error response',
+      '',
+      'A failed transition returns a terminal-state conflict.',
+      '',
+    ].join('\n'),
+  )
+
+  const prepared = runCli(repositoryRoot, ['verify-fixes', queued.run_dir])
+  const impact = JSON.parse(
+    readFileSync(path.join(prepared.run_dir, 'fix-impact.json'), 'utf8'),
+  )
+
+  assert.equal(prepared.status, 'FIX_VERIFICATION_PACKED')
+  assert.equal(impact.review_mode, 'targeted')
+  assert.deepEqual(impact.changed_sections, [
+    'State contract',
+    'Error response',
+  ])
+})
+
 test('verify-fixes reports an unresolved accepted finding without running a full review', () => {
   const repositoryRoot = createRepository()
   const queued = createQueuedReview(repositoryRoot)
