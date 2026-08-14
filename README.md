@@ -22,6 +22,7 @@
 | [`tdd`](./tdd/) | 用最小可信测试证据驱动明确要求的测试先行开发。 | 保留有效 Red、独立 oracle 和当前验证；普通测试或集成测试请求不会自动升级为 TDD。 |
 | [`reliable-task-execution`](./reliable-task-execution/) | 按风险加载验证、安全操作、诊断恢复、任务连续性、委派和独立审查规范。 | 保护证据、可恢复性和用户控制，但不强制 plan、TDD、worktree、subagent、commit 或固定开发阶段。 |
 | [`code-review`](./code-review/) | 以 Skill 路由语义审查，以确定性 Runner 冻结输入、校验锚点、记录声明式 disposition 并约束结论。 | 未提交工作区会分别冻结 staged、unstaged、untracked；Agent 读取紧凑审查队列，完整 Manifest 留给 Runner；只有 change-set 比较结论要求 baseline，默认只报告、不自动修复。 |
+| [`simplify-codebase`](./simplify-codebase/) | 调查或执行有消费者证据的代码库简化，支持 light 与 deep 两种深度。 | 仅在显式清理请求或已观察到的强候选需要结构化追踪时触发；通用 Skill 负责消费者证据和删除安全，语言、入口、防御模式、覆盖策略与门禁命令由目标仓库拥有。 |
 | [`review-design-contracts`](./review-design-contracts/) | 对 Markdown 设计文档执行分层契约提取、架构审查、对抗验证、确定性门禁和人工仲裁。 | 仅在显式调用 `$review-design-contracts` 时使用；模型 finding 只有经过人工接受后才能进入修复队列。 |
 
 ## 使用方式
@@ -39,6 +40,8 @@ Codex 主要根据每个 `SKILL.md` 的 `name` 和 `description` 自动判断是
 
 这个功能跨 API 和数据层，但职责归属不清，先确定正确落点再实现。
 
+调查这个子系统是否存在没有生产消费者的旧 API；先只报告，不修改。
+
 使用 $review-design-contracts 审查 docs/design.md。
 ```
 
@@ -46,7 +49,7 @@ Codex 主要根据每个 `SKILL.md` 的 `name` 和 `description` 自动判断是
 
 ## 评测
 
-六个通用运行时 skill 共用零第三方 Python 依赖的最小行为评测 Runner。当前 suites 共包含 20 个确定性 case，覆盖自动触发、负向路由、关键工作流选择和安全退出边界。
+七个通用运行时 skill 共用零第三方 Python 依赖的最小行为评测 Runner。当前 suites 共包含 28 个确定性 case，覆盖自动触发、负向路由、关键工作流选择和安全退出边界。
 
 运行本地 Runner 测试：
 

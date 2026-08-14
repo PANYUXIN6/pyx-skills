@@ -14,7 +14,8 @@ authority_status: observed
 - `using-superpowers/`：在跨 skill 选择会实质改变流程时组织最小有用集合；单一明显匹配可直接进入领域 skill，组合需求由 Router 协调。
 - `reliable-task-execution/`：按风险按需分发验证、安全操作、诊断恢复、任务连续性、委派和独立审查规范。
 - `tdd/`：在明确采用测试先行时，用覆盖独立行为和真实风险的最小证据集驱动实现。
-- `evals/`：六个 skill 共用的开发期行为评测基础设施、隔离 suites 与 Runner 回归测试，不属于任何运行时 skill 包。
+- `simplify-codebase/`：以生产消费者证据调查或执行 light/deep 代码库简化，并保持与普通 Code Review 解耦。
+- `evals/`：七个 skill 共用的开发期行为评测基础设施、隔离 suites 与 Runner 回归测试，不属于任何运行时 skill 包。
 - `docs/superpowers/specs/`：保存非平凡 skill 变更的已确认设计文档。
 - `.github/workflows/verify.yml`：GitHub Actions 持续集成入口，验证 Skill 仓库的 Python、Node.js 和空白字符检查。
 - `LICENSE`：所有运行时 Skill 与仓库文档的 MIT 许可文本。
@@ -34,9 +35,10 @@ authority_status: observed
 - `reliable-task-execution/SKILL.md` 与 `references/`：可靠执行路由入口和六个按需规范。
 - `tdd/SKILL.md`：风险驱动的测试先行入口；技能包不携带通用测试教程或开发期评测内容。
 - `code-review/SKILL.md`：Skill-fronted Review Agent 入口；把意图、契约、行为和风险推理留给 Codex，把可机械判定的完整性责任交给 Runner。
+- `simplify-codebase/SKILL.md` 与 `references/`：独立简化入口、触发边界和 `audit`/`apply` 责任控制；通用层拥有消费者证明、影响分级和删除准入，目标仓库拥有语言、入口、排除项、防御模式、覆盖策略与门禁命令。
 - `code-review/scripts/review.mjs`：代码审查确定性 Runner，负责 staged、unstaged、untracked 分层 workspace，三点比较或无 Git 显式 current-state 文件 Manifest，供 Agent 读取的紧凑队列，受锁保护且与 Finding 摘要绑定的逐项声明状态，8 MiB 输入上限、输入失效、Finding Schema/代码行/Git metadata 校验与结论门禁。
 - `code-review/scripts/review.test.mjs`：上述 Runner 的 Node.js 回归测试。
-- `evals/scripts/run_eval.py`：六套 skill 共用的最小集成评测 Runner；只支持静态校验、定点 case 和小规模 smoke，并负责隔离执行、成本预估、profile 硬上限和显式调用预算门禁。`evals/suites/<skill-name>/` 共保留二十个具有确定性证据的案例；`brainstorming` 检查普通设计约束与依赖任务 Full Design 两类边界，`code-review` 检查日常、专项、当前状态验收与 comparison baseline 四类边界，`using-superpowers` 检查单 skill、组合 skill、选择歧义、显式调用、topic-only 与无需路由等边界，TDD 和 repo-map-first 各检查一正一负两个路由边界。
+- `evals/scripts/run_eval.py`：七套 skill 共用的最小集成评测 Runner；只支持静态校验、定点 case 和小规模 smoke，并负责隔离执行、成本预估、profile 硬上限和显式调用预算门禁。`evals/suites/<skill-name>/` 共保留二十八个具有确定性证据的案例；`brainstorming` 检查普通设计约束与依赖任务 Full Design 两类边界，`code-review` 检查日常、专项、当前状态验收与 comparison baseline 四类边界，`simplify-codebase` 检查仓库策略加载、light、deep、Review 明确移交、只读保持、可逆自治应用和普通 Review/孤立 lint 负向边界，`using-superpowers` 检查单 skill、组合 skill、选择歧义、显式调用、topic-only 与无需路由等边界，TDD 和 repo-map-first 各检查一正一负两个路由边界。
 - `<skill-name>/SKILL.md`：后续迁入个人 skill 的标准入口。
 
 ## 资源边界
@@ -59,6 +61,7 @@ authority_status: observed
 8. 修复前由 `verify-queue` 校验摘要绑定；修复后 `verify-fixes` 创建独立 Manifest v6 运行。架构 finding、支持输入漂移、章节结构变化或越出已接受契约标题的修改确定性要求全量重审；其余自洽修复只派发一个封闭证据复核任务。
 9. GitHub Actions 在推送到 `main` 或面向 `main` 的 Pull Request 上运行本地确定性验证，不运行真实 Codex smoke。
 10. 代码审查先由 Runner 在系统临时目录冻结分层 workspace、固定 range 或显式 current-state Manifest，并派生紧凑队列供 Codex 阅读；Codex 逐项声明 disposition 后，Runner 将候选 Finding 绑定当前 disposition 摘要并校验精确快照或 metadata 锚点，最后按声明完整性和阻塞严重度给出允许的结论集合。Runner 不证明 Agent 实际完成了语义分析。
+11. 代码简化先验证目标仓库的本地策略、入口、排除项和门禁，再选择 `audit`/`apply` 与 `light`/`deep`；调查按生产、非生产、歧义和外部契约消费者证明、拒绝或推迟候选。`layered-safety.md` 统一拥有删除准入，仓库策略只负责提供本地事实和加强保护。
 
 ## 公共契约与测试证据
 

@@ -19,9 +19,11 @@ L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增�
 
 `repo-map-first` 独立拥有仓库落点判断与文档同步职责。自动路由只覆盖归属不明、跨模块边界、入口或依赖变化以及地图可疑等真实定位风险；用户显式调用会绕过自动过滤并强制完成相关地图工作。它不参与正常设计审查；`review-design-contracts` 只在默认仓库文档缺失或相关上下文可能陈旧时，显式请求其仓库上下文引导或验证模式。
 
-`brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first` 与 `code-review` 是相互独立的运行时 skill。它们的开发期行为评测位于仓库级 `evals/`：共享最小集成 Runner、Schema 和本地测试，与 `evals/suites/<skill-name>/` 中的 suite 数据分离，避免开发资源进入运行时分发包。
+`brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first`、`code-review` 与 `simplify-codebase` 是相互独立的运行时 skill。它们的开发期行为评测位于仓库级 `evals/`：共享最小集成 Runner、Schema 和本地测试，与 `evals/suites/<skill-name>/` 中的 suite 数据分离，避免开发资源进入运行时分发包。
 
 `code-review` 采用 Skill-fronted Agent 边界：`SKILL.md` 与按需模块负责语义审查路由，`scripts/review.mjs` 负责 Git 分层输入或显式 current-state 文件冻结、完整 Manifest、Agent 紧凑队列、声明式 disposition、输入失效、Finding 锚点校验和结论门禁。Runner 不启动或监控模型，不能证明 Agent 实际完成了语义分析，也不判断 Finding 的业务真伪或执行目标仓库提供的命令。
+
+`simplify-codebase` 独立拥有证据型简化调查与获授权后的清理职责。它不依赖 `code-review`，也不是代码审查的固定阶段；普通审查中的局部冗余仍是普通 finding，只有显式清理请求或已观察到的强候选需要跨已审行追踪消费者时才进入该 Skill。通用层只拥有消费者分类、影响分级、证据组合和删除权限，目标仓库拥有语言、入口、排除项、防御模式、覆盖策略和门禁命令。Skill 在判断候选前验证仓库声明的路径与入口仍存在；开发期 suite 同时验证仓库策略加载、只读保持、可逆自治应用和普通 Review、孤立 lint 的负向路由。
 
 ## 依赖方向
 
@@ -53,6 +55,8 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 
 代码审查的独立控制流为：Codex 解析 authority 和目标后调用 `prepare`；Runner 将 workspace 的 `HEAD -> index`、`index -> worktree` 与 untracked 分层冻结，或冻结固定三点比较、无需 Git 的显式 current-state 文件集，并从完整 Manifest 派生不含摘要噪音的紧凑队列供 Agent 阅读。Codex 按工作流审查并用串行化的 `mark` 声明逐项 disposition；该声明不是语义审查已发生的机械证明。候选 Finding 经 `validate` 绑定当前 disposition 摘要并按 `item_id` 校验 Schema、快照、精确代码行或 Git metadata；后续 `mark` 会使旧 Finding 集失效。`finalize` 根据声明完整性和 P0-P2 finding 决定允许的结论。输入漂移使活动运行进入 `INVALIDATED`，空范围、排除项和未完成项均不能得到 `APPROVE`。
 
+代码简化的独立控制流为：Codex 先发现并验证仓库本地指令、防御模式、兼容策略、入口、排除项和门禁，再确定只读 `audit` 或获授权的 `apply`，并按局部闭包或跨边界证据选择 `light` 或 `deep`。调查把引用分为生产、非生产、歧义和外部契约四类，逐个候选给出 `remove`、`keep` 或 `defer`。`layered-safety.md` 是唯一删除准入事实源；仓库规则可以加强保护但不能授予修改权或降低全局高风险。`apply` 同步删除完整闭包，并以残留搜索、仓库自有门禁、最终 diff 和恢复证据复核。
+
 ## 状态与数据所有权
 
 - Runner 拥有 `.superpowers/design-reviews/<target-sha>/<run-id>/` 下的运行状态和所有中间制品。
@@ -70,7 +74,7 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 - 运行依赖当前 Codex 环境提供 `spawn_agent`、`wait_agent` 和 `interrupt_agent`。
 - 行为评测依赖本机 Codex CLI；真实模型 case 需要显式允许访问 Codex 服务，static 和 fake-Codex 单测不需要网络。
 - GitHub Actions 仅运行仓库已有的确定性 Python 与 Node.js 测试及空白字符检查；发布标签由 GitHub Ruleset 保护，避免已发布的版本标签被更新或删除。
-- 行为评测只保留 `static`、单个 `case` 和最小 `smoke`：前两类本地结构/假执行测试零外部调用；`brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first`、`code-review` 的真实 smoke 上限分别为 2、8、2、2、2、5 次。没有语义判分、baseline、重复 trial、regression 或 differential；多案例 smoke 在调用前必须同时满足 manifest 硬上限和显式 `--max-codex-calls` 预算。
+- 行为评测只保留 `static`、单个 `case` 和最小 `smoke`：前两类本地结构/假执行测试零外部调用；`brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first`、`code-review`、`simplify-codebase` 的真实 smoke 上限分别为 2、8、2、2、2、5、7 次。没有语义判分、baseline、重复 trial、regression 或 differential；多案例 smoke 在调用前必须同时满足 manifest 硬上限和显式 `--max-codex-calls` 预算。
 - Runner 仅允许执行 `review.config.json` 中白名单声明的确定性验证命令。
 - Code Review Runner 只以参数数组执行自身固定的 Git 读取操作，不执行被审代码或仓库声明的测试命令；无法表示的远程或粘贴目标只能降级为明确的 `UNMANAGED_REVIEW`，且不能批准。
 - skill 包本身不保存评审运行数据，也不自动创建外部 issue、PR 或工单。
