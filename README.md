@@ -47,6 +47,8 @@ Codex 主要根据每个 `SKILL.md` 的 `name` 和 `description` 自动判断是
 
 调用边界以各目录中的 `SKILL.md` 为准。仓库的观察性结构说明见 [`docs/REPO_MAP.md`](./docs/REPO_MAP.md)，架构和依赖方向见 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)。
 
+`simplify-codebase` 的仓库准备建议和调用示例见 [`docs/SIMPLIFY_CODEBASE_USAGE.md`](./docs/SIMPLIFY_CODEBASE_USAGE.md)。这是一份面向维护者的外部说明，不属于 Skill 运行时内容。
+
 ## 评测
 
 七个通用运行时 skill 共用零第三方 Python 依赖的最小行为评测 Runner。当前 suites 共包含 28 个确定性 case，覆盖自动触发、负向路由、关键工作流选择和安全退出边界。
