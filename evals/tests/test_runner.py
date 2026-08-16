@@ -147,16 +147,28 @@ class IsolationTests(unittest.TestCase):
             (skill_root / "references" / "review-manifest.schema.json").exists()
         )
 
-    def test_design_review_requires_confirmed_parent_and_discloses_coverage(self):
+    def test_design_review_discovers_declared_authority_and_discloses_coverage(self):
         skill_root = SKILLS_ROOT / "review-design-contracts"
         skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+        protocol = (
+            skill_root / "references" / "review-protocol.md"
+        ).read_text(encoding="utf-8")
         role = (skill_root / "references" / "self-consistency-role.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("user-confirmed governing design", skill)
-        self.assertIn("not determined by task chronology", skill)
+        self.assertIn("authority precheck", skill)
+        self.assertIn("unambiguous non-observed governing design", skill)
+        self.assertIn("--discovered-authority", skill)
+        self.assertIn(
+            "proximity, numbering, chronology, or semantic similarity", skill
+        )
         self.assertIn("repository-context validation mode", skill)
         self.assertIn("explicit authorities", skill)
+        self.assertIn("conflicting candidates remain", protocol)
+        self.assertIn(
+            "user-specified authority paths, automatically discovered authority paths",
+            protocol,
+        )
         self.assertIn("undefined or cyclic prerequisites", role)
         self.assertIn("incompatible upstream outputs and downstream inputs", role)
 
