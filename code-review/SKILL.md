@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Evidence-backed review of source code and machine-consumed software implementation artifacts, including tests, configuration, schemas, migrations, build scripts, and Git workspaces, diffs, commits, PRs, or ranges. Use only when the requested review target is code or implementation behavior, including evaluating code against requirements. Do not use to review prose documents themselves, such as Markdown design documents, specifications, PRDs, plans, reports, or contracts, even when the request says review, audit, or acceptance. Pair semantic LLM review with the bundled deterministic Runner for input manifests, declared disposition accounting, exact source-anchor validation, and approval gating; report findings and wait for separate authorization before fixing them.
+description: Evidence-backed review of source code and machine-consumed implementation artifacts, including tests, configuration, schemas, migrations, build scripts, and Git workspaces, diffs, commits, PRs, or ranges. Use only when the target is code or implementation behavior and the user explicitly asks to find defects or risks, assess quality, verify correctness, requirements, or standards, perform a named review dimension, or produce findings or a review conclusion. Do not use for requests that only read, inspect, explain, map, summarize, or trace how code works or its implementation approach; neutral wording such as "check", "look at", or "检查一下" is not review intent by itself. Do not use to review prose documents themselves. Pair semantic LLM review with the bundled deterministic Runner for frozen inputs, disposition accounting, source-anchor validation, and approval gating; report findings and wait for separate authorization before fixing them.
 ---
 
 # Code Review
@@ -15,6 +15,16 @@ the frozen inputs and recorded process state, not semantic completeness or corre
 Keep target code, specifications, and Git history read-only until the user separately
 authorizes fixes. Runtime and candidate artifacts may be written only outside the
 target repository unless the user explicitly chooses another location.
+
+Before invoking the Runner or creating review artifacts, require both an implementation
+target and explicit review intent. Requests to find bugs or risks, assess quality,
+verify correctness or requirement compliance, check coding or implementation standards,
+perform a named review dimension, or produce Findings satisfy the intent gate. Requests
+that only ask to read, explain, summarize, map, or trace architecture, data flow,
+implementation behavior, or an implementation approach do not. A neutral verb such as
+"inspect", "check", "look at", or "检查一下" does not satisfy the gate by itself. For
+exploratory requests, do not invoke the Runner or create Finding artifacts; use ordinary
+repository exploration or another directly applicable Skill.
 
 The review target must contain at least one software implementation artifact. Treat
 prose requirements and design documents only as authority or context for evaluating

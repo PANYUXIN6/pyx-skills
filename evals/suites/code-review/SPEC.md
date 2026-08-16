@@ -3,7 +3,7 @@
 This suite checks stable workflow and module-routing boundaries. It does not grade
 whether every possible defect was found or whether a review is globally optimal.
 
-The five smoke cases verify that:
+The six smoke cases verify that:
 
 - a routine patch review loads the routine workflow and correctness module, then
   prepares, validates, and finalizes through the deterministic Runtime without
@@ -17,11 +17,14 @@ The five smoke cases verify that:
 - a comparison-mode acceptance review stops when its required baseline is invalid.
 - a request to review a prose Markdown document itself does not load `code-review`
   or start its deterministic Runtime.
+- a request that only asks to inspect an implementation approach does not become a
+  code review merely because it uses neutral wording such as `检查一下`, and creates
+  no Finding artifacts.
 
 ```bash
 python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review static
 python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --dry-run
-python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --max-codex-calls 5
+python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --max-codex-calls 6
 ```
 
 Use the `case` command for a one-call diagnostic. The suite validates routing,

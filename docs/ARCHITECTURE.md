@@ -21,7 +21,7 @@ L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增�
 
 `brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first`、`code-review` 与 `simplify-codebase` 是相互独立的运行时 skill。它们的开发期行为评测位于仓库级 `evals/`：共享最小集成 Runner、Schema 和本地测试，与 `evals/suites/<skill-name>/` 中的 suite 数据分离，避免开发资源进入运行时分发包。
 
-`code-review` 采用 Skill-fronted Agent 边界：`SKILL.md` 与按需模块负责语义审查路由，`scripts/review.mjs` 负责 Git 分层输入或显式 current-state 文件冻结、完整 Manifest、Agent 紧凑队列、声明式 disposition、输入失效、Finding 锚点校验和结论门禁。Runner 不启动或监控模型，不能证明 Agent 实际完成了语义分析，也不判断 Finding 的业务真伪或执行目标仓库提供的命令。
+`code-review` 采用 Skill-fronted Agent 边界：frontmatter 先要求代码目标与明确审查意图同时成立，排除单纯阅读、解释、梳理和行为追踪；`SKILL.md` 与按需模块随后负责语义审查路由，`scripts/review.mjs` 负责 Git 分层输入或显式 current-state 文件冻结、完整 Manifest、Agent 紧凑队列、声明式 disposition、输入失效、Finding 锚点校验和结论门禁。Runner 不启动或监控模型，不能证明 Agent 实际完成了语义分析，也不判断 Finding 的业务真伪或执行目标仓库提供的命令。
 
 `simplify-codebase` 独立拥有证据型简化调查与获授权后的清理职责。它不依赖 `code-review`，也不是代码审查的固定阶段；普通审查中的局部冗余仍是普通 finding，只有显式清理请求或已观察到的强候选需要跨已审行追踪消费者时才进入该 Skill。通用层只拥有消费者分类、影响分级、证据组合和删除权限，目标仓库拥有语言、入口、排除项、防御模式、覆盖策略和门禁命令。Skill 在判断候选前验证仓库声明的路径与入口仍存在；开发期 suite 同时验证仓库策略加载、只读保持、可逆自治应用和普通 Review、孤立 lint 的负向路由。
 

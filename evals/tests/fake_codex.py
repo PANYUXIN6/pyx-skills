@@ -74,8 +74,11 @@ elif (workspace / "PROPOSAL.md").is_file():
     command_event("sed -n 1,220p PROPOSAL.md")
     final_message = "The proposal is clear overall, but its rollout section needs explicit success criteria."
 elif (workspace / "change.diff").is_file():
-    command_event("sed -n 1,220p codex-home/skills/code-review/SKILL.md")
-    if "focused security" in prompt:
+    if "采集思路" in prompt:
+        command_event("sed -n 1,220p app.py")
+        final_message = "这个插件从命令行输入采集数据，再把输入交给处理函数。"
+    elif "focused security" in prompt:
+        command_event("sed -n 1,220p codex-home/skills/code-review/SKILL.md")
         command_event("node codex-home/skills/code-review/scripts/review.mjs prepare --repo . --file app.py")
         command_event("sed -n 1,220p codex-home/skills/code-review/references/focused-review.md")
         command_event("sed -n 1,220p codex-home/skills/code-review/references/security-reliability.md")
@@ -84,9 +87,11 @@ elif (workspace / "change.diff").is_file():
         command_event("node codex-home/skills/code-review/scripts/review.mjs finalize --run /tmp/review --conclusion REQUEST_CHANGES")
         final_message = "REQUEST_CHANGES: shell=True makes user-controlled input command-injectable."
     elif "missing-ref" in prompt:
+        command_event("sed -n 1,220p codex-home/skills/code-review/SKILL.md")
         command_event("sed -n 1,220p codex-home/skills/code-review/references/acceptance-review.md")
         final_message = "The Git baseline missing-ref is invalid and cannot be resolved, so no comparison conclusion is issued."
     elif "final acceptance" in prompt:
+        command_event("sed -n 1,220p codex-home/skills/code-review/SKILL.md")
         command_event("node codex-home/skills/code-review/scripts/review.mjs prepare --repo . --file app.py")
         command_event("sed -n 1,220p codex-home/skills/code-review/references/acceptance-review.md")
         command_event("sed -n 1,220p codex-home/skills/code-review/references/spec-compliance.md")
@@ -95,6 +100,7 @@ elif (workspace / "change.diff").is_file():
         command_event("node codex-home/skills/code-review/scripts/review.mjs finalize --run /tmp/review --conclusion REQUEST_CHANGES")
         final_message = "REQUEST_CHANGES: shell=True violates SPEC.md; without a baseline, historical change attribution is unavailable."
     else:
+        command_event("sed -n 1,220p codex-home/skills/code-review/SKILL.md")
         command_event("node codex-home/skills/code-review/scripts/review.mjs prepare --repo . --file app.py")
         command_event("sed -n 1,220p codex-home/skills/code-review/references/routine-review.md")
         command_event("sed -n 1,220p codex-home/skills/code-review/references/correctness-quality.md")

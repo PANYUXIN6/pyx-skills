@@ -95,5 +95,22 @@
       {"id": "code-review-runtime-not-run", "kind": "event_not_matches", "pattern": "code-review[^\\n]*review\\.mjs", "critical": false},
       {"id": "document-response", "kind": "final_matches", "pattern": "proposal", "critical": false}
     ]
+  },
+  {
+    "id": "automatic-code-exploration-excluded",
+    "title": "Do not treat implementation exploration as code review",
+    "module": "boundary",
+    "tags": ["smoke", "critical"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "检查一下这个目录下的插件的采集思路。",
+    "workspace": {"fixture": "review-target", "git": false},
+    "deterministic_assertions": [
+      {"id": "implementation-read", "kind": "event_matches", "pattern": "app\\.py", "critical": true},
+      {"id": "code-review-skill-not-read", "kind": "event_not_matches", "pattern": "code-review[^\\n]*SKILL\\.md", "critical": true},
+      {"id": "code-review-runtime-not-run", "kind": "event_not_matches", "pattern": "code-review[^\\n]*review\\.mjs", "critical": true},
+      {"id": "no-findings-artifact", "kind": "event_not_matches", "pattern": "findings(?:\\.json)?", "critical": false},
+      {"id": "exploration-response", "kind": "final_matches", "pattern": "(?:采集|collect|data flow|input)", "critical": false}
+    ]
   }
 ]

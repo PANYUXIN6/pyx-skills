@@ -2,8 +2,8 @@
   "schema_version": 3,
   "skill_name": "code-review",
   "modules": ["routine", "acceptance", "focused", "boundary"],
-  "coverage": {"case_count": 5, "profile_case_counts": {"smoke": 5}},
+  "coverage": {"case_count": 6, "profile_case_counts": {"smoke": 6}},
   "profiles": {
-    "smoke": {"tags": ["smoke"], "max_codex_calls": 5}
+    "smoke": {"tags": ["smoke"], "max_codex_calls": 6}
   }
 }

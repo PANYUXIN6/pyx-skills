@@ -32,7 +32,7 @@ class SuiteValidationTests(unittest.TestCase):
             "reliable-task-execution": 2,
             "tdd": 2,
             "repo-map-first": 2,
-            "code-review": 5,
+            "code-review": 6,
         }
         for skill_name, count in expected.items():
             runner.configure_suite(SUITES_ROOT / skill_name)
@@ -133,7 +133,9 @@ class IsolationTests(unittest.TestCase):
         self.assertIn("existing_code", skill)
         self.assertIn("does not require Git, a diff, or a baseline", skill)
         self.assertIn("cannot prove that an Agent understood an item", skill)
-        self.assertIn("Use only when the requested review target is code", skill)
+        self.assertIn("the user explicitly asks to find defects or risks", skill)
+        self.assertIn('"检查一下" is not review intent by itself', skill)
+        self.assertIn("do not invoke the Runner or create Finding artifacts", skill)
         self.assertIn("Do not use to review prose documents themselves", skill)
         self.assertIn("current_input_drift", protocol)
         self.assertIn("queue_path", skill)

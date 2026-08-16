@@ -9,7 +9,7 @@ authority_status: observed
 
 - `repo-map-first/`：在代码归属不明、跨模块边界或地图可疑时定位行为改动；显式调用强制完成地图工作，并维护结构变化后的仓库地图与架构文档。
 - `review-design-contracts/`：使用分层 Codex Native subagent 审查 Markdown 设计文档，最终由人工决定是否进入修复队列。
-- `code-review/`：根据审查目标和维度路由日常、验收与专项代码审查，并用确定性 Runner 冻结输入、校验 Finding 锚点、记录声明式 disposition 和约束批准结论。
+- `code-review/`：仅在用户明确要求发现问题、评估质量、验证正确性或生成审查结论时，按目标和维度路由日常、验收与专项代码审查；单纯阅读、解释、梳理或追踪实现不会启动 Runner。
 - `brainstorming/`：按不确定性、影响范围和可逆性选择快速执行、设计简报或完整设计，并按需提供可视化设计伴侣。
 - `using-superpowers/`：在跨 skill 选择会实质改变流程时组织最小有用集合；单一明显匹配可直接进入领域 skill，组合需求由 Router 协调。
 - `reliable-task-execution/`：按风险按需分发验证、安全操作、诊断恢复、任务连续性、委派和独立审查规范。
@@ -38,7 +38,7 @@ authority_status: observed
 - `simplify-codebase/SKILL.md` 与 `references/`：独立简化入口、触发边界和 `audit`/`apply` 责任控制；通用层拥有消费者证明、影响分级和删除准入，目标仓库拥有语言、入口、排除项、防御模式、覆盖策略与门禁命令。
 - `code-review/scripts/review.mjs`：代码审查确定性 Runner，负责 staged、unstaged、untracked 分层 workspace，三点比较或无 Git 显式 current-state 文件 Manifest，供 Agent 读取的紧凑队列，受锁保护且与 Finding 摘要绑定的逐项声明状态，8 MiB 输入上限、输入失效、Finding Schema/代码行/Git metadata 校验与结论门禁。
 - `code-review/scripts/review.test.mjs`：上述 Runner 的 Node.js 回归测试。
-- `evals/scripts/run_eval.py`：七套 skill 共用的最小集成评测 Runner；只支持静态校验、定点 case 和小规模 smoke，并负责隔离执行、成本预估、profile 硬上限和显式调用预算门禁。`evals/suites/<skill-name>/` 共保留二十八个具有确定性证据的案例；`brainstorming` 检查普通设计约束与依赖任务 Full Design 两类边界，`code-review` 检查日常、专项、当前状态验收与 comparison baseline 四类边界，`simplify-codebase` 检查仓库策略加载、light、deep、Review 明确移交、只读保持、可逆自治应用和普通 Review/孤立 lint 负向边界，`using-superpowers` 检查单 skill、组合 skill、选择歧义、显式调用、topic-only 与无需路由等边界，TDD 和 repo-map-first 各检查一正一负两个路由边界。
+- `evals/scripts/run_eval.py`：七套 skill 共用的最小集成评测 Runner；只支持静态校验、定点 case 和小规模 smoke，并负责隔离执行、成本预估、profile 硬上限和显式调用预算门禁。`evals/suites/<skill-name>/` 共保留二十九个具有确定性证据的案例；`brainstorming` 检查普通设计约束与依赖任务 Full Design 两类边界，`code-review` 检查日常、专项、当前状态验收、comparison baseline 以及文档/实现探索负向路由边界，`simplify-codebase` 检查仓库策略加载、light、deep、Review 明确移交、只读保持、可逆自治应用和普通 Review/孤立 lint 负向边界，`using-superpowers` 检查单 skill、组合 skill、选择歧义、显式调用、topic-only 与无需路由等边界，TDD 和 repo-map-first 各检查一正一负两个路由边界。
 - `<skill-name>/SKILL.md`：后续迁入个人 skill 的标准入口。
 
 ## 资源边界
