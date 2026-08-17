@@ -66,6 +66,10 @@ Give each candidate exactly one disposition:
 
 Retain or defer when a production caller exists, a current defensive rationale survives, compatibility remains, or removal would make a product decision. Do not treat tests or historical decisions as permanent immunity, but require stronger current evidence before discarding their rationale.
 
+Prefer direct removal over replacement. Do not turn simplification into redesign by introducing a new architecture, dependency, replacement implementation, temporary path, or speculative abstraction merely to make a candidate removable. If deletion requires choosing one beyond the proven obsolete closure, `defer` or hand the work to the normal development workflow.
+
+When an internal compatibility path is explicitly deprecated and semantic evidence shows its production consumers have migrated, remove its complete closure instead of adding or retaining a shim, fallback, or migration solely for hypothetical compatibility. Keep public or external contracts, persisted data, wire formats, and migrations under their existing impact and evidence rules.
+
 For `apply`, edit only candidates admitted by Layered Safety Controls. Remove the complete obsolete closure across implementation, imports, exports, registrations, exclusive tests, documentation, configuration, snapshots, generated inventories, package metadata, and dependencies as applicable. Preserve tests for remaining contracts, follow repository-owned generation and migration procedures, search for residual names, run the selected gates, and inspect the final diff.
 
 ## Report the Result

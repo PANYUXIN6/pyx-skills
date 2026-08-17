@@ -8,7 +8,7 @@ The seven smoke cases verify that:
 - an explicit repository-wide simplification audit loads only the deep workflow;
 - an already-observed cross-cutting candidate can be handed off from review context without making routine review a dependency;
 - an explicitly read-only repository cleanup keeps candidates unchanged;
-- an authorized deep cleanup can apply a high-confidence, repository-local, reversible candidate without candidate-by-candidate approval;
+- an authorized deep cleanup can directly remove a high-confidence, repository-local, reversible candidate without candidate-by-candidate approval or a replacement compatibility layer;
 - a routine correctness review does not load simplification;
 - an isolated lint issue does not load simplification.
 

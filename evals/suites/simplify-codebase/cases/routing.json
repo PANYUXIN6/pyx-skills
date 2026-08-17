@@ -73,7 +73,7 @@
     "tags": ["smoke", "critical"],
     "activation": "automatic",
     "skill_invocation_expected": true,
-    "prompt": "Simplify this entire small Git repository and apply high-confidence, repository-local, reversible removals. You are authorized to modify files and should not ask for candidate-by-candidate approval. Use consumer tracing and independent evidence layers, preserve active runtime behavior, and defer anything high-impact or uncertain.",
+    "prompt": "Simplify this entire small Git repository and apply high-confidence, repository-local, reversible removals. You are authorized to modify files and should not ask for candidate-by-candidate approval. Use consumer tracing and independent evidence layers, preserve active runtime behavior, remove obsolete closures directly without replacement compatibility shims or fallbacks, and defer anything that requires redesign or has high impact or uncertainty.",
     "workspace": {"fixture": "cleanup-candidate", "git": true},
     "deterministic_assertions": [
       {"id": "skill-read", "kind": "event_matches", "pattern": "simplify-codebase[^\n]*SKILL\\.md", "critical": true},
@@ -83,6 +83,7 @@
       {"id": "repository-policy-read", "kind": "event_matches", "pattern": "DEFENSIVE_PATTERNS\\.md", "critical": true},
       {"id": "active-implementation-preserved", "kind": "file_contains", "path": "service.py", "pattern": "def format_name", "critical": true},
       {"id": "legacy-implementation-removed", "kind": "file_contains", "path": "service.py", "pattern": "\\A(?:(?!legacy_format_name).)*\\Z", "critical": true},
+      {"id": "compatibility-layer-not-added", "kind": "file_contains", "path": "service.py", "pattern": "\\A(?:(?!(?:shim|fallback|compat)).)*\\Z", "critical": true},
       {"id": "legacy-test-removed", "kind": "file_contains", "path": "test_service.py", "pattern": "\\A(?:(?!legacy_format_name).)*\\Z", "critical": true},
       {"id": "legacy-doc-removed", "kind": "file_contains", "path": "README.md", "pattern": "\\A(?:(?!legacy_format_name).)*\\Z", "critical": true},
       {"id": "applied-result", "kind": "final_matches", "pattern": "(?:removed|deleted|applied)", "critical": false}
