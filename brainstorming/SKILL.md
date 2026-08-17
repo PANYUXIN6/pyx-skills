@@ -66,10 +66,11 @@ Use a full design process when the work has high impact, high ambiguity, or a hi
 For these cases:
 
 1. Establish purpose, constraints, and success criteria.
-2. Select and present the best design. Compare alternatives only when unresolved, materially different trade-offs remain.
-3. Describe the relevant architecture, boundaries, behavior, failure handling, and verification strategy.
-4. Resolve consequential ambiguities.
-5. Present the design and obtain explicit approval before implementation.
+2. Before selecting the design, research how comparable established products and relevant mature open-source projects solve the problem. Reuse proven patterns and constraints where they fit; innovate only when a clear benefit, fit constraint, or limitation of the existing approach justifies it.
+3. Select and present the best design. Compare alternatives only when unresolved, materially different trade-offs remain.
+4. Describe the relevant architecture, boundaries, behavior, failure handling, and verification strategy.
+5. Resolve consequential ambiguities.
+6. Present the design and obtain explicit approval before implementation.
 
 Evaluate the design through the relevant lenses of clear responsibilities, explicit interfaces or contracts, dependency direction, and bounded failure behavior. Use these as quality checks, not required document sections or a fixed template.
 
@@ -117,6 +118,8 @@ Even when multiple credible approaches exist, lead with a recommendation. Ask th
 ## Documentation
 
 Write a design document only when it will remain useful during implementation or future collaboration, such as for long-running, cross-component, or multi-person work, or when the user requests one.
+
+For a Full Design, record the key products or projects researched, the proven patterns adopted, and any material deviation with its rationale. Link to sources when available.
 
 Follow the repository's existing documentation conventions. Create a specification only when it will remain useful, and make a Git commit only when the user or repository workflow calls for it.
 
