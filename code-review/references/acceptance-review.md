@@ -62,6 +62,12 @@ The specification axis determines whether the agreed requirements were implement
 
 <List findings individually; cite repository standards or the general baseline and the implementation location for each>
 
+## Finding Challenge Summary
+
+- Candidate, confirmed, refuted, and insufficient-evidence counts for each axis
+- Independent versus self-challenge coverage
+- Unresolved P0/P1 candidates or scope expansion
+
 ## Summary
 
 - Number of specification-axis findings and the most severe issue
@@ -74,4 +80,4 @@ The specification axis determines whether the agreed requirements were implement
 - Unreviewed areas and residual risks
 ```
 
-Keep both headings and describe what was checked even when one axis has no findings. Do not fix findings automatically.
+Keep both axes and the challenge summary even when one axis has no confirmed findings. Publish only candidates confirmed by the top-level challenge protocol. Do not fix findings automatically.

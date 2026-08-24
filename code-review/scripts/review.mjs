@@ -25,8 +25,13 @@ const SKILL_DIRECTORY = path.resolve(path.dirname(SCRIPT_FILE), '..')
 const FINDINGS_SCHEMA = JSON.parse(
   readFileSync(path.join(SKILL_DIRECTORY, 'references', 'findings.schema.json'), 'utf8'),
 )
+const CHALLENGES_SCHEMA = JSON.parse(
+  readFileSync(path.join(SKILL_DIRECTORY, 'references', 'challenges.schema.json'), 'utf8'),
+)
 const SCHEMA_VERSION = FINDINGS_SCHEMA.properties.schema_version.const
+const CHALLENGE_SCHEMA_VERSION = CHALLENGES_SCHEMA.properties.schema_version.const
 const BLOCKING_SEVERITIES = new Set(['P0', 'P1', 'P2'])
+const HIGH_RISK_SEVERITIES = new Set(['P0', 'P1'])
 const MAX_REVIEW_BYTES = 8 * 1024 * 1024
 const LOCK_WAIT_MILLISECONDS = 10_000
 const LOCK_POLL_MILLISECONDS = 25
@@ -838,6 +843,7 @@ function createRun(collection, runRoot) {
       reason: item.excluded_reason,
     })),
     validated_findings: null,
+    finding_challenges: null,
     conclusion: null,
   }
   state.coverage = coverageFor(state, manifest.items)
@@ -1070,6 +1076,7 @@ export function markReviewItem(options) {
     item.status = options.status
     item.reason = options.reason?.trim() || null
     run.state.validated_findings = null
+    run.state.finding_challenges = null
     run.state.conclusion = null
     delete run.state.result_path
     run.state.status = 'REVIEWING'
@@ -1078,22 +1085,26 @@ export function markReviewItem(options) {
   })
 }
 
-function resolveLocalSchema(reference) {
+function resolveLocalSchema(reference, rootSchema) {
   const prefix = '#/$defs/'
   if (!reference.startsWith(prefix)) {
     throw new ReviewRuntimeError('UNSUPPORTED_SCHEMA_REFERENCE', `不支持的 Schema 引用：${reference}`)
   }
-  const definition = FINDINGS_SCHEMA.$defs[reference.slice(prefix.length)]
+  const definition = rootSchema.$defs?.[reference.slice(prefix.length)]
   if (!definition) {
     throw new ReviewRuntimeError('MISSING_SCHEMA_DEFINITION', `Schema 定义不存在：${reference}`)
   }
   return definition
 }
 
-function validateAgainstSchema(value, schema, location = '$') {
-  if (schema.$ref) return validateAgainstSchema(value, resolveLocalSchema(schema.$ref), location)
+function validateAgainstSchema(value, schema, location = '$', rootSchema = schema) {
+  if (schema.$ref) {
+    return validateAgainstSchema(value, resolveLocalSchema(schema.$ref, rootSchema), location, rootSchema)
+  }
   if (schema.oneOf) {
-    const branchErrors = schema.oneOf.map((branch) => validateAgainstSchema(value, branch, location))
+    const branchErrors = schema.oneOf.map((branch) =>
+      validateAgainstSchema(value, branch, location, rootSchema),
+    )
     const validBranches = branchErrors.filter((errors) => errors.length === 0)
     return validBranches.length === 1
       ? []
@@ -1121,7 +1132,9 @@ function validateAgainstSchema(value, schema, location = '$') {
     }
     for (const [field, propertyValue] of Object.entries(value)) {
       if (properties[field]) {
-        errors.push(...validateAgainstSchema(propertyValue, properties[field], `${location}.${field}`))
+        errors.push(
+          ...validateAgainstSchema(propertyValue, properties[field], `${location}.${field}`, rootSchema),
+        )
       }
     }
   } else if (schema.type === 'array') {
@@ -1134,7 +1147,7 @@ function validateAgainstSchema(value, schema, location = '$') {
     }
     if (schema.items) {
       value.forEach((item, index) => {
-        errors.push(...validateAgainstSchema(item, schema.items, `${location}[${index}]`))
+        errors.push(...validateAgainstSchema(item, schema.items, `${location}[${index}]`, rootSchema))
       })
     }
   } else if (schema.type === 'string') {
@@ -1152,7 +1165,7 @@ function validateAgainstSchema(value, schema, location = '$') {
 }
 
 function validateFindingShape(document) {
-  const errors = validateAgainstSchema(document, FINDINGS_SCHEMA)
+  const errors = validateAgainstSchema(document, FINDINGS_SCHEMA, '$', FINDINGS_SCHEMA)
   if (Array.isArray(document?.findings)) {
     document.findings.forEach((finding, index) => {
       if (
@@ -1166,6 +1179,10 @@ function validateFindingShape(document) {
     })
   }
   return errors
+}
+
+function validateChallengeShape(document) {
+  return validateAgainstSchema(document, CHALLENGES_SCHEMA, '$', CHALLENGES_SCHEMA)
 }
 
 function intervalsOverlap(start, end, range) {
@@ -1271,6 +1288,9 @@ export function validateFindings(options) {
       count: findings.length,
       disposition_digest: output.disposition_digest,
     }
+    run.state.finding_challenges = null
+    run.state.conclusion = null
+    delete run.state.result_path
     run.state.status = 'VALIDATED'
     saveState(run, run.state)
     return {
@@ -1305,6 +1325,199 @@ function loadValidatedFindings(run) {
   return document.findings
 }
 
+function summarizeChallenges(challenges) {
+  return {
+    confirmed: challenges.filter((challenge) => challenge.verdict === 'confirmed').length,
+    refuted: challenges.filter((challenge) => challenge.verdict === 'refuted').length,
+    insufficient_evidence: challenges.filter(
+      (challenge) => challenge.verdict === 'insufficient_evidence',
+    ).length,
+    scope_expanded: challenges.filter((challenge) => challenge.scope_status === 'expanded').length,
+    independent: challenges.filter((challenge) => challenge.challenge_mode === 'independent').length,
+    self: challenges.filter((challenge) => challenge.challenge_mode === 'self').length,
+  }
+}
+
+export function challengeFindings(options) {
+  return withRunLock(options.run, (runDirectory) => {
+    const run = loadRun(runDirectory)
+    assertMutableRun(run)
+    assertSnapshotIntegrity(run)
+    const findings = loadValidatedFindings(run)
+    const document = readJson(path.resolve(options.input), 'finding challenges')
+    const shapeErrors = validateChallengeShape(document)
+    if (shapeErrors.length > 0) {
+      throw new ReviewRuntimeError('CHALLENGE_SCHEMA_FAILED', 'Finding challenges 不符合 Schema', {
+        errors: shapeErrors,
+      })
+    }
+
+    const findingById = new Map(findings.map((finding) => [finding.id, finding]))
+    const challengeById = new Map()
+    for (const challenge of document.challenges) {
+      if (!findingById.has(challenge.finding_id)) {
+        throw new ReviewRuntimeError(
+          'CHALLENGE_UNKNOWN_FINDING',
+          `Challenge 指向未知 Finding：${challenge.finding_id}`,
+        )
+      }
+      if (challengeById.has(challenge.finding_id)) {
+        throw new ReviewRuntimeError(
+          'DUPLICATE_CHALLENGE',
+          `Finding 存在重复 Challenge：${challenge.finding_id}`,
+        )
+      }
+      challengeById.set(challenge.finding_id, challenge)
+    }
+    const missingFindingIds = findings
+      .map((finding) => finding.id)
+      .filter((findingId) => !challengeById.has(findingId))
+    if (missingFindingIds.length > 0) {
+      throw new ReviewRuntimeError('INCOMPLETE_CHALLENGES', '每个 Candidate Finding 必须恰好有一个 Challenge', {
+        missing_finding_ids: missingFindingIds,
+      })
+    }
+
+    const challenges = findings.map((finding) => challengeById.get(finding.id))
+    const confirmedFindings = challenges
+      .filter((challenge) => challenge.verdict === 'confirmed')
+      .map((challenge) => {
+        const finding = findingById.get(challenge.finding_id)
+        return {
+          ...finding,
+          candidate_severity: finding.severity,
+          severity: challenge.final_severity,
+          challenge,
+        }
+      })
+    const binding = {
+      input_digest: run.manifest.input_digest,
+      disposition_digest: dispositionDigest(run.state, run.manifest.items),
+      validated_findings_sha256: run.state.validated_findings.sha256,
+    }
+    const challengeOutput = {
+      schema_version: CHALLENGE_SCHEMA_VERSION,
+      ...binding,
+      challenges,
+    }
+    const challengesPath = path.join(run.runDirectory, 'finding-challenges.json')
+    atomicWriteJson(challengesPath, challengeOutput)
+    const challengesSha256 = sha256(readFileSync(challengesPath))
+    const confirmedOutput = {
+      schema_version: SCHEMA_VERSION,
+      ...binding,
+      challenges_sha256: challengesSha256,
+      findings: confirmedFindings,
+    }
+    const confirmedFindingsPath = path.join(run.runDirectory, 'confirmed-findings.json')
+    atomicWriteJson(confirmedFindingsPath, confirmedOutput)
+    const counts = summarizeChallenges(challenges)
+    run.state.finding_challenges = {
+      path: challengesPath,
+      sha256: challengesSha256,
+      confirmed_findings_path: confirmedFindingsPath,
+      confirmed_findings_sha256: sha256(readFileSync(confirmedFindingsPath)),
+      validated_findings_sha256: binding.validated_findings_sha256,
+      disposition_digest: binding.disposition_digest,
+      count: challenges.length,
+      counts,
+    }
+    run.state.conclusion = null
+    delete run.state.result_path
+    run.state.status = 'CHALLENGED'
+    saveState(run, run.state)
+    return {
+      status: run.state.status,
+      challenges_path: challengesPath,
+      confirmed_findings_path: confirmedFindingsPath,
+      candidate_finding_count: findings.length,
+      confirmed_finding_count: counts.confirmed,
+      refuted_finding_count: counts.refuted,
+      insufficient_evidence_count: counts.insufficient_evidence,
+      scope_expansion_count: counts.scope_expanded,
+      independent_challenge_count: counts.independent,
+      self_challenge_count: counts.self,
+      coverage: run.state.coverage,
+    }
+  })
+}
+
+function loadFindingChallenges(run, findings) {
+  const record = run.state.finding_challenges
+  if (!record) {
+    if (findings.length === 0) {
+      return {
+        challenges: [],
+        confirmedFindings: [],
+        counts: summarizeChallenges([]),
+        challengesPath: null,
+        confirmedFindingsPath: null,
+      }
+    }
+    throw new ReviewRuntimeError(
+      'CHALLENGES_REQUIRED',
+      'Candidate findings 必须先使用 challenge 完成逐项挑战',
+    )
+  }
+  if (record.validated_findings_sha256 !== run.state.validated_findings.sha256) {
+    throw new ReviewRuntimeError('CHALLENGE_FINDINGS_MISMATCH', 'Finding challenges 不属于当前 Candidate findings')
+  }
+  const currentDispositionDigest = dispositionDigest(run.state, run.manifest.items)
+  if (record.disposition_digest !== currentDispositionDigest) {
+    throw new ReviewRuntimeError('CHALLENGE_DISPOSITION_MISMATCH', 'Finding challenges 不属于当前 disposition 状态')
+  }
+
+  const challengeBytes = readFileSync(record.path)
+  if (sha256(challengeBytes) !== record.sha256) {
+    throw new ReviewRuntimeError('CHALLENGE_INTEGRITY_FAILED', 'Finding challenges 摘要不匹配')
+  }
+  const challengeDocument = JSON.parse(challengeBytes.toString('utf8'))
+  if (
+    challengeDocument.input_digest !== run.manifest.input_digest ||
+    challengeDocument.disposition_digest !== currentDispositionDigest ||
+    challengeDocument.validated_findings_sha256 !== run.state.validated_findings.sha256
+  ) {
+    throw new ReviewRuntimeError('CHALLENGE_INPUT_MISMATCH', 'Finding challenges 的输入绑定不匹配')
+  }
+
+  const confirmedBytes = readFileSync(record.confirmed_findings_path)
+  if (sha256(confirmedBytes) !== record.confirmed_findings_sha256) {
+    throw new ReviewRuntimeError('CONFIRMED_FINDINGS_INTEGRITY_FAILED', 'Confirmed findings 摘要不匹配')
+  }
+  const confirmedDocument = JSON.parse(confirmedBytes.toString('utf8'))
+  if (
+    confirmedDocument.input_digest !== run.manifest.input_digest ||
+    confirmedDocument.disposition_digest !== currentDispositionDigest ||
+    confirmedDocument.validated_findings_sha256 !== run.state.validated_findings.sha256 ||
+    confirmedDocument.challenges_sha256 !== record.sha256
+  ) {
+    throw new ReviewRuntimeError('CONFIRMED_FINDINGS_INPUT_MISMATCH', 'Confirmed findings 的输入绑定不匹配')
+  }
+  const expectedConfirmedIds = challengeDocument.challenges
+    .filter((challenge) => challenge.verdict === 'confirmed')
+    .map((challenge) => challenge.finding_id)
+    .sort()
+  const actualConfirmedIds = confirmedDocument.findings.map((finding) => finding.id).sort()
+  if (stableJson(expectedConfirmedIds) !== stableJson(actualConfirmedIds)) {
+    throw new ReviewRuntimeError('CONFIRMED_FINDINGS_PROJECTION_FAILED', 'Confirmed findings 不是 Challenge 的有效投影')
+  }
+  const counts = summarizeChallenges(challengeDocument.challenges)
+  if (
+    challengeDocument.challenges.length !== findings.length ||
+    record.count !== findings.length ||
+    stableJson(record.counts) !== stableJson(counts)
+  ) {
+    throw new ReviewRuntimeError('CHALLENGE_PROJECTION_FAILED', 'Finding challenge 计数或覆盖不一致')
+  }
+  return {
+    challenges: challengeDocument.challenges,
+    confirmedFindings: confirmedDocument.findings,
+    counts,
+    challengesPath: record.path,
+    confirmedFindingsPath: record.confirmed_findings_path,
+  }
+}
+
 export function finalizeReview(options) {
   return withRunLock(options.run, (runDirectory) => {
     const run = loadRun(runDirectory)
@@ -1314,29 +1527,54 @@ export function finalizeReview(options) {
     if (!['APPROVE', 'REQUEST_CHANGES', 'COMMENT'].includes(conclusion)) {
       throw new ReviewRuntimeError('INVALID_CONCLUSION', '--conclusion 必须是 APPROVE、REQUEST_CHANGES 或 COMMENT')
     }
-    const findings = loadValidatedFindings(run)
+    const candidateFindings = loadValidatedFindings(run)
+    const challengeResult = loadFindingChallenges(run, candidateFindings)
+    const findings = challengeResult.confirmedFindings
     const blockingFindings = findings.filter((finding) => BLOCKING_SEVERITIES.has(finding.severity))
+    const candidateById = new Map(candidateFindings.map((finding) => [finding.id, finding]))
+    const unresolvedHighRisk = challengeResult.challenges.filter(
+      (challenge) =>
+        challenge.verdict === 'insufficient_evidence' &&
+        HIGH_RISK_SEVERITIES.has(candidateById.get(challenge.finding_id).severity),
+    )
+    const scopeExpansions = challengeResult.challenges.filter(
+      (challenge) => challenge.scope_status === 'expanded',
+    )
     const coverage = coverageFor(run.state, run.manifest.items)
+    const reviewComplete =
+      coverage.complete && unresolvedHighRisk.length === 0 && scopeExpansions.length === 0
     const allowedConclusions = ['COMMENT']
     if (blockingFindings.length > 0) allowedConclusions.unshift('REQUEST_CHANGES')
-    if (blockingFindings.length === 0 && coverage.complete) allowedConclusions.unshift('APPROVE')
+    if (blockingFindings.length === 0 && reviewComplete) allowedConclusions.unshift('APPROVE')
     if (!allowedConclusions.includes(conclusion)) {
       throw new ReviewRuntimeError('CONCLUSION_BLOCKED', `结论 ${conclusion} 未通过确定性门禁`, {
         allowed_conclusions: allowedConclusions,
         coverage,
         blocking_finding_count: blockingFindings.length,
+        unresolved_high_risk_count: unresolvedHighRisk.length,
+        scope_expansion_count: scopeExpansions.length,
       })
     }
     const result = {
       schema_version: SCHEMA_VERSION,
       run_id: run.manifest.run_id,
       input_digest: run.manifest.input_digest,
-      status: coverage.complete ? 'COMPLETE' : 'PARTIAL',
+      status: reviewComplete ? 'COMPLETE' : 'PARTIAL',
       conclusion,
       allowed_conclusions: allowedConclusions,
       coverage,
+      candidate_finding_count: candidateFindings.length,
       finding_count: findings.length,
       blocking_finding_count: blockingFindings.length,
+      confirmed_finding_count: challengeResult.counts.confirmed,
+      refuted_finding_count: challengeResult.counts.refuted,
+      insufficient_evidence_count: challengeResult.counts.insufficient_evidence,
+      unresolved_high_risk_count: unresolvedHighRisk.length,
+      scope_expansion_count: scopeExpansions.length,
+      independent_challenge_count: challengeResult.counts.independent,
+      self_challenge_count: challengeResult.counts.self,
+      challenges_path: challengeResult.challengesPath,
+      confirmed_findings_path: challengeResult.confirmedFindingsPath,
     }
     const resultPath = path.join(run.runDirectory, 'result.json')
     atomicWriteJson(resultPath, result)
@@ -1363,6 +1601,7 @@ export function reviewStatus(options) {
       target: run.manifest.target,
       coverage: coverageFor(run.state, run.manifest.items),
       validated_findings: run.state.validated_findings,
+      finding_challenges: run.state.finding_challenges,
       conclusion: run.state.conclusion,
       invalidation_reason: run.state.invalidation_reason ?? null,
       fresh: drift === null && run.state.status !== 'INVALIDATED',
@@ -1396,6 +1635,7 @@ function help() {
   review.mjs prepare [--repo PATH] --file PATH [--file PATH ...]
   review.mjs mark --run PATH (--item ID | --path PATH [--source SOURCE]) --status reviewed|skipped|failed [--reason TEXT]
   review.mjs validate --run PATH --input PATH
+  review.mjs challenge --run PATH --input PATH
   review.mjs finalize --run PATH --conclusion APPROVE|REQUEST_CHANGES|COMMENT
   review.mjs status --run PATH`
 }
@@ -1424,6 +1664,10 @@ async function main(argv) {
     requireOption(options, 'run', command)
     requireOption(options, 'input', command)
     result = validateFindings(options)
+  } else if (command === 'challenge') {
+    requireOption(options, 'run', command)
+    requireOption(options, 'input', command)
+    result = challengeFindings(options)
   } else if (command === 'finalize') {
     requireOption(options, 'run', command)
     requireOption(options, 'conclusion', command)

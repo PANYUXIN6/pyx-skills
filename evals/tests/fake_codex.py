@@ -84,6 +84,8 @@ elif (workspace / "change.diff").is_file():
         command_event("sed -n 1,220p codex-home/skills/code-review/references/security-reliability.md")
         command_event("node codex-home/skills/code-review/scripts/review.mjs mark --run /tmp/review --item fixture-item --status reviewed")
         command_event("node codex-home/skills/code-review/scripts/review.mjs validate --run /tmp/review --input /tmp/findings.json")
+        command_event("sed -n 1,220p codex-home/skills/code-review/references/finding-challenge.md")
+        command_event("node codex-home/skills/code-review/scripts/review.mjs challenge --run /tmp/review --input /tmp/challenges.json")
         command_event("node codex-home/skills/code-review/scripts/review.mjs finalize --run /tmp/review --conclusion REQUEST_CHANGES")
         final_message = "REQUEST_CHANGES: shell=True makes user-controlled input command-injectable."
     elif "missing-ref" in prompt:
@@ -97,6 +99,8 @@ elif (workspace / "change.diff").is_file():
         command_event("sed -n 1,220p codex-home/skills/code-review/references/spec-compliance.md")
         command_event("node codex-home/skills/code-review/scripts/review.mjs mark --run /tmp/review --item fixture-item --status reviewed")
         command_event("node codex-home/skills/code-review/scripts/review.mjs validate --run /tmp/review --input /tmp/findings.json")
+        command_event("sed -n 1,220p codex-home/skills/code-review/references/finding-challenge.md")
+        command_event("node codex-home/skills/code-review/scripts/review.mjs challenge --run /tmp/review --input /tmp/challenges.json")
         command_event("node codex-home/skills/code-review/scripts/review.mjs finalize --run /tmp/review --conclusion REQUEST_CHANGES")
         final_message = "REQUEST_CHANGES: shell=True violates SPEC.md; without a baseline, historical change attribution is unavailable."
     else:
@@ -106,6 +110,8 @@ elif (workspace / "change.diff").is_file():
         command_event("sed -n 1,220p codex-home/skills/code-review/references/correctness-quality.md")
         command_event("node codex-home/skills/code-review/scripts/review.mjs mark --run /tmp/review --item fixture-item --status reviewed")
         command_event("node codex-home/skills/code-review/scripts/review.mjs validate --run /tmp/review --input /tmp/findings.json")
+        command_event("sed -n 1,220p codex-home/skills/code-review/references/finding-challenge.md")
+        command_event("node codex-home/skills/code-review/scripts/review.mjs challenge --run /tmp/review --input /tmp/challenges.json")
         command_event("node codex-home/skills/code-review/scripts/review.mjs finalize --run /tmp/review --conclusion REQUEST_CHANGES")
         final_message = "REQUEST_CHANGES: the proposed shell=True call permits command injection."
 elif (workspace / "calc.py").is_file():

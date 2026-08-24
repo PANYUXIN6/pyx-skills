@@ -16,6 +16,8 @@
       {"id": "routine-runtime-prepare", "kind": "event_matches", "pattern": "review\\.mjs prepare", "critical": true},
       {"id": "routine-runtime-mark", "kind": "event_matches", "pattern": "review\\.mjs mark", "critical": false},
       {"id": "routine-runtime-validate", "kind": "event_matches", "pattern": "review\\.mjs validate", "critical": false},
+      {"id": "routine-challenge-protocol-read", "kind": "event_matches", "pattern": "finding-challenge\\.md", "critical": false},
+      {"id": "routine-runtime-challenge", "kind": "event_matches", "pattern": "review\\.mjs challenge", "critical": true},
       {"id": "routine-runtime-finalize", "kind": "event_matches", "pattern": "review\\.mjs finalize", "critical": false},
       {"id": "routine-result", "kind": "final_matches", "pattern": "REQUEST_CHANGES", "critical": true}
     ]
@@ -38,6 +40,8 @@
       {"id": "focused-runtime-prepare", "kind": "event_matches", "pattern": "review\\.mjs prepare", "critical": true},
       {"id": "focused-runtime-mark", "kind": "event_matches", "pattern": "review\\.mjs mark", "critical": false},
       {"id": "focused-runtime-validate", "kind": "event_matches", "pattern": "review\\.mjs validate", "critical": false},
+      {"id": "focused-challenge-protocol-read", "kind": "event_matches", "pattern": "finding-challenge\\.md", "critical": false},
+      {"id": "focused-runtime-challenge", "kind": "event_matches", "pattern": "review\\.mjs challenge", "critical": true},
       {"id": "focused-runtime-finalize", "kind": "event_matches", "pattern": "review\\.mjs finalize", "critical": false},
       {"id": "focused-result", "kind": "final_matches", "pattern": "REQUEST_CHANGES", "critical": true}
     ]
@@ -59,6 +63,8 @@
       {"id": "acceptance-runtime-prepare", "kind": "event_matches", "pattern": "review\\.mjs prepare", "critical": true},
       {"id": "acceptance-runtime-mark", "kind": "event_matches", "pattern": "review\\.mjs mark", "critical": false},
       {"id": "acceptance-runtime-validate", "kind": "event_matches", "pattern": "review\\.mjs validate", "critical": false},
+      {"id": "acceptance-challenge-protocol-read", "kind": "event_matches", "pattern": "finding-challenge\\.md", "critical": false},
+      {"id": "acceptance-runtime-challenge", "kind": "event_matches", "pattern": "review\\.mjs challenge", "critical": true},
       {"id": "acceptance-runtime-finalize", "kind": "event_matches", "pattern": "review\\.mjs finalize", "critical": false},
       {"id": "current-state-conclusion", "kind": "final_matches", "pattern": "REQUEST_CHANGES", "critical": true},
       {"id": "history-limitation", "kind": "final_matches", "pattern": "(?:baseline|history|historical|change set|attribut)", "critical": false}

@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Evidence-backed review of source code and machine-consumed implementation artifacts, including tests, configuration, schemas, migrations, build scripts, and Git workspaces, diffs, commits, PRs, or ranges. Use only when the target is code or implementation behavior and the user explicitly asks to find defects or risks, assess quality, verify correctness, requirements, or standards, perform a named review dimension, or produce findings or a review conclusion. Do not use for requests that only read, inspect, explain, map, summarize, or trace how code works or its implementation approach; neutral wording such as "check", "look at", or "检查一下" is not review intent by itself. Do not use to review prose documents themselves. Pair semantic LLM review with the bundled deterministic Runner for frozen inputs, disposition accounting, source-anchor validation, and approval gating; report findings and wait for separate authorization before fixing them.
+description: Evidence-backed review of source code and machine-consumed implementation artifacts, including tests, configuration, schemas, migrations, build scripts, and Git workspaces, diffs, commits, PRs, or ranges. Use only when the target is code or implementation behavior and the user explicitly asks to find defects or risks, assess quality, verify correctness, requirements, or standards, perform a named review dimension, or produce findings or a review conclusion. Do not use for requests that only read, inspect, explain, map, summarize, or trace how code works or its implementation approach; neutral wording such as "check", "look at", or "检查一下" is not review intent by itself. Do not use to review prose documents themselves. Pair semantic LLM review with the bundled deterministic Runner for frozen inputs, disposition accounting, source-anchor validation, per-Finding challenge coverage, and approval gating; publish only confirmed findings and wait for separate authorization before fixing them.
 ---
 
 # Code Review
@@ -8,9 +8,11 @@ description: Evidence-backed review of source code and machine-consumed implemen
 Use this Skill as the thin orchestration layer for code review. Let Codex understand
 intent, contracts, behavior, and risk; let `scripts/review.mjs` own mechanically
 decidable target membership, snapshots, evidence coordinates, declared dispositions,
-input freshness, and conclusion consistency. The Runner does not dispatch the model
-and cannot prove that an Agent understood an item; a successful command proves only
-the frozen inputs and recorded process state, not semantic completeness or correctness.
+challenge coverage, input freshness, and conclusion consistency. The Runner does not
+dispatch the model and cannot prove that an Agent understood an item or that a
+challenge verdict is semantically true or independent; a successful command proves
+only the frozen inputs and recorded process state, not semantic completeness or
+correctness.
 
 Keep target code, specifications, and Git history read-only until the user separately
 authorizes fixes. Runtime and candidate artifacts may be written only outside the
@@ -117,7 +119,7 @@ run with the complete explicit file set. Repository context read only to explain
 a changed item need not become a finding target; any file used as a finding location
 must belong to the Manifest.
 
-## 5. Validate findings and gate the conclusion
+## 5. Validate candidates, challenge findings, and gate the conclusion
 
 Create one schema-version-2 candidate document conforming to
 [findings.schema.json](references/findings.schema.json). Bind every Finding to its
@@ -128,17 +130,49 @@ and the smallest safe fix direction.
 
 After all dispositions are current, run `validate`; correct rejected anchors from
 the frozen snapshot or omit the Finding. Any later `mark` invalidates the validated
-set, so validate again before finalization. Never relocate a comment by guesswork.
-Run `finalize` with the intended workflow conclusion and use only the Runner-allowed
-result. Do not translate
-`PARTIAL`, `INVALIDATED`, excluded inputs, or a blocked conclusion into approval.
+set and all challenge decisions, so validate again before finalization. Never relocate
+a comment by guesswork. Treat `validate` as mechanical candidate admission, not proof
+that the defect exists.
 
-Render the selected workflow's user-facing report from the validated findings. State
-the frozen scope, workflow and dimensions, executed versus merely observed checks,
-excluded or incomplete items, unreviewed areas, and residual risks. When no findings
-survive, say so without implying more than the frozen target and declared
-dispositions prove. `APPROVE` is bounded to that process state; it is not proof that
-the model performed complete semantic analysis. Then wait for separate authorization
+When at least one candidate validates, read [Finding Challenge
+Protocol](references/finding-challenge.md) completely. Challenge every validated
+candidate exactly once without performing another general review. Use a fresh,
+read-only subagent for independent challenges when the protocol's risk routing
+justifies the coordination cost and Native delegation is available; otherwise perform
+the bounded self-challenge it permits. The verifier may confirm, refute, or declare
+insufficient evidence for only the supplied candidate. It must not modify code, emit
+new findings, or inherit the full implementation conversation.
+
+Create one challenge document conforming to
+[challenges.schema.json](references/challenges.schema.json), then run `challenge`.
+Only the Runner-produced `confirmed_findings_path` may populate the final Findings
+section. Keep refuted candidates in the challenge summary, not the bug list. Keep
+insufficient P2/P3 candidates as explicit residual risks. An insufficient P0/P1
+candidate or `scope_status: expanded` blocks `APPROVE`; do not silently ignore it or
+start a recursive full review.
+
+Run `finalize` with the intended workflow conclusion and use only the Runner-allowed
+result. Confirmed P0-P2 findings block approval. Do not translate `PARTIAL`,
+`INVALIDATED`, excluded inputs, unresolved high-risk candidates, scope expansion, or a
+blocked conclusion into approval.
+
+Render the selected workflow's user-facing report from confirmed findings and the
+challenge summary. State the frozen scope, workflow and dimensions, candidate counts
+by verdict, challenge mode, executed versus merely observed checks, excluded or
+incomplete items, unreviewed areas, and residual risks. When no findings confirm, say
+so without implying more than the frozen target, declared dispositions, and recorded
+challenges prove.
+
+Do not use “the AI can no longer find issues” as a completion test and do not launch a
+second comprehensive review merely to seek zero new findings. Stop this review when
+the frozen queue is fully dispositioned, every candidate has one challenge decision,
+the Runner permits the stated conclusion, required checks have their actual status
+reported, and every applicable acceptance criterion in an acceptance review has a
+recorded result. Choose `APPROVE` only when required test, typecheck, lint, build, or CI
+checks passed on the current input or were explicitly confirmed not applicable, and
+all applicable acceptance criteria passed; use `COMMENT` when required evidence was
+not executed or remains unavailable. `APPROVE` is bounded to that process state; it is
+not proof of global semantic completeness. Then wait for separate authorization
 before fixing anything.
 
 ## Exceptional cases

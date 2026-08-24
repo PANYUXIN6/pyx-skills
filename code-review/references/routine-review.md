@@ -9,6 +9,7 @@ Use this workflow for engineering reviews of the current workspace, named featur
 3. Verify correctness and regression risk first, then perform dispatched security, architecture, or removal checks.
 4. Keep only findings with explainable triggers and practical impact. Do not report personal preferences as issues.
 5. Record tests that were actually executed or observed. Do not infer that a change is correct merely because tests exist.
+6. Treat these as candidates until the top-level Finding challenge finishes. Publish only confirmed candidates and preserve every other verdict in the challenge summary.
 
 ## Severity
 
@@ -36,6 +37,9 @@ Classify all findings as P0–P3:
 ### P2
 ### P3
 
+## Finding Challenge Summary
+<Candidate, confirmed, refuted, and insufficient-evidence counts; independent versus self challenge; unresolved high-risk candidates or scope expansion>
+
 ## Removal and Iteration Plan
 <Include only when removal-plan.md was loaded and contains relevant items>
 
@@ -43,4 +47,4 @@ Classify all findings as P0–P3:
 <Executed checks, unreviewed areas, and recommended additional tests>
 ```
 
-Every finding must include its location, trigger, impact, evidence, and the smallest safe fix direction. Explicitly state when no findings exist, and retain the Coverage and Residual Risks section.
+Every published finding must include its location, trigger, impact, evidence, challenge result, and the smallest safe fix direction. Explicitly state when no candidates confirm, keep non-confirmed candidates out of the Findings section, and retain both the challenge and residual-risk sections.

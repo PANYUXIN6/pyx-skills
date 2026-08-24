@@ -63,15 +63,16 @@ denominator and declared dispositions cannot be silently dropped. `skipped` and
 `failed` require a non-empty `--reason` and forbid approval.
 
 State-changing commands use a run-local lock so successful concurrent calls cannot
-overwrite one another. Every `mark` clears prior validated findings and conclusions;
-validate again after the final disposition change. Validated findings also bind a
-digest of the exact disposition state, which `finalize` rechecks.
+overwrite one another. Every `mark` clears prior validated candidates, Finding
+challenges, and conclusions; validate and challenge again after the final disposition
+change. Validated candidates and challenge decisions bind a digest of the exact
+disposition state, which `finalize` rechecks.
 
 State item membership must remain an exact projection of the immutable Manifest.
 The Runner derives the coverage denominator from Manifest membership and rejects a
 State file with missing, extra, duplicate, mismatched, or invalidly classified items.
 
-## Validate findings
+## Validate candidate findings
 
 Write schema-version-2 candidate findings to a temporary JSON file satisfying
 `findings.schema.json`. Bind every Finding to one Manifest `item_id`, then run:
@@ -89,24 +90,58 @@ must match the normalized frozen lines exactly.
 Use `anchor_kind: file` only for metadata-only evidence. Copy one or more exact
 strings from the item's `metadata_changes`; the Runner rejects invented metadata.
 
-Treat validation failure as evidence that the proposed Finding is not publishable.
-Correct it from repository evidence or omit it; never bypass the Runner.
+Treat validation failure as evidence that the proposed candidate is not challengeable
+or publishable. Correct it from repository evidence or omit it; never bypass the
+Runner. Successful validation proves the anchor and artifact shape, not that the
+claimed defect is true.
+
+## Challenge candidates
+
+When the validated candidate set is non-empty, follow
+`references/finding-challenge.md` and record exactly one decision per candidate in a
+document conforming to `references/challenges.schema.json`:
+
+```bash
+node <skill-directory>/scripts/review.mjs challenge \
+  --run <run-directory> --input <candidate-challenges.json>
+```
+
+The command rejects missing, duplicate, or foreign Finding IDs. It writes the complete
+decision audit to `finding-challenges.json` and projects only `confirmed` candidates
+into `confirmed-findings.json`. A confirmed decision may reclassify final P0-P3
+severity; the candidate severity remains recorded for provenance. `refuted` and
+`insufficient_evidence` candidates never enter the confirmed projection.
+
+The Runner records declared challenge mode and verifier provenance but cannot prove
+that an independent verifier was actually isolated or that its semantic decision is
+correct. A later `validate` or `mark` clears the challenge projection.
 
 ## Finalize
 
-Request the intended conclusion only after coverage and finding validation:
+Request the intended conclusion only after coverage, candidate validation, and every
+required challenge:
 
 ```bash
 node <skill-directory>/scripts/review.mjs finalize \
   --run <run-directory> --conclusion APPROVE
 ```
 
-Allowed conclusions are derived deterministically:
+Allowed conclusions are derived deterministically from confirmed findings and
+challenge dispositions:
 
-- empty or incomplete declared dispositions, including excluded inputs: `COMMENT`, plus
-  `REQUEST_CHANGES` when blocking findings exist;
-- complete declared dispositions with P0-P2: `COMMENT` or `REQUEST_CHANGES`;
-- complete declared dispositions with only P3 or no findings: `COMMENT` or `APPROVE`.
+- Empty or incomplete declared dispositions, including excluded inputs: `COMMENT`, plus
+  `REQUEST_CHANGES` when confirmed blocking findings exist.
+- Any `scope_status: expanded` or any P0/P1 `insufficient_evidence`: `COMMENT`, plus
+  `REQUEST_CHANGES` when confirmed blocking findings also exist.
+- Complete declared dispositions with confirmed P0-P2: `COMMENT` or
+  `REQUEST_CHANGES`.
+- Complete declared dispositions with only confirmed P3 or no confirmed findings, no
+  unresolved P0/P1 candidate, and no scope expansion: `COMMENT` or `APPROVE`.
+
+An insufficient P2/P3 remains an explicit residual risk but does not mechanically
+block approval. The host Agent must still apply the selected workflow's acceptance
+criteria and accurately report required check status; the Runner does not execute
+target-provided commands or prove requirement satisfaction.
 
 Use `status --run <run-directory>` for diagnostics. It rechecks mutable inputs,
 invalidates an active stale run, and reports `fresh` plus `current_input_drift`.
@@ -122,6 +157,9 @@ Runner state; do not translate them into a stronger conclusion.
   drivers while producing patches, and does not execute target-provided commands.
 - The Runner does not launch or monitor a model; semantic coverage remains the host
   Agent's responsibility.
+- The Runner enforces one challenge record per candidate and a confirmed-only
+  projection. It does not prove verifier independence, model capability, contract
+  interpretation, or verdict truth.
 - Runtime artifacts live outside the target repository by default.
 - Reviewable file snapshots are capped at 8 MiB; larger files remain visible as
   `file_too_large` exclusions rather than being loaded into memory.

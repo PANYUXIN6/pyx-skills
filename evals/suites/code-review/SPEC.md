@@ -6,7 +6,7 @@ whether every possible defect was found or whether a review is globally optimal.
 The six smoke cases verify that:
 
 - a routine patch review loads the routine workflow and correctness module, then
-  prepares, validates, and finalizes through the deterministic Runtime without
+  prepares, validates, challenges, and finalizes through the deterministic Runtime without
   loading the diagnostic protocol on the happy path;
 - a security-only request loads the focused workflow and security module without
   expanding into the default correctness or diagnostic protocol modules, while
@@ -28,6 +28,6 @@ python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --
 ```
 
 Use the `case` command for a one-call diagnostic. The suite validates routing,
-Runtime prepare/mark/validate/finalize use, and fail-fast behavior, not whether the
+Runtime prepare/mark/validate/challenge/finalize use, and fail-fast behavior, not whether the
 Agent actually performed complete semantic analysis. The Runtime's mechanical
 contracts have separate Node.js regression tests.

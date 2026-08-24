@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "challenges.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "challenges"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "challenges": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {"$ref": "#/$defs/confirmed_challenge"},
+          {"$ref": "#/$defs/refuted_challenge"},
+          {"$ref": "#/$defs/insufficient_challenge"}
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "confirmed_challenge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "verdict",
+        "challenge_mode",
+        "verifier",
+        "verification_method",
+        "contract_source",
+        "trigger_analysis",
+        "observed_behavior",
+        "counterevidence_checked",
+        "evidence",
+        "scope_status",
+        "final_severity",
+        "severity_reason"
+      ],
+      "properties": {
+        "finding_id": {"type": "string", "minLength": 1},
+        "verdict": {"const": "confirmed"},
+        "challenge_mode": {"enum": ["self", "independent"]},
+        "verifier": {"type": "string", "minLength": 1},
+        "verification_method": {"type": "string", "minLength": 1},
+        "contract_source": {"type": "string", "minLength": 1},
+        "trigger_analysis": {"type": "string", "minLength": 1},
+        "observed_behavior": {"type": "string", "minLength": 1},
+        "counterevidence_checked": {"type": "string", "minLength": 1},
+        "evidence": {"type": "string", "minLength": 1},
+        "scope_status": {"enum": ["contained", "expanded"]},
+        "final_severity": {"enum": ["P0", "P1", "P2", "P3"]},
+        "severity_reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "refuted_challenge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "verdict",
+        "challenge_mode",
+        "verifier",
+        "verification_method",
+        "contract_source",
+        "trigger_analysis",
+        "observed_behavior",
+        "counterevidence_checked",
+        "evidence",
+        "scope_status",
+        "refutation_reason"
+      ],
+      "properties": {
+        "finding_id": {"type": "string", "minLength": 1},
+        "verdict": {"const": "refuted"},
+        "challenge_mode": {"enum": ["self", "independent"]},
+        "verifier": {"type": "string", "minLength": 1},
+        "verification_method": {"type": "string", "minLength": 1},
+        "contract_source": {"type": "string", "minLength": 1},
+        "trigger_analysis": {"type": "string", "minLength": 1},
+        "observed_behavior": {"type": "string", "minLength": 1},
+        "counterevidence_checked": {"type": "string", "minLength": 1},
+        "evidence": {"type": "string", "minLength": 1},
+        "scope_status": {"enum": ["contained", "expanded"]},
+        "refutation_reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "insufficient_challenge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "verdict",
+        "challenge_mode",
+        "verifier",
+        "verification_method",
+        "contract_source",
+        "trigger_analysis",
+        "observed_behavior",
+        "counterevidence_checked",
+        "evidence",
+        "scope_status",
+        "missing_evidence"
+      ],
+      "properties": {
+        "finding_id": {"type": "string", "minLength": 1},
+        "verdict": {"const": "insufficient_evidence"},
+        "challenge_mode": {"enum": ["self", "independent"]},
+        "verifier": {"type": "string", "minLength": 1},
+        "verification_method": {"type": "string", "minLength": 1},
+        "contract_source": {"type": "string", "minLength": 1},
+        "trigger_analysis": {"type": "string", "minLength": 1},
+        "observed_behavior": {"type": "string", "minLength": 1},
+        "counterevidence_checked": {"type": "string", "minLength": 1},
+        "evidence": {"type": "string", "minLength": 1},
+        "scope_status": {"enum": ["contained", "expanded"]},
+        "missing_evidence": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

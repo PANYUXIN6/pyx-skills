@@ -23,7 +23,10 @@ Use this workflow when the user explicitly restricts the review to one or more d
 
 <Order by P0–P3>
 
+## Finding Challenge Summary
+<Candidate verdict counts, challenge independence, unresolved high-risk candidates, and scope expansion>
+
 ## Unreviewed Areas and Residual Risks
 ```
 
-Every finding must include its location, trigger, impact, evidence, and the smallest safe fix direction. When there are no findings, explicitly state that none were found within the focused scope; this does not mean other dimensions passed.
+Every published finding must include its location, trigger, impact, evidence, challenge result, and the smallest safe fix direction. When no candidates confirm, state that explicitly within the focused scope and summarize refuted or insufficient candidates separately; this does not mean other dimensions passed.

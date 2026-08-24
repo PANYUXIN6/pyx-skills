@@ -21,7 +21,7 @@ L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增�
 
 `brainstorming`、`using-superpowers`、`reliable-task-execution`、`tdd`、`repo-map-first`、`code-review` 与 `simplify-codebase` 是相互独立的运行时 skill。它们的开发期行为评测位于仓库级 `evals/`：共享最小集成 Runner、Schema 和本地测试，与 `evals/suites/<skill-name>/` 中的 suite 数据分离，避免开发资源进入运行时分发包。
 
-`code-review` 采用 Skill-fronted Agent 边界：frontmatter 先要求代码目标与明确审查意图同时成立，排除单纯阅读、解释、梳理和行为追踪；`SKILL.md` 与按需模块随后负责语义审查路由，`scripts/review.mjs` 负责 Git 分层输入或显式 current-state 文件冻结、完整 Manifest、Agent 紧凑队列、声明式 disposition、输入失效、Finding 锚点校验和结论门禁。Runner 不启动或监控模型，不能证明 Agent 实际完成了语义分析，也不判断 Finding 的业务真伪或执行目标仓库提供的命令。
+`code-review` 采用 Skill-fronted Agent 边界：frontmatter 先要求代码目标与明确审查意图同时成立，排除单纯阅读、解释、梳理和行为追踪；`SKILL.md` 与按需模块随后负责语义审查路由和候选级证伪挑战，`scripts/review.mjs` 负责 Git 分层输入或显式 current-state 文件冻结、完整 Manifest、Agent 紧凑队列、声明式 disposition、输入失效、Finding 锚点校验、挑战覆盖、confirmed-only 投影和结论门禁。Runner 不启动或监控模型，不能证明 Agent 实际完成了语义分析、挑战者真正独立或挑战裁决在业务上正确，也不执行目标仓库提供的命令。
 
 `simplify-codebase` 独立拥有证据型简化调查与获授权后的清理职责。它不依赖 `code-review`，也不是代码审查的固定阶段；普通审查中的局部冗余仍是普通 finding，只有显式清理请求或已观察到的强候选需要跨已审行追踪消费者时才进入该 Skill。通用层只拥有消费者分类、影响分级、证据组合和删除权限，目标仓库拥有语言、入口、排除项、防御模式、覆盖策略和门禁命令。Skill 在判断候选前验证仓库声明的路径与入口仍存在；开发期 suite 同时验证仓库策略加载、只读保持、可逆自治应用和普通 Review、孤立 lint 的负向路由。
 
@@ -34,7 +34,7 @@ review-design-contracts ──仓库文档缺失或可能陈旧时──> repo-m
 review-design-contracts ──每次运行──> Codex Native subagent 工具
 review-design.mjs ──读取──> review.config.json + references/
 code-review/SKILL.md ──调用──> code-review/scripts/review.mjs
-code-review/scripts/review.mjs ──读取并执行──> code-review/references/findings.schema.json
+code-review/scripts/review.mjs ──读取并执行──> code-review/references/findings.schema.json + challenges.schema.json
 brainstorming ──用户接受视觉伴侣时──> brainstorming/scripts/
 evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 ```
@@ -53,7 +53,7 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 8. 人工确认完整批次后，Runner 校验机器枚举、非空理由和批次覆盖，并保存可审计决定；只有明确接受才生成摘要绑定的修复队列。
 9. 修复后的 `verify-fixes` 不续写旧队列状态，而是创建绑定当前目标的 Manifest v6：确定性分类器先检查 finding 层级、支持输入、标题结构和修改范围；只有局部自洽修复进入单任务验证，其余结果要求当前目标重新执行完整评审。
 
-代码审查的独立控制流为：Codex 解析 authority 和目标后调用 `prepare`；Runner 将 workspace 的 `HEAD -> index`、`index -> worktree` 与 untracked 分层冻结，或冻结固定三点比较、无需 Git 的显式 current-state 文件集，并从完整 Manifest 派生不含摘要噪音的紧凑队列供 Agent 阅读。Codex 按工作流审查并用串行化的 `mark` 声明逐项 disposition；该声明不是语义审查已发生的机械证明。候选 Finding 经 `validate` 绑定当前 disposition 摘要并按 `item_id` 校验 Schema、快照、精确代码行或 Git metadata；后续 `mark` 会使旧 Finding 集失效。`finalize` 根据声明完整性和 P0-P2 finding 决定允许的结论。输入漂移使活动运行进入 `INVALIDATED`，空范围、排除项和未完成项均不能得到 `APPROVE`。
+代码审查的独立控制流为：Codex 解析 authority 和目标后调用 `prepare`；Runner 将 workspace 的 `HEAD -> index`、`index -> worktree` 与 untracked 分层冻结，或冻结固定三点比较、无需 Git 的显式 current-state 文件集，并从完整 Manifest 派生不含摘要噪音的紧凑队列供 Agent 阅读。Codex 按工作流审查并用串行化的 `mark` 声明逐项 disposition；该声明不是语义审查已发生的机械证明。候选 Finding 经 `validate` 绑定当前 disposition 摘要并按 `item_id` 校验 Schema、快照、精确代码行或 Git metadata；非空候选集随后必须逐项 `challenge` 为 `confirmed`、`refuted` 或 `insufficient_evidence`，只有 confirmed 投影进入最终 Findings。后续 `mark` 或 `validate` 会使旧挑战集失效。`finalize` 根据声明完整性、确认后的 P0-P2、证据不足的 P0/P1 和挑战范围扩张决定允许的结论。输入漂移使活动运行进入 `INVALIDATED`，空范围、排除项、未完成项、未裁决候选和未解决的高风险候选均不能得到 `APPROVE`。
 
 代码简化的独立控制流为：Codex 先发现并验证仓库本地指令、防御模式、兼容策略、入口、排除项和门禁，再确定只读 `audit` 或获授权的 `apply`，并按局部闭包或跨边界证据选择 `light` 或 `deep`。调查把引用分为生产、非生产、歧义和外部契约四类，逐个候选给出 `remove`、`keep` 或 `defer`。`layered-safety.md` 是唯一删除准入事实源；仓库规则可以加强保护但不能授予修改权或降低全局高风险。`apply` 同步删除完整闭包，并以残留搜索、仓库自有门禁、最终 diff 和恢复证据复核。
 
@@ -62,7 +62,7 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 - Runner 拥有 `.superpowers/design-reviews/<target-sha>/<run-id>/` 下的运行状态和所有中间制品。
 - Runner 额外拥有不参与审查判断的 `metrics.json`，记录任务输入、Schema、指令、响应写入/消费时间、宿主推进延迟、执行槽利用率、候选门禁数量、跨片信号和 merge 独有产出；缺少 provider token 数据时不进行估算。
 - Manifest v6 修复复核运行拥有 `fix-impact.json` 与 `fix-verification-results.json`；前者记录确定性分流证据，后者只证明已接受违反路径的局部关闭状态，不等价于全量无发现结论。
-- Code Review Runner 拥有系统临时目录 `code-review-runs/<input-digest>-*/` 下的不可变 Manifest、紧凑 Agent 队列、受锁保护的 disposition 状态、已验证 Finding 和最终门禁结果；目标仓库保持只读。超过 8 MiB 的文件作为显式排除项记账而不生成内容快照。
+- Code Review Runner 拥有系统临时目录 `code-review-runs/<input-digest>-*/` 下的不可变 Manifest、紧凑 Agent 队列、受锁保护的 disposition 状态、已验证候选、逐项挑战审计、confirmed-only Finding 投影和最终门禁结果；目标仓库保持只读。超过 8 MiB 的文件作为显式排除项记账而不生成内容快照。
 - Native subagent 仅拥有自己任务目录中的 `response.json` 写权限语义，不拥有运行状态迁移权。
 - 每个 Native task descriptor 拥有阶段特定的等待预算；宿主负责宽限期复查，Runner 的 `fail-task` 负责在失败落盘前再次确认响应不存在。
 - 人工拥有 finding 的最终接纳权；Codex 只负责把短编号、中文菜单或自然语言理由转换为 Runner 输入，模型输出不能直接授权修复。

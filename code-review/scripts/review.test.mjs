@@ -18,6 +18,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 
 import {
+  challengeFindings,
   finalizeReview,
   markReviewItem,
   prepareReview,
@@ -56,6 +57,69 @@ function writeFindings(root, findings) {
     `${JSON.stringify({ schema_version: 2, findings }, null, 2)}\n`,
   )
   return candidatePath
+}
+
+function writeChallenges(root, challenges) {
+  const challengePath = path.join(root, `challenges-${Math.random().toString(16).slice(2)}.json`)
+  writeFileSync(
+    challengePath,
+    `${JSON.stringify({ schema_version: 1, challenges }, null, 2)}\n`,
+  )
+  return challengePath
+}
+
+function challengeDecision(findingId, overrides = {}) {
+  return {
+    finding_id: findingId,
+    verdict: 'confirmed',
+    challenge_mode: 'independent',
+    verifier: 'test-verifier',
+    verification_method: 'Trace the frozen call path and compare it with the test contract.',
+    contract_source: 'The fixture contract requires the safe execution path.',
+    trigger_analysis: 'The changed value reaches run(mode) on the default path.',
+    observed_behavior: 'The runner receives the unsafe value.',
+    counterevidence_checked: 'No guard or caller override exists in the frozen fixture.',
+    evidence: 'The frozen source passes mode directly to run on line 2.',
+    scope_status: 'contained',
+    final_severity: 'P1',
+    severity_reason: 'The default path changes behavior for every caller.',
+    ...overrides,
+  }
+}
+
+function refutedChallengeDecision(findingId, overrides = {}) {
+  const decision = challengeDecision(findingId)
+  delete decision.final_severity
+  delete decision.severity_reason
+  return {
+    ...decision,
+    verdict: 'refuted',
+    refutation_reason: 'A frozen guard rejects the value before the claimed operation.',
+    ...overrides,
+  }
+}
+
+function insufficientChallengeDecision(findingId, overrides = {}) {
+  const decision = challengeDecision(findingId)
+  delete decision.final_severity
+  delete decision.severity_reason
+  return {
+    ...decision,
+    verdict: 'insufficient_evidence',
+    missing_evidence: 'The external caller contract is not present in the frozen evidence.',
+    ...overrides,
+  }
+}
+
+function challengeValidatedFindings(root, prepared, validated, overrides = {}) {
+  const validatedDocument = JSON.parse(readFileSync(validated.findings_path, 'utf8'))
+  const challenges = validatedDocument.findings.map((finding) =>
+    challengeDecision(finding.id, { final_severity: finding.severity, ...overrides }),
+  )
+  return challengeFindings({
+    run: prepared.run_dir,
+    input: writeChallenges(root, challenges),
+  })
 }
 
 function lineFinding(itemId, overrides = {}) {
@@ -122,6 +186,7 @@ test('workspace freezes staged, unstaged, and untracked layers as separate items
   }
   const candidate = writeFindings(root, [lineFinding(stagedItem.id)])
   const validated = validateFindings({ run: prepared.run_dir, input: candidate })
+  challengeValidatedFindings(root, prepared, validated)
   const result = finalizeReview({ run: prepared.run_dir, conclusion: 'REQUEST_CHANGES' })
 
   assert.equal(validated.finding_count, 1)
@@ -162,7 +227,8 @@ test('workspace keeps staged content even when an unstaged edit restores HEAD', 
       existing_code: 'const value = "unsafe"',
     }),
   ])
-  validateFindings({ run: prepared.run_dir, input: candidate })
+  const validated = validateFindings({ run: prepared.run_dir, input: candidate })
+  challengeValidatedFindings(root, prepared, validated)
   const result = finalizeReview({ run: prepared.run_dir, conclusion: 'REQUEST_CHANGES' })
   assert.equal(result.status, 'COMPLETE')
 })
@@ -436,7 +502,8 @@ test('explicit current-state review works without Git or a diff', (t) => {
       title: 'Current-state observation',
     }),
   ])
-  validateFindings({ run: prepared.run_dir, input: candidate })
+  const validated = validateFindings({ run: prepared.run_dir, input: candidate })
+  challengeValidatedFindings(root, prepared, validated)
   const result = finalizeReview({ run: prepared.run_dir, conclusion: 'APPROVE' })
   assert.equal(result.status, 'COMPLETE')
 })
@@ -493,10 +560,11 @@ test('metadata-only changes accept an exact file-level anchor', (t) => {
   assert.deepEqual(item.metadata_changes, ['old mode 100755', 'new mode 100644'])
 
   markReviewItem({ run: prepared.run_dir, item: item.id, status: 'reviewed' })
-  validateFindings({
+  const validated = validateFindings({
     run: prepared.run_dir,
     input: writeFindings(root, [metadataFinding(item)]),
   })
+  challengeValidatedFindings(root, prepared, validated)
   const result = finalizeReview({ run: prepared.run_dir, conclusion: 'REQUEST_CHANGES' })
   assert.equal(result.blocking_finding_count, 1)
 })
@@ -536,6 +604,181 @@ test('candidate shape is enforced from findings.schema.json', (t) => {
     () => validateFindings({ run: prepared.run_dir, input: writeFindings(root, [candidate]) }),
     (error) => error.code === 'FINDING_SCHEMA_FAILED',
   )
+})
+
+test('non-empty candidate findings must be challenged before finalization', (t) => {
+  const { root, repository, runRoot } = createRepository(t)
+  writeFileSync(path.join(repository, 'app.js'), 'const mode = "unsafe"\nrun(mode)\n')
+  const prepared = prepareReview({ repo: repository, runRoot })
+  const item = loadManifest(prepared).items[0]
+  markReviewItem({ run: prepared.run_dir, item: item.id, status: 'reviewed' })
+  validateFindings({
+    run: prepared.run_dir,
+    input: writeFindings(root, [lineFinding(item.id)]),
+  })
+
+  assert.throws(
+    () => finalizeReview({ run: prepared.run_dir, conclusion: 'REQUEST_CHANGES' }),
+    (error) => error.code === 'CHALLENGES_REQUIRED',
+  )
+})
+
+test('a refuted P1 candidate is not published or treated as blocking', (t) => {
+  const { root, repository, runRoot } = createRepository(t)
+  writeFileSync(path.join(repository, 'app.js'), 'const mode = "unsafe"\nrun(mode)\n')
+  const prepared = prepareReview({ repo: repository, runRoot })
+  const item = loadManifest(prepared).items[0]
+  markReviewItem({ run: prepared.run_dir, item: item.id, status: 'reviewed' })
+  const validated = validateFindings({
+    run: prepared.run_dir,
+    input: writeFindings(root, [lineFinding(item.id)]),
+  })
+  const findingId = JSON.parse(readFileSync(validated.findings_path, 'utf8')).findings[0].id
+  const challenged = challengeFindings({
+    run: prepared.run_dir,
+    input: writeChallenges(root, [refutedChallengeDecision(findingId)]),
+  })
+  const result = finalizeReview({ run: prepared.run_dir, conclusion: 'APPROVE' })
+  const confirmed = JSON.parse(readFileSync(challenged.confirmed_findings_path, 'utf8'))
+
+  assert.equal(result.candidate_finding_count, 1)
+  assert.equal(result.refuted_finding_count, 1)
+  assert.equal(result.finding_count, 0)
+  assert.equal(result.challenges_path, challenged.challenges_path)
+  assert.equal(result.confirmed_findings_path, challenged.confirmed_findings_path)
+  assert.deepEqual(confirmed.findings, [])
+})
+
+test('insufficient P1 evidence blocks approval without becoming a published bug', (t) => {
+  const { root, repository, runRoot } = createRepository(t)
+  writeFileSync(path.join(repository, 'app.js'), 'const mode = "unsafe"\nrun(mode)\n')
+  const prepared = prepareReview({ repo: repository, runRoot })
+  const item = loadManifest(prepared).items[0]
+  markReviewItem({ run: prepared.run_dir, item: item.id, status: 'reviewed' })
+  const validated = validateFindings({
+    run: prepared.run_dir,
+    input: writeFindings(root, [lineFinding(item.id)]),
+  })
+  const findingId = JSON.parse(readFileSync(validated.findings_path, 'utf8')).findings[0].id
+  challengeFindings({
+    run: prepared.run_dir,
+    input: writeChallenges(root, [insufficientChallengeDecision(findingId)]),
+  })
+
+  assert.throws(
+    () => finalizeReview({ run: prepared.run_dir, conclusion: 'APPROVE' }),
+    (error) =>
+      error.code === 'CONCLUSION_BLOCKED' && error.details.unresolved_high_risk_count === 1,
+  )
+  const result = finalizeReview({ run: prepared.run_dir, conclusion: 'COMMENT' })
+  assert.equal(result.status, 'PARTIAL')
+  assert.equal(result.finding_count, 0)
+  assert.equal(result.insufficient_evidence_count, 1)
+})
+
+test('insufficient contained P2 evidence is an explicit residual risk but can approve', (t) => {
+  const { root, repository, runRoot } = createRepository(t)
+  writeFileSync(path.join(repository, 'app.js'), 'const mode = "unsafe"\nrun(mode)\n')
+  const prepared = prepareReview({ repo: repository, runRoot })
+  const item = loadManifest(prepared).items[0]
+  markReviewItem({ run: prepared.run_dir, item: item.id, status: 'reviewed' })
+  const validated = validateFindings({
+    run: prepared.run_dir,
+    input: writeFindings(root, [lineFinding(item.id, { severity: 'P2' })]),
+  })
+  const findingId = JSON.parse(readFileSync(validated.findings_path, 'utf8')).findings[0].id
+  challengeFindings({
+    run: prepared.run_dir,
+    input: writeChallenges(root, [insufficientChallengeDecision(findingId)]),
+  })
+
+  const result = finalizeReview({ run: prepared.run_dir, conclusion: 'APPROVE' })
+  assert.equal(result.status, 'COMPLETE')
+  assert.equal(result.insufficient_evidence_count, 1)
+  assert.equal(result.unresolved_high_risk_count, 0)
+})
+
+test('challenge coverage must match every validated candidate exactly once', (t) => {
+  const { root, repository, runRoot } = createRepository(t)
+  const prepared = prepareReview({ repo: repository, runRoot, files: ['app.js'] })
+  const item = loadManifest(prepared).items[0]
+  markReviewItem({ run: prepared.run_dir, item: item.id, status: 'reviewed' })
+  const validated = validateFindings({
+    run: prepared.run_dir,
+    input: writeFindings(root, [
+      lineFinding(item.id, {
+        existing_code: 'const mode = "safe"',
+      }),
+    ]),
+  })
+  const findingId = JSON.parse(readFileSync(validated.findings_path, 'utf8')).findings[0].id
+
+  assert.throws(
+    () =>
+      challengeFindings({
+        run: prepared.run_dir,
+        input: writeChallenges(root, []),
+      }),
+    (error) => error.code === 'INCOMPLETE_CHALLENGES',
+  )
+  assert.throws(
+    () =>
+      challengeFindings({
+        run: prepared.run_dir,
+        input: writeChallenges(root, [
+          challengeDecision(findingId),
+          challengeDecision(findingId),
+        ]),
+      }),
+    (error) => error.code === 'DUPLICATE_CHALLENGE',
+  )
+})
+
+test('revalidating candidates invalidates earlier challenge decisions', (t) => {
+  const { root, repository, runRoot } = createRepository(t)
+  writeFileSync(path.join(repository, 'app.js'), 'const mode = "unsafe"\nrun(mode)\n')
+  const prepared = prepareReview({ repo: repository, runRoot })
+  const item = loadManifest(prepared).items[0]
+  markReviewItem({ run: prepared.run_dir, item: item.id, status: 'reviewed' })
+  const candidatePath = writeFindings(root, [lineFinding(item.id)])
+  const validated = validateFindings({ run: prepared.run_dir, input: candidatePath })
+  challengeValidatedFindings(root, prepared, validated)
+
+  validateFindings({ run: prepared.run_dir, input: candidatePath })
+  const status = reviewStatus({ run: prepared.run_dir })
+
+  assert.equal(status.finding_challenges, null)
+  assert.throws(
+    () => finalizeReview({ run: prepared.run_dir, conclusion: 'REQUEST_CHANGES' }),
+    (error) => error.code === 'CHALLENGES_REQUIRED',
+  )
+})
+
+test('challenge scope expansion blocks approval without starting another review', (t) => {
+  const { root, repository, runRoot } = createRepository(t)
+  writeFileSync(path.join(repository, 'app.js'), 'const mode = "unsafe"\nrun(mode)\n')
+  const prepared = prepareReview({ repo: repository, runRoot })
+  const item = loadManifest(prepared).items[0]
+  markReviewItem({ run: prepared.run_dir, item: item.id, status: 'reviewed' })
+  const validated = validateFindings({
+    run: prepared.run_dir,
+    input: writeFindings(root, [lineFinding(item.id, { severity: 'P2' })]),
+  })
+  const findingId = JSON.parse(readFileSync(validated.findings_path, 'utf8')).findings[0].id
+  challengeFindings({
+    run: prepared.run_dir,
+    input: writeChallenges(root, [
+      insufficientChallengeDecision(findingId, { scope_status: 'expanded' }),
+    ]),
+  })
+
+  assert.throws(
+    () => finalizeReview({ run: prepared.run_dir, conclusion: 'APPROVE' }),
+    (error) => error.code === 'CONCLUSION_BLOCKED' && error.details.scope_expansion_count === 1,
+  )
+  const result = finalizeReview({ run: prepared.run_dir, conclusion: 'COMMENT' })
+  assert.equal(result.status, 'PARTIAL')
+  assert.equal(result.scope_expansion_count, 1)
 })
 
 test('state items must remain an exact projection of Manifest membership', (t) => {
@@ -641,7 +884,11 @@ test('three-dot comparison resolves immutable commits and line anchors', (t) => 
   assert.equal(manifest.target.head_commit, head)
 
   markReviewItem({ run: prepared.run_dir, item: item.id, status: 'reviewed' })
-  validateFindings({ run: prepared.run_dir, input: writeFindings(root, [lineFinding(item.id)]) })
+  const validated = validateFindings({
+    run: prepared.run_dir,
+    input: writeFindings(root, [lineFinding(item.id)]),
+  })
+  challengeValidatedFindings(root, prepared, validated)
   const result = finalizeReview({ run: prepared.run_dir, conclusion: 'REQUEST_CHANGES' })
   assert.equal(result.status, 'COMPLETE')
 })
@@ -659,6 +906,44 @@ test('CLI completes the explicit-file protocol', (t) => {
   const result = runCli([
     'finalize', '--run', prepared.run_dir, '--conclusion', 'APPROVE',
   ])
+  assert.equal(result.status, 'COMPLETE')
+})
+
+test('CLI completes the candidate challenge protocol', (t) => {
+  const { root, repository, runRoot } = createRepository(t)
+  const runCli = (args) =>
+    JSON.parse(execFileSync(process.execPath, [SCRIPT_PATH, ...args], { encoding: 'utf8' }))
+  const prepared = runCli([
+    'prepare', '--repo', repository, '--run-root', runRoot, '--file', 'app.js',
+  ])
+  const item = loadManifest(prepared).items[0]
+  runCli(['mark', '--run', prepared.run_dir, '--item', item.id, '--status', 'reviewed'])
+  const validated = runCli([
+    'validate',
+    '--run',
+    prepared.run_dir,
+    '--input',
+    writeFindings(root, [
+      lineFinding(item.id, {
+        severity: 'P3',
+        existing_code: 'const mode = "safe"',
+      }),
+    ]),
+  ])
+  const findingId = JSON.parse(readFileSync(validated.findings_path, 'utf8')).findings[0].id
+  const challenged = runCli([
+    'challenge',
+    '--run',
+    prepared.run_dir,
+    '--input',
+    writeChallenges(root, [challengeDecision(findingId, { final_severity: 'P3' })]),
+  ])
+  const result = runCli([
+    'finalize', '--run', prepared.run_dir, '--conclusion', 'APPROVE',
+  ])
+
+  assert.equal(challenged.confirmed_finding_count, 1)
+  assert.equal(result.finding_count, 1)
   assert.equal(result.status, 'COMPLETE')
 })
 
