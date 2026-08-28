@@ -16,7 +16,7 @@
   },
   {
     "id": "automatic-full-design-coordinates-dependent-tasks",
-    "title": "Coordinate dependent tasks through one governing design",
+    "title": "Define reliable implementation slices under one governing design",
     "module": "full-design",
     "tags": ["smoke"],
     "activation": "automatic",
@@ -27,7 +27,9 @@
       {"id": "dependent-design-skill-read", "kind": "event_matches", "pattern": "brainstorming[^\\n]*SKILL\\.md", "critical": false},
       {"id": "dependent-design-context-read", "kind": "event_matches", "pattern": "CONTEXT\\.md", "critical": false},
       {"id": "parent-shared-contracts", "kind": "final_matches", "pattern": "(?:governing|parent|umbrella|overall|shared|global)[ -]?(?:design|contract)", "critical": false},
+      {"id": "slice-outcome-boundary", "kind": "final_matches", "pattern": "(?:slice|task).*(?:outcome|goal|non-goal|responsibility|change boundary)", "critical": false},
       {"id": "task-dependency-order", "kind": "final_matches", "pattern": "(?:dependenc|prerequisite|sequence|implementation order)", "critical": false},
+      {"id": "slice-completion-evidence", "kind": "final_matches", "pattern": "(?:completion evidence|evidence.*complete|verification evidence)", "critical": false},
       {"id": "integration-acceptance", "kind": "final_matches", "pattern": "(?:integration.*accept|accept.*integration|end-to-end)", "critical": false}
     ]
   }

@@ -37,8 +37,10 @@ if (workspace / "CONTEXT.md").is_file():
     command_event("sed -n 1,200p CONTEXT.md")
     if "durable Full Design" in prompt:
         final_message = (
-            "Use one governing design for the shared contract, define task dependency "
-            "order, and finish with end-to-end integration acceptance."
+            "Use one governing design for the shared contract. Define each slice outcome, "
+            "non-goals, responsibility and change boundary, prerequisite dependency order, "
+            "inherited invariants, local implementation choices, and completion evidence. "
+            "Finish with end-to-end integration acceptance."
         )
     else:
         final_message = "Use SQLite: it satisfies the offline and single-process constraints."
@@ -128,11 +130,19 @@ elif (workspace / "calc.py").is_file():
     command_event("python3 -m unittest test_calc.py", exit_code=0)
     final_message = "Fixed clamp() and verified the existing tests pass."
 elif (workspace / "module.py").is_file():
-    if "not asking for TDD" in prompt:
-        final_message = "Add one integration test that exercises greet() through its caller-facing interface."
-    else:
+    if "Run the existing test suite" in prompt:
+        command_event("python3 -m unittest", exit_code=0)
+        final_message = "The existing tests pass."
+    elif "test-driven development" in prompt:
+        command_event("sed -n 1,220p codex-home/skills/testing-guidelines/SKILL.md")
         command_event("sed -n 1,200p codex-home/skills/tdd/SKILL.md")
         final_message = "Red: add the smallest failing behavior test. Green: implement only enough to pass it."
+    else:
+        command_event("sed -n 1,220p codex-home/skills/testing-guidelines/SKILL.md")
+        if "integration test" in prompt:
+            final_message = "Add one integration test that protects greet() through its caller-facing behavior."
+        else:
+            final_message = "Add one focused unit test that protects greet() through its caller-facing behavior."
 elif (workspace / "api_layer.py").is_file():
     if "complete scope" in prompt:
         final_message = "Make the requested local change only in local_target.py."

@@ -9,8 +9,8 @@ The two smoke cases check only stable basics:
 - the skill leads Codex to read the supplied repository constraint;
 - the response recommends the design directly implied by that constraint;
 - a Full Design spanning dependent tasks establishes shared governing contracts,
-  dependency order, and integration acceptance without imposing that workflow on
-  the ordinary design case.
+  reliable slices with completion evidence, dependency order, and integration
+  acceptance without imposing that workflow on the ordinary design case.
 
 ```bash
 python3 evals/scripts/run_eval.py --suite-root evals/suites/brainstorming static

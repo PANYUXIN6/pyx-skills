@@ -74,14 +74,17 @@ For these cases:
 
 Evaluate the design through the relevant lenses of clear responsibilities, explicit interfaces or contracts, dependency direction, and bounded failure behavior. Use these as quality checks, not required document sections or a fixed template.
 
-### Coordinate Dependent Implementation Tasks
+### Define Reliable Implementation Slices
 
 When a Full Design must be implemented through multiple tasks that share contracts or depend on one another:
 
 1. Establish one governing design (the parent design) that owns the shared contracts, task boundaries, dependency order, constraints that child tasks may not redefine, and integration acceptance criteria.
-2. Obtain approval for the governing design before treating dependent child-task designs as final.
-3. Derive each child-task design from the governing design and keep it focused on its assigned responsibility and verification evidence.
-4. Revise and reconfirm the governing design before implementation when a child task needs to change a shared contract.
+2. Divide the work into coherent, independently verifiable slices. For each slice, state its outcome and non-goals, prerequisites, assigned responsibility or change boundary, inherited contracts and invariants, local implementation choices that remain free, and the evidence that proves completion.
+3. Order slices by their actual dependencies and keep end-to-end integration acceptance in the governing design.
+4. Obtain approval for the governing design before treating dependent slice designs as final.
+5. Revise and reconfirm the governing design before implementation when evidence from any slice requires a shared contract to change.
+
+Do not turn slices into speculative coding instructions. Name files, symbols, or call sequences only when repository evidence makes them stable constraints rather than local implementation choices.
 
 Determine this relationship by contract ownership, not task chronology. A predecessor task's design is governing only when it owns a shared constraint that the current task must obey.
 
@@ -94,7 +97,7 @@ governing_design: ./governing-design.md
 
 Resolve `governing_design` relative to the child document. If frontmatter is unsuitable, add one direct Markdown link that labels the governing design. Do not add relationship metadata to standalone designs, duplicate a repository-wide document index, or require design documents to remain after implementation.
 
-Skip this coordination for implementation tasks that are genuinely independent.
+Do not impose a governing relationship on implementation tasks that are genuinely independent, and do not split work further when another slice would not improve ownership, sequencing, or verification.
 
 Present large designs in digestible sections, but do not require approval after every section unless incremental confirmation would genuinely reduce misunderstanding.
 

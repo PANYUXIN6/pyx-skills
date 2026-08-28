@@ -9,7 +9,8 @@
     "prompt": "I want to add is_even() to module.py using test-driven development. Before changing files, describe the first red-green-refactor slice and the minimum test evidence you would use.",
     "workspace": {"fixture": "simple-module", "git": false},
     "deterministic_assertions": [
-      {"id": "tdd-loop-described", "kind": "final_matches", "pattern": "(?:red|fail(?:ing)?).*(?:green|pass(?:ing)?)", "critical": false}
+      {"id": "tdd-loop-described", "kind": "final_matches", "pattern": "(?:red|fail(?:ing)?).*(?:green|pass(?:ing)?)", "critical": false},
+      {"id": "testing-guidelines-companion", "kind": "event_matches", "pattern": "testing-guidelines/SKILL\\.md", "critical": true}
     ]
   },
   {

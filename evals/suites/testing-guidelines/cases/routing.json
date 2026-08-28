@@ -1,0 +1,28 @@
+[
+  {
+    "id": "automatic-test-authoring-routing",
+    "title": "Discover testing guidelines for ordinary test authoring",
+    "module": "routing",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "Add focused unit tests for the existing greet() behavior in module.py. Do not change the implementation, and do not use TDD or a test-first workflow.",
+    "workspace": {"fixture": "simple-module", "git": false},
+    "deterministic_assertions": [
+      {"id": "test-evidence-proposed", "kind": "final_matches", "pattern": "(?:unit|test|behavior)", "critical": false}
+    ]
+  },
+  {
+    "id": "automatic-run-only-does-not-route",
+    "title": "Do not discover testing guidelines merely to run tests",
+    "module": "routing",
+    "tags": ["smoke"],
+    "activation": "automatic",
+    "skill_invocation_expected": false,
+    "prompt": "Run the existing test suite and report whether it passes. Do not add, modify, design, or review any tests.",
+    "workspace": {"fixture": "simple-module", "git": false},
+    "deterministic_assertions": [
+      {"id": "existing-tests-run", "kind": "final_matches", "pattern": "pass", "critical": false}
+    ]
+  }
+]

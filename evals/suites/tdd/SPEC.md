@@ -5,8 +5,8 @@ strategy is globally optimal or count test cases as a quality signal.
 
 The two smoke cases verify that:
 
-- an explicit test-first request discovers `tdd` without preselection;
-- an ordinary integration-test request does not discover `tdd`.
+- an explicit test-first request discovers `tdd` and its `testing-guidelines` companion without preselection;
+- an ordinary integration-test request may use `testing-guidelines` but does not discover `tdd`.
 
 ```bash
 python3 evals/scripts/run_eval.py --suite-root evals/suites/tdd static

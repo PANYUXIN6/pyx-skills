@@ -30,6 +30,7 @@ class SuiteValidationTests(unittest.TestCase):
             "brainstorming": 2,
             "using-superpowers": 8,
             "reliable-task-execution": 2,
+            "testing-guidelines": 2,
             "tdd": 2,
             "repo-map-first": 2,
             "code-review": 6,
@@ -76,6 +77,7 @@ class IsolationTests(unittest.TestCase):
             "brainstorming",
             "using-superpowers",
             "reliable-task-execution",
+            "testing-guidelines",
             "tdd",
             "repo-map-first",
             "code-review",
@@ -99,15 +101,30 @@ class IsolationTests(unittest.TestCase):
         self.assertIn("<skill-dir>/scripts/start-server.sh", guide)
         self.assertIn("<skill-dir>/scripts/stop-server.sh", guide)
 
-    def test_brainstorming_coordinates_only_dependent_full_design_tasks(self):
+    def test_brainstorming_defines_reliable_implementation_slices(self):
         skill = (SKILLS_ROOT / "brainstorming" / "SKILL.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("Coordinate Dependent Implementation Tasks", skill)
+        self.assertIn("Define Reliable Implementation Slices", skill)
         self.assertIn("one governing design", skill)
         self.assertIn("not task chronology", skill)
-        self.assertIn("before treating dependent child-task designs as final", skill)
-        self.assertIn("Skip this coordination", skill)
+        self.assertIn("before treating dependent slice designs as final", skill)
+        self.assertIn("independently verifiable slices", skill)
+        self.assertIn("local implementation choices that remain free", skill)
+        self.assertIn("evidence that proves completion", skill)
+
+    def test_testing_guidelines_owns_test_design_and_tdd_owns_sequence(self):
+        guidelines = (SKILLS_ROOT / "testing-guidelines" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        tdd = (SKILLS_ROOT / "tdd" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("behaviorally distinct equivalence classes", guidelines)
+        self.assertIn("Choose the Observation Level", guidelines)
+        self.assertIn("Use coverage reports", guidelines)
+        self.assertIn("this skill owns only the test-first development loop", tdd)
+        self.assertIn("Use `testing-guidelines`", tdd)
+        self.assertNotIn("Choose the Observation Level", tdd)
+        self.assertNotIn("coverage percentage", tdd)
 
     def test_repo_map_first_preserves_explicit_and_bootstrap_contracts(self):
         skill_root = SKILLS_ROOT / "repo-map-first"
@@ -396,6 +413,7 @@ class EndToEndHarnessTests(unittest.TestCase):
                 "brainstorming",
                 "using-superpowers",
                 "reliable-task-execution",
+                "testing-guidelines",
                 "tdd",
                 "repo-map-first",
                 "code-review",
