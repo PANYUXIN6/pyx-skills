@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Evidence-backed review of source code and machine-consumed implementation artifacts, including tests, configuration, schemas, migrations, build scripts, and Git workspaces, diffs, commits, PRs, or ranges. Use only when the target is code or implementation behavior and the user explicitly asks to find defects or risks, assess quality, verify correctness, requirements, or standards, perform a named review dimension, or produce findings or a review conclusion. Do not use for requests that only read, inspect, explain, map, summarize, or trace how code works or its implementation approach; neutral wording such as "check", "look at", or "检查一下" is not review intent by itself. Do not use to review prose documents themselves. Pair semantic LLM review with the bundled deterministic Runner for frozen inputs, disposition accounting, source-anchor validation, per-Finding challenge coverage, and approval gating; publish only confirmed findings and wait for separate authorization before fixing them.
+description: Review code and machine-consumed implementation artifacts for defects, risks, quality, correctness, requirements, or standards. Use when the user requests an implementation review, findings, or a review conclusion, including focused reviews. Exclude prose-document review and requests only to read, explain, summarize, map, or trace implementation; neutral verbs such as check or inspect alone do not establish review intent.
 ---
 
 # Code Review

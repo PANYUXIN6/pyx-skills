@@ -1,6 +1,6 @@
 ---
 name: repo-map-first
-description: Resolve code placement and repository-map trust from repository evidence. Use automatically for existing-repository behavior changes with unclear ownership, cross-boundary impact, entry-point or dependency changes, unfamiliar non-local scope, or missing or stale maps. Also use for dependent-skill repository-context bootstrap or validation and every explicit request to create, repair, update, inspect, or use repository maps; explicit requests always complete the map workflow.
+description: Locate code ownership and assess repository-map trust from source evidence. Use for unclear ownership, cross-boundary behavior changes, entry-point or dependency changes, or maps that may mislead placement. Also use for explicit map inspection, use, creation, or repair, and dependent-skill repository-context bootstrap or validation.
 license: MIT
 ---
 
@@ -14,14 +14,13 @@ Resolve where a change belongs before implementing it when placement mistakes co
 
 Use this mode whenever the user names this skill or asks to create, repair, update, inspect, or use repository map documents.
 
-- Stay in explicit map mode even when the task is local or placement appears clear.
-- Inspect `docs/REPO_MAP.md` and `docs/ARCHITECTURE.md` when they exist.
-- Ensure both documents cover the requested scope unless the user explicitly limits the document scope.
-- Create missing documents or repair stale relevant sections from repository evidence before implementation.
-- If the request is map-only, finish after producing or repairing the requested map and reporting its evidence and limitations.
-- Leave accurate map sections unchanged.
+The requested action determines the scope; naming the skill does not itself authorize document changes.
 
-Map work for the requested scope is complete when relevant owners, entry points, call or data flows, and dependency direction are locatable; claims are supported by repository evidence; unknowns and limitations are explicit; and no material placement ambiguity remains.
+- **Inspect or use:** read relevant existing maps, verify task-relevant claims against source, and report ownership, discrepancies, and limitations. Resolve missing information from source when possible. Missing or stale maps do not turn inspection into a creation or repair task.
+- **Create, repair, or update:** inspect existing maps and source, then create missing documents or repair stale relevant sections within the requested scope. When the user requests repository maps without naming documents, cover both `docs/REPO_MAP.md` and `docs/ARCHITECTURE.md`; a request for one document does not require creating its companion. Leave accurate sections unchanged.
+- Complete the requested map work before any dependent implementation. A map-only request ends with the map result and its evidence; it does not authorize code changes.
+
+Map work is sufficient when the requested owners, entry points, flows, and dependencies are locatable and evidence-backed, with material unknowns explicit. Inspection may report an unresolved gap without modifying documents. Creation and repair must produce the requested artifacts or explain which missing evidence prevents that.
 
 ### Automatic Placement-Risk Mode
 
@@ -100,7 +99,7 @@ Use this mode only when another skill explicitly requests validation because a r
 
 ## Placement Workflow
 
-The automatic fast exit above is the only route around this workflow. Repository-context bootstrap and validation follow their own closed workflows instead.
+Use this workflow for implementation with unresolved placement risk. Explicit map-only work, repository-context bootstrap, and repository-context validation follow their scoped workflows above.
 
 1. Read applicable repository rules and inspect enough source to locate the current entry point, owner, call flow, and dependency direction.
 2. Read the relevant portions of `docs/REPO_MAP.md` and then `docs/ARCHITECTURE.md` when present.

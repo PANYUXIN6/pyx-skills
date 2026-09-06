@@ -2,7 +2,7 @@
 
 After implementation, update the map documents if any condition below applies.
 
-Explicit map requests are handled before implementation by the skill's explicit mode. Do not skip that requested work merely because the implementation itself causes no structural change.
+Explicit map creation or repair is handled before dependent implementation, even when no structural change is planned. Inspection or use alone does not authorize map edits; the checks below apply after an authorized implementation changes repository structure.
 
 ## Update `docs/REPO_MAP.md`
 

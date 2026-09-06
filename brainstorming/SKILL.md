@@ -66,11 +66,11 @@ Use a full design process when the work has high impact, high ambiguity, or a hi
 For these cases:
 
 1. Establish purpose, constraints, and success criteria.
-2. Before selecting the design, research how comparable established products and relevant mature open-source projects solve the problem. Reuse proven patterns and constraints where they fit; innovate only when a clear benefit, fit constraint, or limitation of the existing approach justifies it.
+2. Start with relevant repository decisions and proven patterns. Research comparable products or mature open-source projects when the user requests it or an unresolved design question could change the choice; stop when the evidence resolves that question. Reuse suitable patterns and explain material deviations.
 3. Select and present the best design. Compare alternatives only when unresolved, materially different trade-offs remain.
 4. Describe the relevant architecture, boundaries, behavior, failure handling, and verification strategy.
 5. Resolve consequential ambiguities.
-6. Present the design and obtain explicit approval before implementation.
+6. Present the design. Pause only for unresolved user-owned decisions, consequences outside existing authorization, or a request to review the design before implementation. Otherwise continue with the authorized work; do not request approval again for an already approved scope or contract.
 
 Evaluate the design through the relevant lenses of clear responsibilities, explicit interfaces or contracts, dependency direction, and bounded failure behavior. Use these as quality checks, not required document sections or a fixed template.
 
@@ -81,8 +81,8 @@ When a Full Design must be implemented through multiple tasks that share contrac
 1. Establish one governing design (the parent design) that owns the shared contracts, task boundaries, dependency order, constraints that child tasks may not redefine, and integration acceptance criteria.
 2. Divide the work into coherent, independently verifiable slices. For each slice, state its outcome and non-goals, prerequisites, assigned responsibility or change boundary, inherited contracts and invariants, local implementation choices that remain free, and the evidence that proves completion.
 3. Order slices by their actual dependencies and keep end-to-end integration acceptance in the governing design.
-4. Obtain approval for the governing design before treating dependent slice designs as final.
-5. Revise and reconfirm the governing design before implementation when evidence from any slice requires a shared contract to change.
+4. Resolve user-owned decisions in the governing design before treating dependent slice designs as final; existing approval of those contracts remains valid.
+5. Revise the governing design when slice evidence requires a shared contract to change. Reconfirm user-owned or previously approved contract changes before implementing dependent slices; leave local implementation choices within their authorized scope.
 
 Do not turn slices into speculative coding instructions. Name files, symbols, or call sequences only when repository evidence makes them stable constraints rather than local implementation choices.
 
@@ -122,7 +122,7 @@ Even when multiple credible approaches exist, lead with a recommendation. Ask th
 
 Write a design document only when it will remain useful during implementation or future collaboration, such as for long-running, cross-component, or multi-person work, or when the user requests one.
 
-For a Full Design, record the key products or projects researched, the proven patterns adopted, and any material deviation with its rationale. Link to sources when available.
+Record the evidence that determined the design, adopted patterns, and material deviations with their rationale. Link to external research when it was used; do not manufacture a research section when repository evidence suffices.
 
 Follow the repository's existing documentation conventions. Create a specification only when it will remain useful, and make a Git commit only when the user or repository workflow calls for it.
 
@@ -151,6 +151,6 @@ At the selected depth, design work is ready to stop when:
 
 Use these as an internal completion check rather than a document template. Stop designing when any missing field cannot change the implementation.
 
-Once this condition is met and any required approval has been obtained, continue according to the user's request and the needs of the task.
+Once this condition is met, continue through implementation and proportionate verification when authorized. A design-only request ends with the requested design; it does not authorize implementation.
 
 Add a planning skill, design artifact, handoff, or additional approval step only when it improves the outcome.

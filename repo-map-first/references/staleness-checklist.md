@@ -19,7 +19,8 @@ Use this checklist to decide whether relevant map information is trustworthy. A 
 
 ## Respond by Invocation Mode
 
-- **Explicit map mode:** create missing documents and repair stale relevant sections before implementation. Keep the update limited to evidence needed for the requested scope.
+- **Explicit inspection or use:** verify relevant claims against source and report gaps or contradictions; do not create or repair documents merely because a map is missing or stale.
+- **Explicit creation, repair, or update:** produce or repair the requested documents before dependent implementation. Keep changes limited to the requested scope and available evidence.
 - **Automatic placement-risk mode:** verify placement against source. Create or repair maps before implementation only when missing or stale information prevents safe placement, or when the task will change durable structure. Otherwise do not create documentation solely because it is absent.
 - **Repository-context bootstrap:** create only the missing documents. Do not repair or overwrite an existing companion unless the requesting skill explicitly expands the scope.
 - **Repository-context validation:** verify only the dependent task's relevant scope. Repair stale observed claims, leave accurate sections unchanged, and report rather than overwrite a contradiction involving unmarked or confirmed authority.

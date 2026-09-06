@@ -126,11 +126,9 @@ class IsolationTests(unittest.TestCase):
         self.assertNotIn("Choose the Observation Level", tdd)
         self.assertNotIn("coverage percentage", tdd)
 
-    def test_repo_map_first_preserves_explicit_and_bootstrap_contracts(self):
+    def test_repo_map_first_preserves_context_contracts(self):
         skill_root = SKILLS_ROOT / "repo-map-first"
         skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("explicit requests always complete the map workflow", skill)
-        self.assertIn("Stay in explicit map mode", skill)
         self.assertIn("Repository-Context Bootstrap", skill)
         self.assertIn("Repository-Context Validation", skill)
         self.assertIn("authority_status: observed", skill)
@@ -150,10 +148,7 @@ class IsolationTests(unittest.TestCase):
         self.assertIn("existing_code", skill)
         self.assertIn("does not require Git, a diff, or a baseline", skill)
         self.assertIn("cannot prove that an Agent understood an item", skill)
-        self.assertIn("the user explicitly asks to find defects or risks", skill)
-        self.assertIn('"检查一下" is not review intent by itself', skill)
         self.assertIn("do not invoke the Runner or create Finding artifacts", skill)
-        self.assertIn("Do not use to review prose documents themselves", skill)
         self.assertIn("current_input_drift", protocol)
         self.assertIn("queue_path", skill)
         self.assertIn("only when a command fails", skill)

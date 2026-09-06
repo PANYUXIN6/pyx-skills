@@ -17,7 +17,7 @@ authority_status: observed
 
 L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增量角色只返回允许变化字段的 `refinement`，Runner 复用原候选的不可变 layer/contract；v3/v4 任务继续由独立 legacy 角色与 Schema 兼容完整 `refined_finding`。Manifest v7 进一步拥有超限 L2 的支持文档分片与紧凑契约合并状态；Manifest v8 在 Evidence Cards 与人工裁决之间加入一次性作者答辩，只有带有效反证的条目进入一个批量封闭复查任务；Manifest v6 仍专用于修复复核。
 
-`repo-map-first` 独立拥有仓库落点判断与文档同步职责。自动路由只覆盖归属不明、跨模块边界、入口或依赖变化以及地图可疑等真实定位风险；用户显式调用会绕过自动过滤并强制完成相关地图工作。它不参与正常设计审查；`review-design-contracts` 只在默认仓库文档缺失或相关上下文可能陈旧时，显式请求其仓库上下文引导或验证模式。
+`repo-map-first` 独立拥有仓库落点判断与文档同步职责。自动路由只覆盖归属不明、跨模块边界、入口或依赖变化以及地图可疑等真实定位风险；用户显式调用会绕过自动过滤，并按查看／使用或创建／修复的请求范围完成地图工作；查看本身不授权修改文档。它不参与正常设计审查；`review-design-contracts` 只在默认仓库文档缺失或相关上下文可能陈旧时，显式请求其仓库上下文引导或验证模式。
 
 `brainstorming`、`using-superpowers`、`reliable-task-execution`、`testing-guidelines`、`tdd`、`repo-map-first`、`code-review` 与 `simplify-codebase` 是边界独立的运行时 skill。`testing-guidelines` 拥有通用测试证据设计，`tdd` 只在测试先行请求中单向依赖它并拥有执行顺序。它们的开发期行为评测位于仓库级 `evals/`：共享最小集成 Runner、Schema 和本地测试，与 `evals/suites/<skill-name>/` 中的 suite 数据分离，避免开发资源进入运行时分发包。
 
