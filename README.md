@@ -18,6 +18,9 @@
 
 ```text
 任务进入
+  ├─ 目标、约束或验收标准仍很模糊
+  │    └─ [grill-me](https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me)
+  │         └─ 逐题澄清意图、假设和关键取舍，形成可执行的项目描述
   └─ using-superpowers：选择最小有用 skill 集合
        ├─ 存在会改变实现的产品或架构不确定性
        │    └─ brainstorming：完成适量设计，必要时形成 governing design 和可靠实施切片
@@ -34,6 +37,10 @@
        └─ 用户显式调用设计契约审查
             └─ review-design-contracts：分层审查、人工裁决、独立修复复核
 ```
+
+对刚启动且需求尚未成形的项目，我会先使用 [`grill-me`](https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me) 做一次访谈式澄清，再进入本仓库的路由流程。
+
+`grill-me` 主要帮助把用户意图、约束和验收标准说清楚；`brainstorming` 则在目标已经足够明确、但产品或架构方案仍有实质取舍时，基于项目证据收敛设计。前者不替代后者，也不是每个任务的必经步骤。
 
 `reliable-task-execution` 是横切保护层，不是一个额外开发阶段。`repo-map-first`、`testing-guidelines`、`tdd`、`simplify-codebase` 和两类 review 也只在各自触发条件成立时介入。一个简单、局部、可逆的修改可能直接实现并验证，不需要设计文档、仓库地图、测试设计、TDD 或独立审查。
 
