@@ -157,24 +157,26 @@ function runTaskFixture(repositoryRoot, responses, options = {}) {
   writeTaskResponse(prepared.tasks[0], responses.l1)
   const afterL1 = runCli(repositoryRoot, ['advance', prepared.run_dir])
   let adversarialIndex = 0
-  for (const task of afterL1.tasks) {
-    if (task.stage === 'architecture') {
-      writeTaskResponse(task, responses.l2)
-      continue
+  const writeChallenge = (task) => {
+    const input = JSON.parse(readFileSync(path.join(task.task_path, 'input.json'), 'utf8'))
+    const next = () => {
+      const response = responses.l3[adversarialIndex++]
+      assert.notEqual(response, undefined)
+      return response
     }
-    const response = responses.l3[adversarialIndex]
-    assert.notEqual(response, undefined)
-    writeTaskResponse(task, response)
-    adversarialIndex += 1
+    writeTaskResponse(task, input.candidates ? {
+      finding_results: input.candidates.map((item) => ({
+        finding_id: item.finding_id, result: next(),
+      })),
+    } : next())
+  }
+  for (const task of afterL1.tasks) {
+    if (task.stage === 'architecture') writeTaskResponse(task, responses.l2)
+    else writeChallenge(task)
   }
   let current = runCli(repositoryRoot, ['advance', prepared.run_dir])
   while (current.status === 'ARCHITECTURE_CHECKED') {
-    for (const task of current.tasks) {
-      const response = responses.l3[adversarialIndex]
-      assert.notEqual(response, undefined)
-      writeTaskResponse(task, response)
-      adversarialIndex += 1
-    }
+    for (const task of current.tasks) writeChallenge(task)
     current = runCli(repositoryRoot, ['advance', prepared.run_dir])
   }
   assert.equal(adversarialIndex, responses.l3.length)
@@ -316,7 +318,7 @@ test('prepare creates one pinned native L1 task without running a model', () => 
   const manifest = JSON.parse(
     readFileSync(path.join(result.run_dir, 'manifest.json'), 'utf8'),
   )
-  assert.equal(manifest.version, 9)
+  assert.equal(manifest.version, 10)
   assert.equal(Array.isArray(manifest.documents[0].sections), true)
   const metrics = JSON.parse(
     readFileSync(path.join(result.run_dir, 'metrics.json'), 'utf8'),
@@ -471,6 +473,88 @@ test('oversized L2 evidence skips merge when shards report no cross-shard signal
   assert.equal(metrics.review.protocol_bytes > 0, true)
   assert.equal(metrics.review.evidence_input_bytes > 0, true)
   assert.equal(metrics.review.queue_wait_ms >= 0, true)
+})
+
+test('architecture shards keep a support chapter with all of its descendants', () => {
+  const repositoryRoot = createRepository()
+  const targetContract =
+    'M8.2 section 8.1 computes candidate results against M4.5 section 17.'
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'design.md'),
+    `# M8.2 design\n\n## 8.1 Candidate results\n\n${targetContract}\n`,
+  )
+  const descendantHeadings = Array.from(
+    { length: 6 },
+    (_, index) => `17.${index + 1} Contract ${index + 1}`,
+  )
+  const chapter = [
+    '## 17. CandidateOutcomeProjector',
+    '',
+    ...descendantHeadings.flatMap((heading, index) => [
+      `### ${heading}`,
+      '',
+      `${`chapter-${index + 1} `.repeat(900)}`,
+      '',
+    ]),
+  ].join('\n')
+  writeFileSync(
+    path.join(repositoryRoot, 'docs', 'ARCHITECTURE.md'),
+    [
+      '# Architecture',
+      '',
+      '## Earlier contracts',
+      '',
+      'Earlier contract. '.repeat(4500),
+      '',
+      chapter,
+      '## Later contracts',
+      '',
+      'Later contract.',
+      '',
+    ].join('\n'),
+  )
+  const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  writeTaskResponse(prepared.tasks[0], { contracts: [], candidates: [] })
+
+  runCli(repositoryRoot, ['advance', prepared.run_dir])
+  const plan = JSON.parse(
+    readFileSync(
+      path.join(prepared.run_dir, 'architecture-shard-plan.json'),
+      'utf8',
+    ),
+  )
+  const projections = plan.shards.flatMap((shard) =>
+    shard.input.support_documents.filter(
+      (document) => document.path === 'docs/ARCHITECTURE.md',
+    ),
+  )
+  const chapterProjections = projections.filter((projection) =>
+    projection.projection.headings.includes('17. CandidateOutcomeProjector'),
+  )
+  const chapterShard = plan.shards.find((shard) =>
+    shard.input.support_documents.some((projection) =>
+      projection.projection.headings.includes(
+        '17. CandidateOutcomeProjector',
+      ),
+    ),
+  )
+
+  assert.equal(plan.mode, 'sharded')
+  assert.equal(chapterProjections.length, 1)
+  assert.match(chapterShard.input.target.content, new RegExp(targetContract))
+  assert.deepEqual(
+    chapterProjections[0].projection.headings.filter((heading) =>
+      heading.startsWith('17.'),
+    ),
+    ['17. CandidateOutcomeProjector', ...descendantHeadings],
+  )
+  for (const shard of plan.shards) {
+    assert.equal(
+      Buffer.byteLength(`${JSON.stringify(shard.input, null, 2)}\n`) <=
+        reviewConfig.architecture_max_input_bytes,
+      true,
+    )
+  }
 })
 
 test('architecture shard candidates are preserved losslessly without merge', () => {
@@ -869,7 +953,7 @@ test('advance closes without human work when L1 and L2 produce no candidates', (
   )
 })
 
-test('L2 overlaps with a bounded prefix of one-candidate L3 tasks', () => {
+test('Manifest v9: L2 overlaps with a bounded prefix of one-candidate L3 tasks', () => {
   const repositoryRoot = createRepository()
   const findings = Array.from({ length: 4 }, (_, index) => {
     const base = candidate()
@@ -882,6 +966,10 @@ test('L2 overlaps with a bounded prefix of one-candidate L3 tasks', () => {
     })
   })
   const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const legacyManifestPath = path.join(prepared.run_dir, 'manifest.json')
+  const legacyManifest = JSON.parse(readFileSync(legacyManifestPath, 'utf8'))
+  legacyManifest.version = 9
+  writeJson(legacyManifestPath, legacyManifest)
   writeTaskResponse(prepared.tasks[0], {
     contracts: [],
     candidates: findings,
@@ -941,7 +1029,7 @@ test('L2 overlaps with a bounded prefix of one-candidate L3 tasks', () => {
   }
 })
 
-test('an early L3 completion is consumed and replenished while L2 is still running', () => {
+test('Manifest v9: an early L3 completion is consumed and replenished while L2 is still running', () => {
   const repositoryRoot = createRepository()
   const findings = Array.from({ length: 4 }, (_, index) => {
     const base = candidate()
@@ -954,6 +1042,10 @@ test('an early L3 completion is consumed and replenished while L2 is still runni
     })
   })
   const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const legacyManifestPath = path.join(prepared.run_dir, 'manifest.json')
+  const legacyManifest = JSON.parse(readFileSync(legacyManifestPath, 'utf8'))
+  legacyManifest.version = 9
+  writeJson(legacyManifestPath, legacyManifest)
   writeTaskResponse(prepared.tasks[0], {
     contracts: [],
     candidates: findings,
@@ -1113,7 +1205,7 @@ test('self-consistency L3 starts with every declared evidence section', () => {
   )
 })
 
-test('L3 fills a freed slot before slower siblings complete', () => {
+test('Manifest v9: L3 fills a freed slot before slower siblings complete', () => {
   const repositoryRoot = createRepository()
   const findings = Array.from({ length: 6 }, (_, index) => {
     const base = candidate()
@@ -1126,6 +1218,10 @@ test('L3 fills a freed slot before slower siblings complete', () => {
     })
   })
   const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const legacyManifestPath = path.join(prepared.run_dir, 'manifest.json')
+  const legacyManifest = JSON.parse(readFileSync(legacyManifestPath, 'utf8'))
+  legacyManifest.version = 9
+  writeJson(legacyManifestPath, legacyManifest)
   writeTaskResponse(prepared.tasks[0], {
     contracts: [],
     candidates: findings,
@@ -1164,7 +1260,7 @@ test('L3 fills a freed slot before slower siblings complete', () => {
   )
 })
 
-test('L3 batches are lossless and all refuted candidates close without human work', () => {
+test('Manifest v9: L3 batches are lossless and all refuted candidates close without human work', () => {
   const repositoryRoot = createRepository()
   const findings = Array.from({ length: 4 }, (_, index) => {
     const base = candidate()
@@ -1177,6 +1273,10 @@ test('L3 batches are lossless and all refuted candidates close without human wor
     })
   })
   const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const legacyManifestPath = path.join(prepared.run_dir, 'manifest.json')
+  const legacyManifest = JSON.parse(readFileSync(legacyManifestPath, 'utf8'))
+  legacyManifest.version = 9
+  writeJson(legacyManifestPath, legacyManifest)
   writeTaskResponse(prepared.tasks[0], {
     contracts: [],
     candidates: findings,
@@ -1233,7 +1333,7 @@ test('L3 batches are lossless and all refuted candidates close without human wor
   )
 })
 
-test('one L3 insufficient result expands frozen evidence and does not fail the review', () => {
+test('Manifest v9: one L3 insufficient result expands frozen evidence and does not fail the review', () => {
   const repositoryRoot = createRepository()
   writeFileSync(
     path.join(repositoryRoot, 'docs', 'design.md'),
@@ -1265,6 +1365,10 @@ test('one L3 insufficient result expands frozen evidence and does not fail the r
     }),
   ]
   const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const legacyManifestPath = path.join(prepared.run_dir, 'manifest.json')
+  const legacyManifest = JSON.parse(readFileSync(legacyManifestPath, 'utf8'))
+  legacyManifest.version = 9
+  writeJson(legacyManifestPath, legacyManifest)
   writeTaskResponse(prepared.tasks[0], {
     contracts: [],
     candidates: findings,
@@ -1643,7 +1747,7 @@ test('an invalid task response gets one fresh identical retry then fails the run
   assert.equal(failed.failure_reason_code, 'MODEL_OUTPUT_INVALID')
 })
 
-test('retrying one invalid L3 task preserves completed sibling responses', () => {
+test('Manifest v9: retrying one invalid L3 task preserves completed sibling responses', () => {
   const repositoryRoot = createRepository()
   const findings = [
     candidate(),
@@ -1656,6 +1760,10 @@ test('retrying one invalid L3 task preserves completed sibling responses', () =>
     }),
   ]
   const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  const legacyManifestPath = path.join(prepared.run_dir, 'manifest.json')
+  const legacyManifest = JSON.parse(readFileSync(legacyManifestPath, 'utf8'))
+  legacyManifest.version = 9
+  writeJson(legacyManifestPath, legacyManifest)
   writeTaskResponse(prepared.tasks[0], {
     contracts: [],
     candidates: findings,
@@ -2624,7 +2732,7 @@ test('observed repository documents are separated from confirmed authorities', (
     (document) => document.path === 'docs/ARCHITECTURE.md',
   )
 
-  assert.equal(manifest.version, 9)
+  assert.equal(manifest.version, 10)
   assert.equal(architectureDocument.role, 'context')
   assert.equal(architectureDocument.authority_status, 'observed')
   assert.deepEqual(manifest.coverage.confirmed_authorities, [
@@ -2951,7 +3059,7 @@ test('verify-fixes creates one bounded local verification task for a contained s
   )
   assert.equal(task.fork_turns, 'none')
   assert.equal(state.verification_of, queued.run_dir)
-  assert.equal(manifest.version, 9)
+  assert.equal(manifest.version, 10)
   assert.equal(manifest.mode, 'fix_verification')
   assert.equal(impact.review_mode, 'targeted')
   assert.deepEqual(impact.changed_sections, ['State contract'])
@@ -3049,7 +3157,7 @@ test('verify-fixes keeps review targeted when a repair adds headings inside the 
   ])
 })
 
-test('verify-fixes requires a full review when a repair changes an existing heading inside the accepted subtree', () => {
+test('verify-fixes expands impact review when a repair renames a heading', () => {
   const repositoryRoot = createRepository()
   writeFileSync(
     path.join(repositoryRoot, 'docs', 'design.md'),
@@ -3088,14 +3196,15 @@ test('verify-fixes requires a full review when a repair changes an existing head
     readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
   )
 
-  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
+  assert.equal(result.status, 'FIX_VERIFICATION_PACKED')
+  assert.equal(result.tasks[0].stage, 'expanded_fix_verification')
   assert.equal(
     impact.reasons.includes('DOCUMENT_STRUCTURE_CHANGED'),
     true,
   )
 })
 
-test('verify-fixes requires a full review when a repair adds a sibling contract', () => {
+test('verify-fixes expands impact review when a repair adds a sibling contract', () => {
   const repositoryRoot = createRepository()
   const queued = createQueuedReview(repositoryRoot)
   writeFileSync(
@@ -3119,14 +3228,15 @@ test('verify-fixes requires a full review when a repair adds a sibling contract'
     readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
   )
 
-  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
+  assert.equal(result.status, 'FIX_VERIFICATION_PACKED')
+  assert.equal(result.tasks[0].stage, 'expanded_fix_verification')
   assert.equal(
     impact.reasons.includes('DOCUMENT_STRUCTURE_CHANGED'),
     true,
   )
 })
 
-test('verify-fixes requires a full review when an accepted contract moves across a sibling', () => {
+test('verify-fixes expands impact review when an accepted contract moves', () => {
   const repositoryRoot = createRepository()
   writeFileSync(
     path.join(repositoryRoot, 'docs', 'design.md'),
@@ -3165,7 +3275,8 @@ test('verify-fixes requires a full review when an accepted contract moves across
     readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
   )
 
-  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
+  assert.equal(result.status, 'FIX_VERIFICATION_PACKED')
+  assert.equal(result.tasks[0].stage, 'expanded_fix_verification')
   assert.equal(
     impact.reasons.includes('DOCUMENT_STRUCTURE_CHANGED'),
     true,
@@ -3399,7 +3510,7 @@ test('architecture-targeted verification can escalate a cross-boundary repair', 
   assert.equal(completed.status, 'FULL_REVIEW_REQUIRED')
 })
 
-test('verify-fixes requires a full review when repair scope is too broad', () => {
+test('verify-fixes keeps a repair targeted even with more than four accepted roots', () => {
   const repositoryRoot = createRepository()
   writeFileSync(
     path.join(repositoryRoot, 'docs', 'design.md'),
@@ -3446,11 +3557,13 @@ test('verify-fixes requires a full review when repair scope is too broad', () =>
     readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
   )
 
-  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
-  assert.equal(impact.reasons.includes('REPAIR_SCOPE_TOO_BROAD'), true)
+  assert.equal(result.status, 'FIX_VERIFICATION_PACKED')
+  assert.equal(result.tasks[0].stage, 'architecture_fix_verification')
+  assert.equal(impact.review_mode, 'architecture_targeted')
+  assert.deepEqual(impact.changed_sections, ['A'])
 })
 
-test('verify-fixes keeps a legacy architecture queue conservative without repair scope', () => {
+test('verify-fixes assesses legacy architecture repair scope in an expanded review', () => {
   const repositoryRoot = createRepository()
   const architectureFinding = candidate({
     layer: 'architecture',
@@ -3479,11 +3592,12 @@ test('verify-fixes keeps a legacy architecture queue conservative without repair
     readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
   )
 
-  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
+  assert.equal(result.status, 'FIX_VERIFICATION_PACKED')
+  assert.equal(result.tasks[0].stage, 'expanded_fix_verification')
   assert.equal(impact.reasons.includes('REPAIR_SCOPE_UNAVAILABLE'), true)
 })
 
-test('verify-fixes deterministically requires a full review when changes escape accepted contract sections', () => {
+test('verify-fixes expands impact review when changes escape accepted sections', () => {
   const repositoryRoot = createRepository()
   const queued = createQueuedReview(repositoryRoot)
   writeFileSync(
@@ -3504,9 +3618,10 @@ test('verify-fixes deterministically requires a full review when changes escape 
   const impact = JSON.parse(
     readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
   )
-  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
-  assert.deepEqual(result.tasks, [])
-  assert.equal(impact.review_mode, 'full')
+  assert.equal(result.status, 'FIX_VERIFICATION_PACKED')
+  assert.equal(result.tasks[0].stage, 'expanded_fix_verification')
+  assert.equal(result.tasks.length, 1)
+  assert.equal(impact.review_mode, 'expanded')
   assert.equal(
     impact.reasons.includes('CHANGE_OUTSIDE_ACCEPTED_CONTRACTS'),
     true,
@@ -3579,7 +3694,7 @@ test('verify-fixes retries a response that does not cover the accepted finding s
   )
 })
 
-test('verify-fixes requires a full review when authority or observed context changes', () => {
+test('verify-fixes expands impact review when authority or observed context changes', () => {
   const repositoryRoot = createRepository()
   const queued = createQueuedReview(repositoryRoot)
   writeFileSync(
@@ -3595,7 +3710,8 @@ test('verify-fixes requires a full review when authority or observed context cha
   const impact = JSON.parse(
     readFileSync(path.join(result.run_dir, 'fix-impact.json'), 'utf8'),
   )
-  assert.equal(result.status, 'FULL_REVIEW_REQUIRED')
+  assert.equal(result.status, 'FIX_VERIFICATION_PACKED')
+  assert.equal(result.tasks[0].stage, 'expanded_fix_verification')
   assert.equal(
     impact.reasons.includes('AUTHORITY_OR_CONTEXT_CHANGED'),
     true,
@@ -3615,4 +3731,298 @@ test('verify-fixes rejects a queue that no longer matches accepted evidence card
   )
 
   runCliExpectFailure(repositoryRoot, ['verify-fixes', queued.run_dir])
+})
+
+function taskInput(task) {
+  return JSON.parse(readFileSync(path.join(task.task_path, 'input.json'), 'utf8'))
+}
+
+function variantCandidates(count) {
+  return Array.from({ length: count }, (_, index) => candidate({
+    claim: `Completion variant ${index + 1}.`,
+    trigger: { ...candidate().trigger, initial_state: [`Variant ${index + 1}.`] },
+  }))
+}
+
+function refutedResult() {
+  return {
+    challenge_outcome: 'refuted',
+    falsification: {
+      attempt: 'Trace the completion transition.',
+      counterexample: 'The mandatory terminal transition prevents the claimed state.',
+    },
+  }
+}
+
+function survivedResult() {
+  return {
+    challenge_outcome: 'survives',
+    falsification: {
+      attempt: 'Check all stated completion transitions.',
+      remaining_evidence: 'The supplied contract still permits the claimed path.',
+    },
+  }
+}
+
+function writeBatchResults(task, results) {
+  const input = taskInput(task)
+  assert.equal(input.candidates.length, results.length)
+  writeTaskResponse(task, {
+    finding_results: input.candidates.map((item, index) => ({
+      finding_id: item.finding_id, result: results[index],
+    })),
+  })
+}
+
+function startCandidateReview(repositoryRoot, findings) {
+  const prepared = runCli(repositoryRoot, ['prepare', 'docs/design.md'])
+  writeTaskResponse(prepared.tasks[0], { contracts: [], candidates: findings })
+  return runCli(repositoryRoot, ['advance', prepared.run_dir])
+}
+
+test('v10 groups nonadjacent related candidates and shares evidence without merging verdicts', () => {
+  const repositoryRoot = createRepository()
+  const targetPath = path.join(repositoryRoot, 'docs/design.md')
+  writeFileSync(targetPath, readFileSync(targetPath, 'utf8') + '\n## Isolation\n\nSessions never share state.\n')
+  const related = variantCandidates(3)
+  const unrelated = candidate({
+    contract: { source: 'docs/design.md', heading: 'Isolation', quote: 'Sessions never share state.' },
+    evidence_sections: [{ source: 'docs/design.md', heading: 'Isolation' }],
+  })
+  const started = startCandidateReview(repositoryRoot, [related[0], unrelated, ...related.slice(1)])
+  assert.equal(started.tasks.length, 3)
+  const [architecture, batch, single] = started.tasks
+  const input = taskInput(batch)
+  assert.equal(input.candidates.length, 3)
+  assert.equal(input.cited_sections.length, 1)
+  assert.equal(taskInput(single).candidate.contract.heading, 'Isolation')
+  assert.equal(batch.fork_turns, 'none')
+  assert.equal(batch.reasoning_effort, 'high')
+  writeBatchResults(batch, [survivedResult(), refutedResult(), survivedResult()])
+  writeTaskResponse(single, refutedResult())
+  const waiting = runCli(repositoryRoot, ['advance', started.run_dir])
+  assert.deepEqual(waiting.waiting_for, [architecture.task_id])
+  assert.deepEqual(waiting.tasks, [])
+  writeTaskResponse(architecture, { candidates: [] })
+  const completed = runCli(repositoryRoot, ['advance', started.run_dir])
+  assert.equal(completed.status, 'AWAITING_AUTHOR_RESPONSE')
+  const outcomes = JSON.parse(readFileSync(path.join(started.run_dir, 'adversarial-results.json'), 'utf8'))
+  assert.equal(new Set(outcomes.map((item) => item.finding_id)).size, 4)
+  assert.equal(outcomes.filter((item) => item.result.challenge_outcome === 'survives').length, 2)
+})
+
+test('v10 refills batch slots while L2 and slower batches remain active without redispatching candidates', () => {
+  const repositoryRoot = createRepository()
+  const started = startCandidateReview(repositoryRoot, variantCandidates(13))
+  const [architecture, first, slow] = started.tasks
+  assert.deepEqual([first, slow].map((task) => taskInput(task).candidates.length), [4, 4])
+  writeBatchResults(first, Array.from({ length: 4 }, refutedResult))
+  const refilled = runCli(repositoryRoot, ['advance', started.run_dir])
+  assert.equal(refilled.tasks.length, 1)
+  assert.deepEqual(refilled.waiting_for.sort(), [architecture.task_id, slow.task_id].sort())
+  const next = refilled.tasks[0]
+  assert.equal(taskInput(next).candidates.length, 4)
+  writeTaskResponse(architecture, { candidates: [] })
+  const afterL2 = runCli(repositoryRoot, ['advance', started.run_dir])
+  assert.equal(afterL2.tasks.length, 1)
+  assert.equal(taskInput(afterL2.tasks[0]).candidate.claim, 'Completion variant 13.')
+  writeTaskResponse(afterL2.tasks[0], refutedResult())
+  writeBatchResults(slow, Array.from({ length: 4 }, refutedResult))
+  writeBatchResults(next, Array.from({ length: 4 }, refutedResult))
+  const completed = runCli(repositoryRoot, ['advance', started.run_dir])
+  assert.equal(completed.status, 'CLOSED')
+  const outcomes = JSON.parse(readFileSync(path.join(started.run_dir, 'adversarial-results.json'), 'utf8'))
+  assert.equal(outcomes.length, 13)
+  assert.equal(new Set(outcomes.map((item) => item.finding_id)).size, 13)
+  const metrics = JSON.parse(readFileSync(path.join(started.run_dir, 'metrics.json'), 'utf8'))
+  assert.equal(Object.values(metrics.tasks).filter((task) => task.stage === 'adversarial').length, 4)
+})
+
+test('v10 expands only an insufficient batch member and retains completed verdicts', () => {
+  const repositoryRoot = createRepository()
+  const started = startCandidateReview(repositoryRoot, variantCandidates(3))
+  writeTaskResponse(started.tasks[0], { candidates: [] })
+  writeBatchResults(started.tasks[1], [survivedResult(), refutedResult(), {
+    task_status: 'insufficient_input', missing_inputs: ['The rest of the lifecycle contract.'],
+  }])
+  const expanded = runCli(repositoryRoot, ['advance', started.run_dir])
+  assert.equal(expanded.tasks.length, 1)
+  assert.equal(taskInput(expanded.tasks[0]).candidate.claim, 'Completion variant 3.')
+  assert.equal(taskInput(expanded.tasks[0]).evidence_scope, 'contract_source_document')
+  assert.equal(JSON.parse(readFileSync(path.join(started.run_dir, 'adversarial-results.json'), 'utf8')).length, 2)
+  writeTaskResponse(expanded.tasks[0], survivedResult())
+  const completed = runCli(repositoryRoot, ['advance', started.run_dir])
+  assert.equal(completed.status, 'AWAITING_AUTHOR_RESPONSE')
+  assert.equal(JSON.parse(readFileSync(path.join(started.run_dir, 'evidence-cards.json'), 'utf8')).length, 2)
+})
+
+test('v10 evidence recovery preserves the slot bound when every batch member needs more evidence', () => {
+  const repositoryRoot = createRepository()
+  const started = startCandidateReview(repositoryRoot, variantCandidates(4))
+  const insufficient = { task_status: 'insufficient_input', missing_inputs: ['A referenced transition.'] }
+  writeTaskResponse(started.tasks[0], { candidates: [] })
+  writeBatchResults(started.tasks[1], Array(4).fill(insufficient))
+  const expanded = runCli(repositoryRoot, ['advance', started.run_dir])
+  assert.equal(expanded.tasks.length, 1)
+  assert.equal(taskInput(expanded.tasks[0]).candidates.length, 4)
+  assert.equal(taskInput(expanded.tasks[0]).context_documents.length, 1)
+  writeBatchResults(expanded.tasks[0], Array(4).fill(insufficient))
+  const completed = runCli(repositoryRoot, ['advance', started.run_dir])
+  assert.equal(completed.status, 'CLOSED')
+  const rejected = JSON.parse(readFileSync(path.join(started.run_dir, 'rejected.json'), 'utf8'))
+  assert.equal(rejected.length, 4)
+  assert.ok(rejected.every((item) => item.reason_code === 'INCOMPLETE_CHALLENGE_EVIDENCE'))
+})
+
+test('v10 rejects missing, duplicate and foreign batch IDs and retries the same batch', () => {
+  for (const invalidKind of ['missing', 'duplicate', 'foreign']) {
+    const repositoryRoot = createRepository()
+    const started = startCandidateReview(repositoryRoot, variantCandidates(2))
+    writeTaskResponse(started.tasks[0], { candidates: [] })
+    const batch = started.tasks[1]
+    const entries = taskInput(batch).candidates.map((item) => ({ finding_id: item.finding_id, result: refutedResult() }))
+    if (invalidKind === 'missing') entries.pop()
+    if (invalidKind === 'duplicate') entries[1] = entries[0]
+    if (invalidKind === 'foreign') entries[1].finding_id = '0'.repeat(64)
+    writeTaskResponse(batch, { finding_results: entries })
+    const retried = runCli(repositoryRoot, ['advance', started.run_dir])
+    assert.equal(retried.retry_reason, 'MODEL_OUTPUT_INVALID')
+    assert.deepEqual(taskInput(retried.tasks[0]), taskInput(batch))
+    assert.equal(retried.tasks[0].reasoning_effort, 'high')
+    writeTaskResponse(retried.tasks[0], {
+      finding_results: taskInput(batch).candidates.toReversed().map((item) => ({ finding_id: item.finding_id, result: refutedResult() })),
+    })
+    assert.equal(runCli(repositoryRoot, ['advance', started.run_dir]).status, 'CLOSED')
+  }
+})
+
+test('v10 leaves large evidence candidates in separate tasks', () => {
+  const repositoryRoot = createRepository()
+  const targetPath = path.join(repositoryRoot, 'docs/design.md')
+  writeFileSync(targetPath, readFileSync(targetPath, 'utf8') + 'Context. '.repeat(6500))
+  const started = startCandidateReview(repositoryRoot, variantCandidates(2))
+  assert.equal(started.tasks.length, 3)
+  assert.ok(started.tasks.slice(1).every((task) => taskInput(task).candidate && !taskInput(task).candidates))
+})
+
+function verifiedFixResult(queued) {
+  return {
+    task_status: 'completed',
+    finding_results: [{ finding_id: queued.card.finding_id, outcome: 'verified', evidence: 'Completion now transitions to terminal.' }],
+    scope_assessment: { outcome: 'contained', details: 'The transition and its directly affected contracts are consistent.' },
+  }
+}
+
+function expandedFixture() {
+  const repositoryRoot = createRepository()
+  const queued = createQueuedReview(repositoryRoot)
+  writeFileSync(path.join(repositoryRoot, 'docs/design.md'), '# Session design\n\n## Completion contract\n\nA completed run transitions immediately to terminal.\n')
+  const prepared = runCli(repositoryRoot, ['verify-fixes', queued.run_dir])
+  return { repositoryRoot, queued, prepared }
+}
+
+test('renamed contract repairs can close through one expanded reviewer', () => {
+  const { repositoryRoot, queued, prepared } = expandedFixture()
+  assert.equal(prepared.tasks[0].stage, 'expanded_fix_verification')
+  assert.deepEqual(taskInput(prepared.tasks[0]).changed_documents[0].headings, ['State contract', 'Completion contract'])
+  writeTaskResponse(prepared.tasks[0], {
+    ...verifiedFixResult(queued),
+    impact_results: [{ source: 'docs/design.md', outcome: 'consistent', evidence: 'The renamed contract preserves ownership and closes the original completion path.' }],
+  })
+  const completed = runCli(repositoryRoot, ['advance', prepared.run_dir])
+  assert.equal(completed.status, 'FIXES_VERIFIED')
+  assert.deepEqual(completed.tasks, [])
+})
+
+test('a new repair interaction blocks verification even when every original finding is fixed', () => {
+  const { repositoryRoot, queued, prepared } = expandedFixture()
+  writeTaskResponse(prepared.tasks[0], {
+    ...verifiedFixResult(queued),
+    impact_results: [{ source: 'docs/design.md', outcome: 'conflict', evidence: 'The completion transition contradicts the directly affected recovery contract.' }],
+  })
+  assert.equal(runCli(repositoryRoot, ['advance', prepared.run_dir]).status, 'FIXES_INCOMPLETE')
+})
+
+test('targeted scope or evidence expansion creates one impact reviewer before a full-review decision', () => {
+  for (const cause of ['scope', 'evidence']) {
+    const repositoryRoot = createRepository()
+    const queued = createQueuedReview(repositoryRoot)
+    writeFileSync(path.join(repositoryRoot, 'docs/design.md'), '# Session design\n\n## State contract\n\nA completed run transitions immediately to terminal.\n')
+    const prepared = runCli(repositoryRoot, ['verify-fixes', queued.run_dir])
+    const result = verifiedFixResult(queued)
+    result.scope_assessment = { outcome: 'expanded_review_required', details: 'Inspect the recovery owner and its direct consumer.' }
+    writeTaskResponse(prepared.tasks[0], cause === 'scope' ? result : { task_status: 'insufficient_input', missing_inputs: ['Repository ownership context.'] })
+    const expanded = runCli(repositoryRoot, ['advance', prepared.run_dir])
+    assert.equal(expanded.status, 'FIX_VERIFICATION_PACKED')
+    assert.equal(expanded.tasks.length, 1)
+    assert.equal(expanded.tasks[0].stage, 'expanded_fix_verification')
+    assert.equal(taskInput(expanded.tasks[0]).supporting_documents.length, 2)
+    writeTaskResponse(expanded.tasks[0], {
+      ...verifiedFixResult(queued),
+      impact_results: [{ source: 'docs/design.md', outcome: 'conflict', evidence: 'Recovery ownership affects all lifecycle consumers.' }],
+      scope_assessment: { outcome: 'full_review_required', details: 'The core terminal-state premise changed, and lifecycle effects cannot be bounded from the supplied consumer contracts.' },
+    })
+    const completed = runCli(repositoryRoot, ['advance', prepared.run_dir])
+    assert.equal(completed.status, 'FULL_REVIEW_REQUIRED')
+    assert.deepEqual(completed.tasks, [])
+  }
+})
+
+test('expanded verification rejects incomplete change coverage and retains its role on retry', () => {
+  const { repositoryRoot, queued, prepared } = expandedFixture()
+  writeTaskResponse(prepared.tasks[0], {
+    ...verifiedFixResult(queued),
+    impact_results: [{ source: 'docs/foreign.md', outcome: 'consistent', evidence: 'This document was not changed.' }],
+  })
+  const retried = runCli(repositoryRoot, ['advance', prepared.run_dir])
+  assert.equal(retried.retry_reason, 'MODEL_OUTPUT_INVALID')
+  assert.equal(retried.tasks[0].stage, 'expanded_fix_verification')
+  assert.deepEqual(taskInput(retried.tasks[0]), taskInput(prepared.tasks[0]))
+  writeTaskResponse(retried.tasks[0], {
+    ...verifiedFixResult(queued),
+    impact_results: [{ source: 'docs/design.md', outcome: 'consistent', evidence: 'The renamed transition preserves its direct consumers.' }],
+  })
+  assert.equal(runCli(repositoryRoot, ['advance', prepared.run_dir]).status, 'FIXES_VERIFIED')
+})
+
+test('support-only changes receive before/after evidence instead of forcing a full review', () => {
+  const repositoryRoot = createRepository()
+  const queued = createQueuedReview(repositoryRoot)
+  writeFileSync(path.join(repositoryRoot, 'docs/ARCHITECTURE.md'), '# Architecture\n\nThe local runner makes completed runs terminal.\n')
+  const prepared = runCli(repositoryRoot, ['verify-fixes', queued.run_dir])
+  const input = taskInput(prepared.tasks[0])
+  assert.equal(prepared.tasks[0].stage, 'expanded_fix_verification')
+  assert.deepEqual(input.changed_documents.map((item) => item.source), ['docs/ARCHITECTURE.md'])
+  assert.match(input.baseline_supporting_documents.find((doc) => doc.path === 'docs/ARCHITECTURE.md').content, /local-only/)
+  assert.match(input.supporting_documents.find((doc) => doc.path === 'docs/ARCHITECTURE.md').content, /makes completed runs terminal/)
+  writeTaskResponse(prepared.tasks[0], {
+    ...verifiedFixResult(queued),
+    impact_results: [{ source: 'docs/ARCHITECTURE.md', outcome: 'consistent', evidence: 'The owning transition now satisfies the unchanged target contract.' }],
+  })
+  assert.equal(runCli(repositoryRoot, ['advance', prepared.run_dir]).status, 'FIXES_VERIFIED')
+})
+
+test('expanded verification stops on missing evidence instead of restarting the full review', () => {
+  const { repositoryRoot, prepared } = expandedFixture()
+  writeTaskResponse(prepared.tasks[0], {
+    task_status: 'insufficient_input', missing_inputs: ['The declared recovery consumer contract is not supplied.'],
+  })
+  const completed = runCli(repositoryRoot, ['advance', prepared.run_dir])
+  assert.equal(completed.status, 'FAILED')
+  assert.deepEqual(completed.tasks, [])
+  assert.equal(completed.human.reason, '评审材料不足')
+  const failure = JSON.parse(readFileSync(path.join(prepared.run_dir, 'failure.json'), 'utf8'))
+  assert.deepEqual(failure.missing_inputs, ['The declared recovery consumer contract is not supplied.'])
+})
+
+test('a removed supporting document that reappears invalidates the expanded evidence snapshot', () => {
+  const repositoryRoot = createRepository()
+  const queued = createQueuedReview(repositoryRoot)
+  const supportPath = path.join(repositoryRoot, 'docs/ARCHITECTURE.md')
+  unlinkSync(supportPath)
+  const prepared = runCli(repositoryRoot, ['verify-fixes', queued.run_dir])
+  assert.equal(prepared.tasks[0].stage, 'expanded_fix_verification')
+  assert.equal(taskInput(prepared.tasks[0]).changed_documents[0].change, 'removed')
+  writeFileSync(supportPath, '# Architecture\n\nA new lifecycle owner.\n')
+  assert.equal(runCli(repositoryRoot, ['advance', prepared.run_dir]).status, 'INVALIDATED')
 })

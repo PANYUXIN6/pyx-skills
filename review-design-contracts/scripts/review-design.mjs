@@ -40,9 +40,9 @@ const statusText = Object.freeze({
   FAILED: '评审失败',
   INVALIDATED: '评审已失效',
   VALID: '修复队列校验通过',
-  FIX_VERIFICATION_PACKED: '局部修复复核任务已准备',
-  FIXES_VERIFIED: '局部修复复核通过',
-  FIXES_INCOMPLETE: '局部修复尚未完成',
+  FIX_VERIFICATION_PACKED: '修复复核任务已准备',
+  FIXES_VERIFIED: '修复复核通过',
+  FIXES_INCOMPLETE: '修复尚未完成',
   FULL_REVIEW_REQUIRED: '需要全量重新审核',
 })
 
@@ -55,6 +55,7 @@ const reasonText = Object.freeze({
   INFRASTRUCTURE_FAILURE: '评审任务执行失败',
   ACCEPTED_FINDINGS_CLOSED: '已接受问题的违反路径均已关闭',
   ACCEPTED_FINDING_REMAINS: '仍有已接受问题未修复',
+  REPAIR_INTERACTION_CONFLICT: '修复引入了关联契约冲突',
   FIX_SCOPE_EXCEEDED: '修复影响超出局部复核范围',
 })
 
@@ -443,7 +444,16 @@ function architectureInput(target, supportDocuments, contractLedger) {
   }
 }
 
-function projectDocumentSections(document, sections, index) {
+function projectDocumentSections(
+  document,
+  sectionUnits,
+  index,
+  contextSections = [],
+) {
+  const sections = [
+    ...contextSections,
+    ...sectionUnits.flatMap((unit) => unit),
+  ]
   const preamble = index === 0 ? markdownPreamble(document.content).trimEnd() : ''
   const content = [preamble, ...sections.map((section) => section.content)]
     .filter(Boolean)
@@ -459,6 +469,43 @@ function projectDocumentSections(document, sections, index) {
       headings: sections.map((section) => section.heading),
     },
   }
+}
+
+function architectureSectionUnits(sections) {
+  if (sections.length === 0) {
+    return { contextSections: [], units: [] }
+  }
+  const parentIndexes = []
+  const ancestors = []
+  for (const [index, section] of sections.entries()) {
+    while (
+      ancestors.length > 0 &&
+      sections[ancestors.at(-1)].level >= section.level
+    ) {
+      ancestors.pop()
+    }
+    parentIndexes[index] = ancestors.at(-1) ?? null
+    ancestors.push(index)
+  }
+  const rootIndexes = parentIndexes.flatMap((parentIndex, index) =>
+    parentIndex === null ? [index] : [],
+  )
+  let contextSections = []
+  let unitRootIndexes = rootIndexes
+  if (rootIndexes.length === 1 && rootIndexes[0] === 0) {
+    const childIndexes = parentIndexes.flatMap((parentIndex, index) =>
+      parentIndex === 0 ? [index] : [],
+    )
+    if (childIndexes.length > 0) {
+      contextSections = [sections[0]]
+      unitRootIndexes = childIndexes
+    }
+  }
+  const units = unitRootIndexes.map((rootIndex, index) => {
+    const end = unitRootIndexes[index + 1] ?? sections.length
+    return sections.slice(rootIndex, end)
+  })
+  return { contextSections, units }
 }
 
 function splitArchitectureSupportDocument(
@@ -477,32 +524,44 @@ function splitArchitectureSupportDocument(
   if (document.sections.length === 0) {
     return [projected]
   }
+  const { contextSections, units } = architectureSectionUnits(document.sections)
   const projections = []
-  let currentSections = []
-  for (const section of document.sections) {
-    const candidateSections = [...currentSections, section]
+  let currentUnits = []
+  for (const unit of units) {
+    const candidateUnits = [...currentUnits, unit]
     const candidate = projectDocumentSections(
       document,
-      candidateSections,
+      candidateUnits,
       projections.length,
+      contextSections,
     )
     if (
-      currentSections.length > 0 &&
+      currentUnits.length > 0 &&
       serializedInputBytes(
         architectureInput(target, [candidate], contractLedger),
       ) > maxInputBytes
     ) {
       projections.push(
-        projectDocumentSections(document, currentSections, projections.length),
+        projectDocumentSections(
+          document,
+          currentUnits,
+          projections.length,
+          contextSections,
+        ),
       )
-      currentSections = [section]
+      currentUnits = [unit]
     } else {
-      currentSections = candidateSections
+      currentUnits = candidateUnits
     }
   }
-  if (currentSections.length > 0) {
+  if (currentUnits.length > 0) {
     projections.push(
-      projectDocumentSections(document, currentSections, projections.length),
+      projectDocumentSections(
+        document,
+        currentUnits,
+        projections.length,
+        contextSections,
+      ),
     )
   }
   return projections
@@ -900,8 +959,7 @@ function validateConfig(config) {
     if (
       typeof modelConfig?.model !== 'string' ||
       modelConfig.model.length === 0 ||
-      typeof modelConfig.reasoning_effort !== 'string' ||
-      modelConfig.reasoning_effort.length === 0
+      !['low', 'high'].includes(modelConfig.reasoning_effort)
     ) {
       throw new Error(`review.config.json 的 ${layer} 模型配置无效`)
     }
@@ -944,6 +1002,8 @@ function createNativeTask({
   timeoutMs,
   responseGraceMs,
   queueReadyAt = null,
+  resultSchema = null,
+  instructionsText = null,
 }) {
   const createdAt = new Date()
   const taskId = `${logicalId}-attempt-${attempt}`
@@ -959,6 +1019,7 @@ function createNativeTask({
     author_rebuttal: 'author',
     fix_verification: 'fix',
     architecture_fix_verification: 'afix',
+    expanded_fix_verification: 'efix',
   }[stage]
   const agentTaskName = [
     'review',
@@ -1007,10 +1068,12 @@ function createNativeTask({
       input_sha256: {
         const: inputSha256,
       },
-      result: bundleSchema(schemaFileName),
+      result: resultSchema ?? bundleSchema(schemaFileName),
     },
   }
-  const instructions = [
+  const instructions = instructionsText
+    ? [retryMessage, instructionsText].filter(Boolean).join('\n\n')
+    : [
     '# Native design-review task',
     '',
     'Write exactly one JSON object to the response_path declared in task.json.',
@@ -1029,7 +1092,9 @@ function createNativeTask({
   updateTaskMetric(runDirectory, taskId, {
     task_id: taskId,
     stage,
-    candidate_layer: input.candidate?.layer ?? null,
+    candidate_layer:
+      input.candidate?.layer ?? input.candidates?.[0]?.candidate.layer ?? null,
+    candidate_count: input.candidates?.length ?? (input.candidate ? 1 : 0),
     evidence_scope: input.evidence_scope ?? null,
     attempt,
     created_at: createdAt.toISOString(),
@@ -1183,7 +1248,7 @@ function prepareReview(argumentsList) {
   }
   atomicWriteJson(path.join(runDirectory, 'state.json'), state)
   const manifest = {
-    version: 9,
+    version: 10,
     input_digest: inputDigest,
     config_sha256: sha256(configText),
     target_document: target.path,
@@ -1424,10 +1489,9 @@ function fixImpact(
   if (
     topLevelScopes.some(
       (scope) => baselineTarget.sections[scope.baselineIndex].level === 1,
-    ) ||
-    topLevelScopes.length > 4
+    )
   ) {
-    addReason('REPAIR_SCOPE_TOO_BROAD')
+    addReason('DOCUMENT_ROOT_SCOPE')
   }
   const changedSections = []
   const addChangedSection = (heading) => {
@@ -1467,7 +1531,7 @@ function fixImpact(
   return {
     review_mode:
       reasons.length > 0
-        ? 'full'
+        ? 'expanded'
         : hasArchitectureFinding
           ? 'architecture_targeted'
           : 'targeted',
@@ -1566,16 +1630,11 @@ function prepareFixVerification(argumentsList) {
   const currentTarget = currentDocuments.find(
     (document) => document.role === 'target',
   )
-  if (currentTarget.sha256 === baselineTarget.sha256) {
-    throw new Error('目标文档尚未发生变化，没有修复可供复核')
-  }
-
   const configText = readFileSync(configPath, 'utf8')
   const config = JSON.parse(configText)
   validateConfig(config)
   const supportingInputChanged =
     missingSupportingDocuments.length > 0 ||
-    sha256(configText) !== sourceRun.manifest.config_sha256 ||
     sourceRun.manifest.documents.some((document) => {
       if (document.role === 'target') {
         return false
@@ -1585,6 +1644,9 @@ function prepareFixVerification(argumentsList) {
       )
       return currentDocument.sha256 !== document.sha256
     })
+  if (currentTarget.sha256 === baselineTarget.sha256 && !supportingInputChanged) {
+    throw new Error('评审文档尚未发生变化，没有修复可供复核')
+  }
   const impact = fixImpact(
     baselineTarget,
     currentTarget,
@@ -1636,7 +1698,7 @@ function prepareFixVerification(argumentsList) {
   }
   atomicWriteJson(path.join(runDirectory, 'state.json'), state)
   writeJson(path.join(runDirectory, 'manifest.json'), {
-    version: 9,
+    version: 10,
     mode: 'fix_verification',
     input_digest: inputDigest,
     config_sha256: sha256(configText),
@@ -1650,16 +1712,9 @@ function prepareFixVerification(argumentsList) {
   })
   writeJson(path.join(runDirectory, 'fix-impact.json'), impact)
 
-  if (impact.review_mode === 'full') {
-    state = transition(runDirectory, state, 'FULL_REVIEW_REQUIRED', {
-      completion_reason: 'FIX_SCOPE_EXCEEDED',
-      full_review_reasons: impact.reasons,
-    })
-    return {
-      status: state.status,
-      run_dir: runDirectory,
-      tasks: [],
-    }
+  if (impact.review_mode === 'expanded') {
+    const run = loadRun(repositoryRoot, runDirectory)
+    return startExpandedFixVerification(run, config, 'CHANGED_REPAIR_IMPACT')
   }
 
   const architectureTargeted = impact.review_mode === 'architecture_targeted'
@@ -1771,6 +1826,18 @@ function readTaskResponse(task) {
     failure.taskId = task.task_id
     throw failure
   }
+  if (task.stage === 'adversarial' && response.result.finding_results) {
+    const expected = adversarialTaskIds(task)
+    const actual = response.result.finding_results.map((item) => item.finding_id)
+    if (
+      new Set(actual).size !== actual.length ||
+      actual.length !== expected.length ||
+      expected.some((id) => !actual.includes(id))
+    ) {
+      updateTaskMetric(runDirectory, task.task_id, { response_valid: false })
+      invalidTaskResult(task, 'finding_results 必须且只能逐条覆盖当前批次候选')
+    }
+  }
   updateTaskMetric(runDirectory, task.task_id, {
     response_valid: true,
   })
@@ -1801,15 +1868,11 @@ function failForInsufficientInput(runDirectory, state, task, result) {
   }
 }
 
-function createAdversarialTask({
-  runDirectory,
+function adversarialInput({
   manifest,
   contractLedger,
   preparedCandidate,
-  config,
-  attempt,
   expandEvidence = false,
-  retryMessage = null,
 }) {
   const citedDocument = manifest.documents.find(
     (document) => document.path === preparedCandidate.cited_section.source,
@@ -1855,6 +1918,75 @@ function createAdversarialTask({
     !isArchitectureCandidate && !expandEvidence && evidenceProjectionValid
   const contractSource =
     citedDocument?.path ?? preparedCandidate.candidate.contract.source
+  return {
+  stage: 'adversarial',
+  evidence_scope: isArchitectureCandidate
+    ? useArchitectureProjection
+      ? 'architecture_sections'
+      : 'all_review_documents'
+    : canExpandContractSource
+      ? 'contract_source_document'
+      : useCandidateProjection
+        ? 'candidate_sections'
+        : 'cited_section',
+  candidate: preparedCandidate.candidate,
+  cited_sections: useCandidateProjection
+    ? projectedEvidence.map((document) => ({
+        source: document.path,
+        heading: document.projection.heading,
+        sha256: document.sha256,
+        content: document.content,
+      }))
+    : citedSection
+      ? [
+          {
+            source: citedDocument.path,
+            heading: citedSection.heading,
+            sha256: citedSection.sha256,
+            content: citedSection.content,
+          },
+        ]
+      : [],
+  context_documents: isArchitectureCandidate
+    ? useArchitectureProjection
+      ? projectedEvidence
+      : manifest.version >= 4
+        ? manifest.documents.map(projectTaskDocument)
+        : manifest.documents
+    : canExpandContractSource
+      ? citedDocument
+        ? [projectTaskDocument(citedDocument)]
+        : []
+    : [],
+  contract_ledger_entries: isArchitectureCandidate
+    ? useArchitectureProjection
+      ? contractLedger.contracts.filter((entry) =>
+          requestedEvidence.some(
+            (reference) =>
+              reference.source === entry.source &&
+              reference.heading === entry.heading,
+          ),
+        )
+      : contractLedger.contracts
+    : canExpandContractSource
+      ? contractLedger.contracts.filter(
+          (entry) => entry.source === contractSource,
+        )
+    : contractLedger.contracts.filter((entry) =>
+        requestedEvidence.some(
+          (reference) =>
+            reference.source === entry.source &&
+            reference.heading === entry.heading,
+        ),
+      ),
+}
+}
+
+function createAdversarialTask(options) {
+  const {
+    runDirectory, manifest, preparedCandidate, config, attempt,
+    retryMessage = null,
+  } = options
   return createNativeTask({
     runDirectory,
     stage: 'adversarial',
@@ -1874,69 +2006,79 @@ function createAdversarialTask({
     queueReadyAt:
       attempt === 1 ? preparedCandidate.queue_ready_at ?? null : null,
     retryMessage,
-    input: {
-      stage: 'adversarial',
-      evidence_scope: isArchitectureCandidate
-        ? useArchitectureProjection
-          ? 'architecture_sections'
-          : 'all_review_documents'
-        : canExpandContractSource
-          ? 'contract_source_document'
-          : useCandidateProjection
-            ? 'candidate_sections'
-            : 'cited_section',
-      candidate: preparedCandidate.candidate,
-      cited_sections: useCandidateProjection
-        ? projectedEvidence.map((document) => ({
-            source: document.path,
-            heading: document.projection.heading,
-            sha256: document.sha256,
-            content: document.content,
-          }))
-        : citedSection
-          ? [
-              {
-                source: citedDocument.path,
-                heading: citedSection.heading,
-                sha256: citedSection.sha256,
-                content: citedSection.content,
-              },
-            ]
-          : [],
-      context_documents: isArchitectureCandidate
-        ? useArchitectureProjection
-          ? projectedEvidence
-          : manifest.version >= 4
-            ? manifest.documents.map(projectTaskDocument)
-            : manifest.documents
-        : canExpandContractSource
-          ? citedDocument
-            ? [projectTaskDocument(citedDocument)]
-            : []
-        : [],
-      contract_ledger_entries: isArchitectureCandidate
-        ? useArchitectureProjection
-          ? contractLedger.contracts.filter((entry) =>
-              requestedEvidence.some(
-                (reference) =>
-                  reference.source === entry.source &&
-                  reference.heading === entry.heading,
-              ),
-            )
-          : contractLedger.contracts
-        : canExpandContractSource
-          ? contractLedger.contracts.filter(
-              (entry) => entry.source === contractSource,
-            )
-        : contractLedger.contracts.filter((entry) =>
-            requestedEvidence.some(
-              (reference) =>
-                reference.source === entry.source &&
-                reference.heading === entry.heading,
-            ),
-          ),
-    },
+    input: adversarialInput(options),
   })
+}
+
+function adversarialTaskIds(task) {
+  const input = readJsonOr(path.join(task.task_path, 'input.json'), {})
+  return input.candidates
+    ? input.candidates.map((item) => item.finding_id)
+    : [task.logical_id.replace(/^adversarial-/, '')]
+}
+
+function dispatchedFindingIds(state, tasks) {
+  return [...new Set([
+    ...(state.dispatched_finding_ids ?? []),
+    ...tasks.flatMap(adversarialTaskIds),
+  ])]
+}
+
+function pendingAdversarialCandidates(run, candidates) {
+  if (run.manifest.version < 10) {
+    return candidates.slice(run.state.next_adversarial_index ?? 0)
+  }
+  const dispatched = new Set(run.state.dispatched_finding_ids ?? [])
+  return candidates.filter((item) => !dispatched.has(item.finding_id))
+}
+
+function adversarialGroupInput(options, candidates) {
+  const inputs = candidates.map((preparedCandidate) =>
+    adversarialInput({ ...options, preparedCandidate }),
+  )
+  return {
+    stage: 'adversarial',
+    evidence_scope: inputs[0].evidence_scope,
+    candidates: candidates.map((item) => ({
+      finding_id: item.finding_id,
+      candidate: item.candidate,
+    })),
+    cited_sections: dedupeCanonical(inputs.flatMap((input) => input.cited_sections)),
+    context_documents: dedupeCanonical(inputs.flatMap((input) => input.context_documents)),
+    contract_ledger_entries: dedupeCanonical(inputs.flatMap((input) => input.contract_ledger_entries)),
+  }
+}
+
+function createAdversarialGroup(options, candidates) {
+  if (candidates.length === 1) {
+    return createAdversarialTask({ ...options, preparedCandidate: candidates[0] })
+  }
+  const { runDirectory, config, attempt, retryMessage = null } = options
+  return createNativeTask({
+    runDirectory,
+    stage: 'adversarial',
+    attempt,
+    modelConfig: config.models.adversarial,
+    roleFileName: 'adversarial-batch-role.md',
+    schemaFileName: 'adversarial-batch-result.schema.json',
+    logicalId: `adversarial-batch-${candidates[0].finding_id}`,
+    timeoutMs: config.timeouts_ms.adversarial,
+    responseGraceMs: config.timeouts_ms.response_grace,
+    queueReadyAt: attempt === 1 ? candidates[0].queue_ready_at : null,
+    retryMessage,
+    input: adversarialGroupInput(options, candidates),
+  })
+}
+
+function expandAdversarialResponses(taskResponses) {
+  return taskResponses.flatMap(({ task, response }) =>
+    response.result.finding_results
+      ? response.result.finding_results.map((item) => ({
+          task: { ...task, logical_id: `adversarial-${item.finding_id}` },
+          response: { ...response, result: item.result },
+        }))
+      : [{ task, response }],
+  )
 }
 
 function recoverAdversarialInsufficient({
@@ -1950,7 +2092,8 @@ function recoverAdversarialInsufficient({
   const consumable = []
   const retryTasks = []
   const exhausted = []
-  for (const taskResponse of taskResponses) {
+  const recoveryGroups = new Map()
+  for (const taskResponse of expandAdversarialResponses(taskResponses)) {
     if (!isInsufficientInput(taskResponse.response.result)) {
       consumable.push(taskResponse)
       continue
@@ -1980,21 +2123,12 @@ function recoverAdversarialInsufficient({
       (taskInput.evidence_scope === undefined &&
         preparedCandidate.candidate.layer === 'self_consistency')
     ) {
-      retryTasks.push(
-        createAdversarialTask({
-          runDirectory,
-          manifest,
-          contractLedger,
-          preparedCandidate,
-          config,
-          attempt: taskResponse.task.attempt + 1,
-          expandEvidence: true,
-          retryMessage:
-            preparedCandidate.candidate.layer === 'architecture'
-              ? `上一次封闭任务包的架构证据投影不足：${taskResponse.response.result.missing_inputs.join('；')}。本次已由 Runner 补入全部冻结评审文档和完整 Contract Ledger；只基于扩展后的冻结证据重新判断同一候选。`
-              : `上一次封闭任务包的章节投影不足：${taskResponse.response.result.missing_inputs.join('；')}。本次已由 Runner 补入完整契约来源文档和同来源 Contract Ledger；只基于扩展后的冻结证据重新判断同一候选。`,
-        }),
-      )
+      const group = recoveryGroups.get(taskResponse.task.task_id) ?? {
+        task: taskResponse.task, candidates: [], missing: [],
+      }
+      group.candidates.push(preparedCandidate)
+      group.missing.push(...taskResponse.response.result.missing_inputs)
+      recoveryGroups.set(taskResponse.task.task_id, group)
       continue
     }
     exhausted.push({
@@ -2002,6 +2136,14 @@ function recoverAdversarialInsufficient({
       preparedCandidate,
       result: taskResponse.response.result,
     })
+  }
+  for (const group of recoveryGroups.values()) {
+    retryTasks.push(createAdversarialGroup({
+      runDirectory, manifest, contractLedger, config,
+      attempt: group.task.attempt + 1,
+      expandEvidence: true,
+      retryMessage: `仅复核材料不足的候选；Runner 已补入完整冻结证据。缺少：${[...new Set(group.missing)].join('；')}`,
+    }, group.candidates))
   }
   return { consumable, retryTasks, exhausted }
 }
@@ -2027,22 +2169,43 @@ function recordExhaustedAdversarialEvidence({
 }
 
 function createAdversarialBatch({
-  candidates,
-  runDirectory,
-  manifest,
-  contractLedger,
-  config,
+  candidates, runDirectory, manifest, contractLedger, config,
+  limit = config.max_parallel_subagents,
 }) {
-  return candidates.map((preparedCandidate) =>
-    createAdversarialTask({
-      runDirectory,
-      manifest,
-      contractLedger,
-      preparedCandidate,
-      config,
-      attempt: 1,
-    }),
-  )
+  const options = { runDirectory, manifest, contractLedger, config, attempt: 1 }
+  if (manifest.version < 10) {
+    return candidates.slice(0, limit).map((preparedCandidate) =>
+      createAdversarialTask({ ...options, preparedCandidate }),
+    )
+  }
+  // Group by the same contract or identical evidence, without transitive merging.
+  // A small count and byte budget keep complex candidates in their own task.
+  const remaining = [...candidates]
+  const tasks = []
+  while (remaining.length > 0 && tasks.length < limit) {
+    const first = remaining.shift()
+    const group = [first]
+    const evidenceKey = (item) => JSON.stringify(
+      (item.candidate.evidence_sections ?? []).map((ref) =>
+        `${ref.source}\0${ref.heading}`).sort(),
+    )
+    for (let index = 0; index < remaining.length && group.length < 4;) {
+      const item = remaining[index]
+      const related = item.candidate.layer === first.candidate.layer && (
+        (item.candidate.contract.source === first.candidate.contract.source &&
+         item.candidate.contract.heading === first.candidate.contract.heading) ||
+        evidenceKey(item) === evidenceKey(first)
+      )
+      if (related && serializedInputBytes(adversarialGroupInput(options, [...group, item])) <= 49152) {
+        group.push(item)
+        remaining.splice(index, 1)
+      } else {
+        index += 1
+      }
+    }
+    tasks.push(createAdversarialGroup(options, group))
+  }
+  return tasks
 }
 
 function consumeAdversarialResponses({
@@ -2140,6 +2303,76 @@ function requireFullReviewAfterTargetedCheck(run, reason) {
   }
 }
 
+function changedDocumentSummary(baselineDocuments, currentDocuments) {
+  const paths = [...new Set(
+    [...baselineDocuments, ...currentDocuments].map((document) => document.path),
+  )]
+  const changedHeadings = (sections, otherSections) => sections
+    .filter((section, index) =>
+      otherSections[index]?.sha256 !== section.sha256 ||
+      sectionShape(otherSections[index] ?? {}) !== sectionShape(section),
+    )
+    .map((section) => section.heading)
+  return paths.flatMap((source) => {
+    const before = baselineDocuments.find((document) => document.path === source)
+    const after = currentDocuments.find((document) => document.path === source)
+    if (before?.sha256 === after?.sha256) return []
+    const beforeSections = before?.sections ?? []
+    const afterSections = after?.sections ?? []
+    return [{
+      source,
+      change: !before ? 'added' : !after ? 'removed' : 'modified',
+      preamble_changed:
+        markdownPreamble(before?.content ?? '') !==
+        markdownPreamble(after?.content ?? ''),
+      headings: [...new Set([
+        ...changedHeadings(beforeSections, afterSections),
+        ...changedHeadings(afterSections, beforeSections),
+      ])],
+    }]
+  })
+}
+
+function startExpandedFixVerification(run, config, reason, details = null) {
+  const source = loadRun(run.state.repository_root, run.state.verification_of)
+  const baselineDocuments = source.manifest.documents
+  const currentDocuments = run.manifest.documents
+  const impactPath = path.join(run.runDirectory, 'fix-impact.json')
+  const impact = readJsonOr(impactPath, {})
+  impact.review_mode = 'expanded'
+  impact.reasons = [...new Set([...(impact.reasons ?? []), reason])]
+  impact.changed_documents = changedDocumentSummary(baselineDocuments, currentDocuments)
+  impact.changed_sections = impact.changed_documents
+    .filter((item) => item.source === run.manifest.target_document)
+    .flatMap((item) => item.headings)
+  writeJson(impactPath, impact)
+  const task = createNativeTask({
+    runDirectory: run.runDirectory,
+    stage: 'expanded_fix_verification',
+    attempt: 1,
+    modelConfig: config.models.architecture,
+    roleFileName: 'expanded-fix-verification-role.md',
+    schemaFileName: 'expanded-fix-verification-result.schema.json',
+    timeoutMs: config.timeouts_ms.fix_verification,
+    responseGraceMs: config.timeouts_ms.response_grace,
+    input: {
+      stage: 'expanded_fix_verification',
+      accepted_findings: run.manifest.accepted_findings,
+      changed_documents: impact.changed_documents,
+      expansion_reason: { reason, details },
+      baseline_target: projectTaskDocument(baselineDocuments.find((doc) => doc.role === 'target')),
+      current_target: projectTaskDocument(currentDocuments.find((doc) => doc.role === 'target')),
+      baseline_supporting_documents: baselineDocuments.filter((doc) => doc.role !== 'target').map(projectTaskDocument),
+      supporting_documents: currentDocuments.filter((doc) => doc.role !== 'target').map(projectTaskDocument),
+    },
+  })
+  const state = transition(run.runDirectory, run.state, 'FIX_VERIFICATION_PACKED', {
+    active_tasks: [task.task_id],
+    task_attempts: { ...run.state.task_attempts, expanded_fix_verification: 1 },
+  })
+  return { status: state.status, run_dir: run.runDirectory, tasks: [task] }
+}
+
 function advanceFixVerification(run, repositoryRoot) {
   if (
     [
@@ -2174,7 +2407,7 @@ function advanceFixVerification(run, repositoryRoot) {
   }
   const task = loadTask(run.runDirectory, run.state.active_tasks[0])
   if (
-    !['fix_verification', 'architecture_fix_verification'].includes(
+    !['fix_verification', 'architecture_fix_verification', 'expanded_fix_verification'].includes(
       task.stage,
     )
   ) {
@@ -2190,10 +2423,18 @@ function advanceFixVerification(run, repositoryRoot) {
     }
   }
   if (isInsufficientInput(response.result)) {
+    if (run.manifest.version >= 10 && task.stage !== 'expanded_fix_verification') {
+      return startExpandedFixVerification(run,
+        JSON.parse(readFileSync(configPath, 'utf8')),
+        'INSUFFICIENT_TARGETED_EVIDENCE', response.result.missing_inputs.join('；'))
+    }
     writeJson(
       path.join(run.runDirectory, 'fix-verification-results.json'),
       response.result,
     )
+    if (task.stage === 'expanded_fix_verification') {
+      return failForInsufficientInput(run.runDirectory, run.state, task, response.result)
+    }
     return requireFullReviewAfterTargetedCheck(
       run,
       'INSUFFICIENT_TARGETED_EVIDENCE',
@@ -2213,10 +2454,27 @@ function advanceFixVerification(run, repositoryRoot) {
   ) {
     invalidTaskResult(task, 'finding_results 必须且只能覆盖全部已接受 finding')
   }
+  if (task.stage === 'expanded_fix_verification') {
+    const input = readJsonOr(path.join(task.task_path, 'input.json'), {})
+    const expected = input.changed_documents.map((item) => item.source)
+    const actual = response.result.impact_results.map((item) => item.source)
+    if (actual.length !== expected.length || new Set(actual).size !== actual.length ||
+        expected.some((source) => !actual.includes(source))) {
+      invalidTaskResult(task, 'impact_results 必须逐个覆盖全部实际变化文档')
+    }
+  }
   writeJson(
     path.join(run.runDirectory, 'fix-verification-results.json'),
     response.result,
   )
+  if (response.result.scope_assessment.outcome === 'expanded_review_required') {
+    if (run.manifest.version < 10 || task.stage === 'expanded_fix_verification') {
+      invalidTaskResult(task, '该任务不能再次请求扩大复核')
+    }
+    return startExpandedFixVerification(run,
+      JSON.parse(readFileSync(configPath, 'utf8')),
+      'TARGETED_SCOPE_EXPANDED', response.result.scope_assessment.details)
+  }
   if (
     response.result.scope_assessment.outcome === 'full_review_required'
   ) {
@@ -2225,9 +2483,12 @@ function advanceFixVerification(run, repositoryRoot) {
       'TARGETED_SCOPE_EXPANDED',
     )
   }
+  const hasConflict = response.result.impact_results?.some(
+    (item) => item.outcome === 'conflict',
+  )
   const hasUnresolved = response.result.finding_results.some(
     (finding) => finding.outcome === 'unresolved',
-  )
+  ) || hasConflict
   const state = transition(
     run.runDirectory,
     run.state,
@@ -2235,7 +2496,9 @@ function advanceFixVerification(run, repositoryRoot) {
     {
       active_tasks: [],
       completion_reason: hasUnresolved
-        ? 'ACCEPTED_FINDING_REMAINS'
+        ? hasConflict
+          ? 'REPAIR_INTERACTION_CONFLICT'
+          : 'ACCEPTED_FINDING_REMAINS'
         : 'ACCEPTED_FINDINGS_CLOSED',
     },
   )
@@ -2444,9 +2707,10 @@ function advanceReviewOnce(argumentsList) {
       run.manifest.version >= 4
         ? Math.max(0, config.max_parallel_subagents - 1)
         : 0
-    const earlyCandidates = preparedL1.accepted.slice(0, earlyCandidateLimit)
+    const earlyCandidates = preparedL1.accepted
     const earlyTasks = createAdversarialBatch({
       candidates: earlyCandidates,
+      limit: earlyCandidateLimit,
       runDirectory: run.runDirectory,
       manifest: run.manifest,
       contractLedger,
@@ -2464,6 +2728,7 @@ function advanceReviewOnce(argumentsList) {
       active_tasks: tasks.map((task) => task.task_id),
       task_attempts: taskAttempts,
       next_adversarial_index: earlyTasks.length,
+      dispatched_finding_ids: dispatchedFindingIds(run.state, earlyTasks),
     })
     return {
       status: state.status,
@@ -2754,7 +3019,8 @@ function advanceReviewOnce(argumentsList) {
       )
       const nextIndex = run.state.next_adversarial_index
       const freshTasks = createAdversarialBatch({
-        candidates: preparedL1.slice(nextIndex, nextIndex + availableSlots),
+        candidates: pendingAdversarialCandidates(run, preparedL1),
+        limit: availableSlots,
         runDirectory: run.runDirectory,
         manifest: run.manifest,
         contractLedger,
@@ -2772,6 +3038,7 @@ function advanceReviewOnce(argumentsList) {
         ],
         task_attempts: taskAttempts,
         next_adversarial_index: nextIndex + freshTasks.length,
+        dispatched_finding_ids: dispatchedFindingIds(run.state, freshTasks),
       })
       return {
         status: state.status,
@@ -2808,13 +3075,12 @@ function advanceReviewOnce(argumentsList) {
     })
     writeJson(path.join(run.runDirectory, 'candidates.json'), prepared.accepted)
     const expectedEarlyIds = new Set(
-      prepared.accepted
-        .slice(0, run.state.next_adversarial_index)
-        .map((candidateItem) => candidateItem.finding_id),
+      run.manifest.version >= 10
+        ? run.state.dispatched_finding_ids
+        : prepared.accepted.slice(0, run.state.next_adversarial_index)
+            .map((candidateItem) => candidateItem.finding_id),
     )
-    const actualEarlyIds = completedEarlyResponses.map(({ task }) =>
-      task.logical_id.replace(/^adversarial-/, ''),
-    )
+    const actualEarlyIds = completedEarlyResponses.flatMap(({ task }) => adversarialTaskIds(task))
     if (actualEarlyIds.some((findingId) => !expectedEarlyIds.has(findingId))) {
       throw new Error('提前启动的 L3 候选与合并候选前缀不一致')
     }
@@ -2869,12 +3135,10 @@ function advanceReviewOnce(argumentsList) {
         stillPending.length -
         recoveredEarly.retryTasks.length,
     )
-    const nextCandidates = prepared.accepted.slice(
-      nextIndex,
-      nextIndex + availableSlots,
-    )
+    const nextCandidates = pendingAdversarialCandidates(run, prepared.accepted)
     const freshTasks = createAdversarialBatch({
       candidates: nextCandidates,
+      limit: availableSlots,
       runDirectory: run.runDirectory,
       manifest: run.manifest,
       contractLedger,
@@ -2898,6 +3162,7 @@ function advanceReviewOnce(argumentsList) {
         ],
         task_attempts: taskAttempts,
         next_adversarial_index: nextIndex + freshTasks.length,
+        dispatched_finding_ids: dispatchedFindingIds(run.state, freshTasks),
       },
     )
     if (stillPending.length === 0 && tasks.length === 0) {
@@ -3065,12 +3330,10 @@ function advanceReviewOnce(argumentsList) {
         pendingTasks.length -
         recovered.retryTasks.length,
     )
-    const nextCandidates = preparedCandidates.slice(
-      nextIndex,
-      nextIndex + availableSlots,
-    )
+    const nextCandidates = pendingAdversarialCandidates(run, preparedCandidates)
     const freshTasks = createAdversarialBatch({
       candidates: nextCandidates,
+      limit: availableSlots,
       runDirectory: run.runDirectory,
       manifest: run.manifest,
       contractLedger,
@@ -3091,6 +3354,7 @@ function advanceReviewOnce(argumentsList) {
         ],
         task_attempts: taskAttempts,
         next_adversarial_index: nextIndex + freshTasks.length,
+        dispatched_finding_ids: dispatchedFindingIds(run.state, freshTasks),
       })
       return {
         status: state.status,
@@ -3188,6 +3452,13 @@ function retryNativeTask(
       timeoutMs: config.timeouts_ms.fix_verification,
       responseGraceMs: config.timeouts_ms.response_grace,
     },
+    expanded_fix_verification: {
+      modelConfig: config.models.architecture,
+      roleFileName: 'expanded-fix-verification-role.md',
+      schemaFileName: 'expanded-fix-verification-result.schema.json',
+      timeoutMs: config.timeouts_ms.fix_verification,
+      responseGraceMs: config.timeouts_ms.response_grace,
+    },
     author_rebuttal: {
       modelConfig: config.models.adversarial,
       roleFileName: 'author-rebuttal-role.md',
@@ -3211,6 +3482,12 @@ function retryNativeTask(
     input,
     retryMessage: `上一次独立响应未通过确定性校验：${validationMessage}。重新执行任务，不复用上次答案。`,
     ...settings,
+    resultSchema: readJsonOr(
+      path.join(task.task_path, 'output.schema.json'), {},
+    ).properties.result,
+    instructionsText: readFileSync(
+      path.join(task.task_path, 'instructions.md'), 'utf8',
+    ),
   })
 }
 
@@ -4053,10 +4330,7 @@ function proceedFromArchitectureCandidates({
   writeJson(path.join(run.runDirectory, 'rejected.json'), prepared.rejected)
   writeJson(path.join(run.runDirectory, 'adversarial-results.json'), [])
   writeJson(path.join(run.runDirectory, 'evidence-cards.json'), [])
-  const nextCandidates = prepared.accepted.slice(
-    0,
-    config.max_parallel_subagents,
-  )
+  const nextCandidates = prepared.accepted
   const tasks = createAdversarialBatch({
     candidates: nextCandidates,
     runDirectory: run.runDirectory,
@@ -4076,6 +4350,7 @@ function proceedFromArchitectureCandidates({
       active_tasks: tasks.map((task) => task.task_id),
       task_attempts: taskAttempts,
       next_adversarial_index: tasks.length,
+      dispatched_finding_ids: dispatchedFindingIds(run.state, tasks),
     },
   )
   if (tasks.length === 0) {
@@ -4114,7 +4389,7 @@ function loadRun(repositoryRoot, requestedRunDirectory) {
   const manifest = JSON.parse(
     readFileSync(path.join(runDirectory, 'manifest.json'), 'utf8'),
   )
-  if (![3, 4, 5, 6, 7, 8, 9].includes(manifest.version)) {
+  if (![3, 4, 5, 6, 7, 8, 9, 10].includes(manifest.version)) {
     throw new Error(`不支持的 Manifest 版本：${manifest.version}`)
   }
   if (manifest.version === 6 && manifest.mode !== 'fix_verification') {
@@ -4431,6 +4706,11 @@ function advanceAuthorResponse(run, repositoryRoot, config) {
 }
 
 function changedInput(manifest, repositoryRoot) {
+  for (const source of manifest.missing_supporting_documents ?? []) {
+    if (existsSync(path.join(repositoryRoot, source))) {
+      return `${source} 已重新出现，复核证据已变化`
+    }
+  }
   for (const document of manifest.documents) {
     const currentPath = path.join(repositoryRoot, document.path)
     if (!existsSync(currentPath)) {

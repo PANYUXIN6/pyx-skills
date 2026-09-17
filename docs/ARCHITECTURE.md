@@ -15,7 +15,7 @@ authority_status: observed
 - `scripts/review-design.mjs` 负责确定性状态机、紧凑输入投影、任务成本指标、Schema 校验、证据门禁和人工决策记录。
 - `references/` 负责角色边界、审查协议、数据契约，以及用户可见拒绝原因与机器枚举之间的受校验映射。
 
-L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增量角色只返回允许变化字段的 `refinement`，Runner 复用原候选的不可变 layer/contract；v3/v4 任务继续由独立 legacy 角色与 Schema 兼容完整 `refined_finding`。Manifest v7 进一步拥有超限 L2 的支持文档分片与紧凑契约合并状态；Manifest v8 在 Evidence Cards 与人工裁决之间加入一次性作者答辩，只有带有效反证的条目进入一个批量封闭复查任务；Manifest v6 仍专用于修复复核。
+L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增量角色只返回允许变化字段的 `refinement`，Runner 复用原候选的不可变 layer/contract；v3/v4 任务继续由独立 legacy 角色与 Schema 兼容完整 `refined_finding`。Manifest v7 进一步拥有超限 L2 的支持文档分片与紧凑契约合并状态；Manifest v8 在 Evidence Cards 与人工裁决之间加入一次性作者答辩，只有带有效反证的条目进入一个批量封闭复查任务；Manifest v6 仍专用于历史修复复核。Manifest v10 的 L3 按相关契约批量派发，逐条判定、按未解决条目补证；新修复复核加入一次实际影响扩展阶段。
 
 `repo-map-first` 独立拥有仓库落点判断与文档同步职责。自动路由只覆盖归属不明、跨模块边界、入口或依赖变化以及地图可疑等真实定位风险；用户显式调用会绕过自动过滤，并按查看／使用或创建／修复的请求范围完成地图工作；查看本身不授权修改文档。它不参与正常设计审查；`review-design-contracts` 只在默认仓库文档缺失或相关上下文可能陈旧时，显式请求其仓库上下文引导或验证模式。
 
@@ -49,10 +49,10 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 3. Runner 的 `prepare` 将目标设计、用户指定 authority、预检查发现的 authority 和 observed context 分类并进行内容摘要绑定；`--discovered-authority` 不能覆盖 `authority_status: observed`。
 4. Evidence Cards 生成后，Runner 输出完整作者答辩包；作者一次性确认、提供锚点反证或声明未记录意图。Runner 只批量复查反证条目，归档被具体反例推翻的发现，再把剩余项交给人工裁决。
 5. Runner 创建 L1 后测量完整 L2 输入。小输入继续从有效 L1 候选中提前调度独立 L3，并与 L2 共享固定执行槽；任一任务完成后即消费并补位，不等待整批屏障。超限输入让每个 L2 分片保留完整目标和目标 Ledger，仅在 Markdown 章节边界分组 supporting documents；分片只有报告精确的跨片 source/heading 对且 Runner 验证两端确实位于不同分片时，才启动一个紧凑 merge，否则候选直接无损进入 L3。
-6. 自洽 L3 首次只接收引用章节；架构 L3 优先接收候选声明且经 Runner 验证的精确证据章节。任一投影报告不足时，Runner 只为同一候选创建一次冻结证据扩展：自洽候选补入完整契约来源，架构候选补入全部评审文档和完整 Ledger。补证后仍不足只淘汰该候选，其他候选继续。Runner 随后验证 L3 Schema、引用与不可变字段；输入变化使运行进入 `INVALIDATED`。
+6. v10 自洽与架构 L3 按同层同契约或相同证据集合合并，初始每组最多四条且共享输入不超过 48 KiB；大候选独立派发。每条候选保留独立结论，候选之间不能互为证据。Runner 校验 finding ID 的完整唯一覆盖，只有缺材料的条目进入一次冻结证据扩展，同批已完成结果不重跑。每个已完成任务至多由一个补证任务接替以保持并发上限，补证仍不足只淘汰对应条目。v3–v9 继续原有单条调度；新运行以已派发 ID 集合恢复批量进度。
 7. 幸存 finding 以短编号 evidence card 交给人工仲裁；Codex 收集中文决定和自然语言理由，但不拥有接受权。
 8. 人工确认完整批次后，Runner 校验机器枚举、非空理由和批次覆盖，并保存可审计决定；只有明确接受才生成摘要绑定的修复队列。
-9. 修复后的 `verify-fixes` 不续写旧队列状态，而是创建绑定当前目标的 Manifest v6：确定性分类器先检查 finding 层级、支持输入、标题结构和修改范围；只有局部自洽修复进入单任务验证，其余结果要求当前目标重新执行完整评审。
+9. 修复后的 `verify-fixes` 使用新 v10 运行验证原问题闭合。确定性范围检查只决定局部或扩展复核，不把章节结构变化等同于语义影响扩大。扩展任务比较目标及支持文档的修复前后证据，逐条覆盖已接受发现、逐文档覆盖实际变化，并检查直接关联契约；新增修复冲突阻止通过。局部 reviewer 可请求一次扩展；只有核心前提变化或无法界定影响才全量重审，完整证据仍不足则显式失败并报告缺失材料。
 
 代码审查的独立控制流为：Codex 解析 authority 和目标后调用 `prepare`；Runner 将 workspace 的 `HEAD -> index`、`index -> worktree` 与 untracked 分层冻结，或冻结固定三点比较、无需 Git 的显式 current-state 文件集，并从完整 Manifest 派生不含摘要噪音的紧凑队列供 Agent 阅读。Codex 按工作流审查并用串行化的 `mark` 声明逐项 disposition；该声明不是语义审查已发生的机械证明。候选 Finding 经 `validate` 绑定当前 disposition 摘要并按 `item_id` 校验 Schema、快照、精确代码行或 Git metadata；非空候选集随后必须逐项 `challenge` 为 `confirmed`、`refuted` 或 `insufficient_evidence`，只有 confirmed 投影进入最终 Findings。后续 `mark` 或 `validate` 会使旧挑战集失效。`finalize` 根据声明完整性、确认后的 P0-P2、证据不足的 P0/P1 和挑战范围扩张决定允许的结论。输入漂移使活动运行进入 `INVALIDATED`，空范围、排除项、未完成项、未裁决候选和未解决的高风险候选均不能得到 `APPROVE`。
 
@@ -64,7 +64,7 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 
 - Runner 拥有 `.superpowers/design-reviews/<target-sha>/<run-id>/` 下的运行状态和所有中间制品。
 - Runner 额外拥有不参与审查判断的 `metrics.json`，记录任务输入、Schema、指令、响应写入/消费时间、宿主推进延迟、执行槽利用率、候选门禁数量、跨片信号和 merge 独有产出；缺少 provider token 数据时不进行估算。
-- Manifest v6 修复复核运行拥有 `fix-impact.json` 与 `fix-verification-results.json`；前者记录确定性分流证据，后者只证明已接受违反路径的局部关闭状态，不等价于全量无发现结论。
+- 修复复核运行拥有 `fix-impact.json` 与 `fix-verification-results.json`；前者记录确定性分流证据，后者记录已接受违反路径的关闭状态，以及 v10 扩展复核逐文档检查的直接修复影响，不等价于全量无发现结论。
 - Code Review Runner 拥有系统临时目录 `code-review-runs/<input-digest>-*/` 下的不可变 Manifest、紧凑 Agent 队列、受锁保护的 disposition 状态、已验证候选、逐项挑战审计、confirmed-only Finding 投影和最终门禁结果；目标仓库保持只读。超过 8 MiB 的文件作为显式排除项记账而不生成内容快照。
 - Native subagent 仅拥有自己任务目录中的 `response.json` 写权限语义，不拥有运行状态迁移权。
 - 每个 Native task descriptor 拥有阶段特定的等待预算；宿主负责宽限期复查，Runner 的 `fail-task` 负责在失败落盘前再次确认响应不存在。

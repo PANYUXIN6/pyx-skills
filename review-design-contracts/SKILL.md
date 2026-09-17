@@ -8,6 +8,8 @@ license: MIT
 
 Run a quality-first design review without model voting or LLM-as-judge. Keep the target document unchanged throughout the review.
 
+Configure subagent reasoning effort in `review.config.json` using only `low` or `high`: use `low` for straightforward, narrowly bounded checks and `high` for complex contract or architecture reasoning. Keep dispatched task descriptors unchanged.
+
 ## Select one operation
 
 Choose exactly one mode from the user's explicit request and do not transition between modes implicitly:
@@ -43,7 +45,7 @@ model           ← model
 reasoning_effort ← reasoning_effort
 ```
 
-Do not modify any mapped value. A returned batch may contain L2 together with independent L3 tasks for validated L1 candidates; spawn every descriptor separately. No batch exceeds `max_parallel_subagents` tasks.
+Do not modify any mapped value. A returned batch may contain L2 together with independent L3 tasks, each covering one candidate or a bounded group of related candidates; spawn every descriptor separately. No batch exceeds `max_parallel_subagents` tasks.
 
 8. Wait for the spawned tasks without interpreting their final messages. Follow the timeout and late-response reconciliation contract in `references/review-protocol.md`; a task succeeds only when its designated `response.json` exists. Run `advance` whenever one or more active tasks produce their response; the Runner consumes completed work, preserves unfinished siblings, and emits replacements for every free slot:
 
@@ -117,7 +119,7 @@ From the repository root, run:
 node <skill-directory>/scripts/review-design.mjs verify-fixes <queued-run-directory>
 ```
 
-The Runner creates a separate digest-bound fix-verification run and returns either a bounded `fix_verification`/`architecture_fix_verification` task or a deterministic full-review requirement. It uses the human-accepted, digest-bound `repair_scope`; old architecture queues without that scope remain full-review-only. Do not override its classification.
+The Runner creates a separate digest-bound fix-verification run. Contained repairs receive one `fix_verification` or `architecture_fix_verification` task. Structural edits, changed supporting evidence, unavailable legacy repair scopes, or changes outside the accepted scope receive one `expanded_fix_verification` task to assess the actual changes and their direct interactions. These signals do not by themselves require a full review. Do not override its classification.
 
 When the result contains a task descriptor, dispatch it with the exact Native mapping used by a normal review, wait for its designated `response.json`, and run:
 
@@ -125,7 +127,7 @@ When the result contains a task descriptor, dispatch it with the exact Native ma
 node <skill-directory>/scripts/review-design.mjs advance <fix-verification-run-directory>
 ```
 
-Report `FIXES_VERIFIED` only as bounded closure of accepted paths, explain `FIXES_INCOMPLETE` from the result artifact, and start a fresh full review for `FULL_REVIEW_REQUIRED`. Follow the normal failure rules for other terminal results. Exact coverage, retry, and escalation semantics live in `references/review-protocol.md`.
+Continue dispatching any Runner-emitted expanded-impact or retry task until a terminal result. Report `FIXES_VERIFIED` only as bounded closure of accepted paths and any assessed repair interactions. Explain `FIXES_INCOMPLETE` from the result artifact, including new repair-induced conflicts. Start a fresh full review only for `FULL_REVIEW_REQUIRED`, which requires changed core premises or impact that cannot be bounded. If expanded evidence is still insufficient, report the missing inputs instead of restarting the same full review. Exact coverage and escalation semantics live in `references/review-protocol.md`.
 
 ## Boundaries
 
