@@ -19,7 +19,7 @@ Classify all findings as P0–P3:
 |---|---|---|
 | P0 | Can cause a critical security incident, data loss, or core feature unavailability | Must block the merge |
 | P1 | Clear logic defect, authorization issue, or major reliability or performance regression | Fix before merging |
-| P2 | Design or quality issue with real maintenance cost or medium risk | Fix in the current change or create an explicit follow-up |
+| P2 | Design or quality issue with demonstrated maintenance impact or medium risk | Blocks approval; creating a follow-up alone does not clear the finding |
 | P3 | Low-risk, evidence-backed local improvement | Optional |
 
 ## Output

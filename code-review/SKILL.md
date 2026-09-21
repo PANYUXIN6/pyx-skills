@@ -54,6 +54,17 @@ Resolve the requested target:
   change-set scope conclusions. Ask when repository evidence cannot identify the
   requested target.
 
+For a follow-up such as "fixed, review again", default to verifying the original
+findings, the repair changes, and affected call paths unless the user requests a
+broader review. Use available prior reports and challenge records as evidence leads.
+Recheck whether prior counterevidence still applies; re-raise a refuted claim only
+when new evidence, a changed contract, or relevant code changes invalidate that
+counterevidence, and explain why. `insufficient_evidence` is not a refutation.
+Prepare a fresh run for the current follow-up scope; do not reuse prior anchors,
+dispositions, challenge verdicts, or approval as current validation. Report the
+current status of the original findings and bound the conclusion to what was
+actually rechecked; repair verification alone does not approve the entire PR.
+
 Use `node <skill-directory>/scripts/review.mjs prepare --repo <repository>` for a
 workspace, add `--base <ref> --head <ref>` for a fixed range, or repeat `--file
 <path>` for a current-state scope. Read the returned `queue_path`, not the full
@@ -127,6 +138,12 @@ exact Manifest `item_id`. Use a line anchor with path, side, range, and
 `existing_code`, or a file anchor containing exact frozen Git metadata changes when
 the change has no text hunk. Also include P0-P3 severity, trigger, impact, evidence,
 and the smallest safe fix direction.
+
+Assess the contract, trigger, and impact before assigning severity. For a
+maintainability-based P2, identify the affected existing consumer, confirmed change
+scenario, or applicable repository rule, and explain the concrete cost or risk that
+warrants blocking approval. Hypothetical extensibility concerns or personal design
+preferences are insufficient; a rule citation alone does not establish P2 impact.
 
 After all dispositions are current, run `validate`; correct rejected anchors from
 the frozen snapshot or omit the Finding. Any later `mark` invalidates the validated
