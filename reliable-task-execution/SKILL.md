@@ -1,48 +1,48 @@
 ---
 name: reliable-task-execution
-description: Apply lightweight safeguards when task execution involves completion claims, destructive or external-state changes, debugging, long-running or resumable work, subagent delegation, or high-risk review. Use to preserve evidence, recoverability, and user control without imposing a fixed development workflow.
+description: 当任务涉及完成声明、破坏性或外部状态变更、排错、长时间或可恢复的工作、子代理协作，或高风险审查时，采用轻量保护措施。在不强制固定开发流程的前提下，保留证据、可恢复性和用户控制权。
 license: MIT
 ---
 
-# Reliable Task Execution
+# 可靠地执行任务
 
-Use the least ceremony that preserves correctness, recoverability, and user control. Apply only the modules relevant to the current risk.
+用能保障正确性、可恢复性和用户控制权的最少流程。只启用与当前风险有关的模块。
 
-## Core Invariants
+## 核心原则
 
-- Base factual claims on current evidence.
-- Resolve exact targets and authority before irreversible actions.
-- Treat repository state, tool output, and external systems as more reliable than memory.
-- Re-evaluate assumptions when repeated attempts fail instead of stacking speculative fixes.
-- Use persistent state, delegation, and independent review only when their benefits exceed their coordination cost.
+- 所有事实性结论都以当前证据为依据。
+- 执行不可逆操作前，先确定确切对象与操作权限。
+- 相比记忆，更信任仓库状态、工具输出和外部系统。
+- 多次尝试失败时，重新检查假设，不要不断叠加猜测性的修复。
+- 仅当收益高于协作成本时，才使用持久化状态、委派或独立审查。
 
-## Load Modules Just in Time
+## 按需加载模块
 
-Read only the reference needed for the current situation:
+只阅读当前情况所需的参考文件：
 
-| Situation | Module |
+| 情况 | 模块 |
 |---|---|
-| About to claim work is complete, fixed, correct, or passing | [verification.md](references/verification.md) |
-| About to delete, overwrite, publish, merge, deploy, force push, or change difficult-to-reverse external state | [safe-operations.md](references/safe-operations.md) |
-| Investigating a bug, failure, performance problem, or repeated unsuccessful fix | [diagnosis-and-recovery.md](references/diagnosis-and-recovery.md) |
-| Work may span compaction, interruption, sessions, or multiple agents | [task-continuity.md](references/task-continuity.md) |
-| Considering subagent delegation or parallel execution | [delegation.md](references/delegation.md) |
-| A change crosses a meaningful correctness, security, data, or integration risk boundary | [independent-review.md](references/independent-review.md) |
+| 即将声明工作已完成、已修复、正确或已通过 | [verification.md](references/verification.md) |
+| 即将删除、覆盖、发布、合并、部署、强制推送，或改变难以恢复的外部状态 | [safe-operations.md](references/safe-operations.md) |
+| 排查缺陷、失败、性能问题，或多次修复仍未成功 | [diagnosis-and-recovery.md](references/diagnosis-and-recovery.md) |
+| 工作可能跨越上下文压缩、中断、会话或多个代理 | [task-continuity.md](references/task-continuity.md) |
+| 考虑委派给子代理或并行执行 | [delegation.md](references/delegation.md) |
+| 变更跨越重要的正确性、安全、数据或集成风险边界 | [independent-review.md](references/independent-review.md) |
 
-Load more than one module only when the task genuinely crosses multiple boundaries. For example, a long delegated migration may need continuity, delegation, safe operations, review, and final verification; a small local edit may need only final verification.
+只有任务确实跨越多个边界时才加载多个模块。例如，一个耗时且委派执行的迁移可能同时需要连续性、委派、安全操作、审查和最终验证；一个小型本地修改可能只需最终验证。
 
-## Keep Judgment Adaptive
+## 保持适应性判断
 
-Treat these as hard boundaries:
+以下属于硬性边界：
 
-- Support success claims with current evidence.
-- Resolve target, impact, authority, and recovery before an irreversible action.
-- Inspect delegated results before accepting them as complete.
-- Revisit the diagnosis when a repair loop stops producing useful evidence.
-- Confirm persisted state belongs to the current task before reusing it.
+- 用当前证据支持成功声明。
+- 不可逆操作前，确认对象、影响、权限和恢复方式。
+- 接受委派结果前，先检查其是否真正完成。
+- 修复循环不再产生有用证据时，重新诊断。
+- 复用持久化状态前，确认它属于当前任务。
 
-Use a worktree, written state, subagents, independent review, or a particular test strategy only when its risk reduction exceeds its coordination cost.
+仅当风险降低效果大于协作成本时，才使用工作树、书面状态、子代理、独立审查或特定测试策略。
 
-## Stay Within Scope
+## 保持范围边界
 
-This skill adds no fixed development stages. Activate brainstorming, written plans, test-driven development, worktrees, subagents, code review, or commits only when another applicable workflow or the user requires them.
+本技能不增加固定的开发阶段。只有另一项适用流程或用户要求时，才启用头脑风暴、书面计划、测试驱动开发、工作树、子代理、代码审查或提交。

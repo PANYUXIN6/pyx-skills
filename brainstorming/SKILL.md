@@ -1,156 +1,156 @@
 ---
 name: brainstorming
-description: Resolve uncertain product or architecture decisions before implementation. Use for explicit brainstorming or design requests, or when unresolved trade-offs, blast radius, or reversal cost could materially change the implementation; clear, local, reversible work proceeds directly.
+description: 在实施前解决不明确的产品或架构决策。用户明确要求头脑风暴或设计，或尚未确定的取舍、影响范围、回退成本可能实质改变实现时使用；清晰、局部且可回退的工作直接实施。
 license: MIT
 ---
 
-# Brainstorm Just Enough
+# 只做足够的头脑风暴
 
-Turn uncertain ideas into decisions that are clear enough to implement. Match the depth of design work to the uncertainty, impact, and cost of being wrong.
+把不确定的想法变成足以实施的明确决策。设计工作的深度应与不确定性、影响和判断错误的代价相匹配。
 
-Send clear, reversible tasks directly to implementation. Hold implementation only while a materially consequential decision remains unresolved.
+清晰且可回退的任务直接进入实施。只有仍存在会带来实质后果的未决决定时，才暂停实施。
 
-## Understand the Context
+## 理解上下文
 
-Inspect the relevant project files, conventions, documentation, and existing behavior before asking the user questions.
+在向用户提问前，先检查相关项目文件、约定、文档和已有行为。
 
-Determine:
+确定：
 
-- Whether the goal and success criteria are clear.
-- Whether multiple approaches have meaningfully different consequences.
-- How broad and reversible the change is.
-- How expensive or dangerous a wrong assumption would be.
-- Which decisions require user intent rather than technical inference.
-- Whether independent deliverables should be separated before refining details.
+- 目标和成功标准是否清晰；
+- 多种方案是否会产生明显不同的后果；
+- 变更范围有多大、是否容易回退；
+- 错误假设的成本或风险有多高；
+- 哪些决定需要用户意图，而无法从技术上推断；
+- 是否应在细化前拆分独立的交付结果。
 
-Discover facts from the available context and reserve questions for information that cannot be inferred reliably.
+从可用上下文中发现事实；只有无法可靠推断的信息才提问。
 
-If a request spans several independent subsystems or outcomes, decompose it only far enough to identify coherent boundaries, dependencies, and a sensible first slice before designing details.
+如果请求覆盖多个独立子系统或结果，只拆分到足以识别清晰边界、依赖和合理的第一个切片，再设计细节。
 
-Perform a brief blind-spot pass only when unfamiliar or high-uncertainty territory could hide a constraint that invalidates the apparent direction.
+只有在陌生或高度不确定的领域可能隐藏足以推翻当前方向的约束时，才做一次简短的盲点检查。
 
-## Choose the Appropriate Depth
+## 选择合适的深度
 
-Choose the least intensive path justified by the available evidence. Use the Fast Path when additional design work is unlikely to change the implementation. Use a Design Brief when an unresolved choice could materially change the solution. Reserve Full Design for concrete high-impact or difficult-to-reverse decisions.
+根据已有证据选择强度最低的路径。额外设计不太可能改变实现时使用快速路径；未决选择可能实质改变方案时使用设计简报；只有具体、影响高或难以回退的决策才使用完整设计。
 
-### Fast Path
+### 快速路径
 
-Use the Fast Path when the request is clear, local, low-risk, and easy to reverse.
+请求清晰、局部、低风险且容易回退时使用快速路径。
 
-State only non-obvious assumptions that matter, then continue with the requested work without a design document, alternative proposals, or a separate approval round.
+只说明重要但不明显的假设，然后直接继续用户请求的工作，不写设计文档、不列替代方案，也不另开一轮审批。
 
-### Design Brief
+### 设计简报
 
-Use a conversational design brief when some uncertainty or meaningful trade-off exists, but the change does not require a durable specification.
+存在一定不确定性或重要取舍，但变更不需要长期留存的规格说明时，使用对话式设计简报。
 
-- Ask only questions whose answers could change the solution.
-- Group closely related questions when that is clearer for the user.
-- Lead with a recommendation.
-- Present alternatives only when they are genuinely distinct.
-- Explain the important trade-offs without manufacturing options.
-- Obtain confirmation when the remaining choice belongs to the user.
+- 只询问答案会改变方案的问题。
+- 当这对用户更清楚时，把密切相关的问题放在一起。
+- 先给出建议。
+- 只有方案确实不同才展示替代方案。
+- 说明重要取舍，不要人为制造选项。
+- 剩余选择属于用户时，取得确认。
 
-Stop the brief once the remaining decision and its material trade-off are clear enough for the user to confirm.
+当剩余决定及其重要取舍已足够清晰、用户可以确认时，停止简报。
 
-### Full Design
+### 完整设计
 
-Use a full design process when the work has high impact, high ambiguity, or a high cost of reversal. Examples include:
+工作影响高、歧义大或回退代价高时，使用完整设计流程。例如：
 
-- Destructive or difficult-to-reverse data changes.
-- Security, privacy, authentication, authorization, or payment boundaries.
-- Public APIs, persistent schemas, or cross-system contracts.
-- Changes spanning multiple independent subsystems.
-- Product decisions that materially alter user-visible behavior.
-- Work the user explicitly asks to design or specify before implementation.
+- 破坏性或难以回退的数据变更；
+- 安全、隐私、身份验证、授权或支付边界；
+- 公开 API、持久化模式或跨系统契约；
+- 跨越多个独立子系统的变更；
+- 会明显改变用户可见行为的产品决策；
+- 用户明确要求在实现前设计或规格化的工作。
 
-For these cases:
+对此类工作：
 
-1. Establish purpose, constraints, and success criteria.
-2. Start with relevant repository decisions and proven patterns. Research comparable products or mature open-source projects when the user requests it or an unresolved design question could change the choice; stop when the evidence resolves that question. Reuse suitable patterns and explain material deviations.
-3. Select and present the best design. Compare alternatives only when unresolved, materially different trade-offs remain.
-4. Describe the relevant architecture, boundaries, behavior, failure handling, and verification strategy.
-5. Resolve consequential ambiguities.
-6. Present the design. Pause only for unresolved user-owned decisions, consequences outside existing authorization, or a request to review the design before implementation. Otherwise continue with the authorized work; do not request approval again for an already approved scope or contract.
+1. 确定目的、约束和成功标准。
+2. 从相关的仓库决策和已验证模式开始。用户要求时，或未解决的设计问题会改变选择时，研究可比产品或成熟开源项目；证据足以解决该问题时停止。复用合适模式，并解释重要偏离。
+3. 选择并展示最佳设计。只有仍有未解决、且取舍明显不同的方案时才比较替代方案。
+4. 描述相关架构、边界、行为、故障处理和验证策略。
+5. 解决会造成后果的歧义。
+6. 提出设计。只有用户负责的决定仍未解决、后果超出已有授权，或用户要求在实施前审阅设计时才暂停；否则继续已授权工作。对于已批准的范围或契约，不要再次请求批准。
 
-Evaluate the design through the relevant lenses of clear responsibilities, explicit interfaces or contracts, dependency direction, and bounded failure behavior. Use these as quality checks, not required document sections or a fixed template.
+从清晰职责、明确接口或契约、依赖方向和边界清晰的失败行为等角度检查设计。它们是质量检查项，不是必需文档章节或固定模板。
 
-### Define Reliable Implementation Slices
+### 定义可靠的实施切片
 
-When a Full Design must be implemented through multiple tasks that share contracts or depend on one another:
+完整设计需要通过多个共享契约或彼此依赖的任务实施时：
 
-1. Establish one governing design (the parent design) that owns the shared contracts, task boundaries, dependency order, constraints that child tasks may not redefine, and integration acceptance criteria.
-2. Divide the work into coherent, independently verifiable slices. For each slice, state its outcome and non-goals, prerequisites, assigned responsibility or change boundary, inherited contracts and invariants, local implementation choices that remain free, and the evidence that proves completion.
-3. Order slices by their actual dependencies and keep end-to-end integration acceptance in the governing design.
-4. Resolve user-owned decisions in the governing design before treating dependent slice designs as final; existing approval of those contracts remains valid.
-5. Revise the governing design when slice evidence requires a shared contract to change. Reconfirm user-owned or previously approved contract changes before implementing dependent slices; leave local implementation choices within their authorized scope.
+1. 建立一个总设计（父设计），由它拥有共享契约、任务边界、依赖顺序、子任务不得重新定义的约束，以及集成验收标准。
+2. 将工作拆为连贯、可独立验证的切片。对每个切片，说明其结果与非目标、前置条件、分配的责任或变更边界、继承的契约和不变量、仍可自由选择的局部实现方式，以及证明完成的证据。
+3. 按实际依赖关系排序切片，并把端到端集成验收保留在总设计中。
+4. 在把依赖切片设计视为最终方案前，先在总设计中解决属于用户的决定；已有对这些契约的批准依然有效。
+5. 当切片证据要求修改共享契约时，修订总设计。实施依赖切片前，重新确认属于用户或曾获批准的契约改动；局部实现选择仍在其已授权范围内。
 
-Do not turn slices into speculative coding instructions. Name files, symbols, or call sequences only when repository evidence makes them stable constraints rather than local implementation choices.
+不要把切片变成推测性的编码指令。只有仓库证据表明文件、符号或调用顺序是稳定约束，而不是局部实现选择时，才点名它们。
 
-Determine this relationship by contract ownership, not task chronology. A predecessor task's design is governing only when it owns a shared constraint that the current task must obey.
+根据契约所有权而不是任务先后确定这种关系。只有前置任务的设计拥有当前任务必须遵守的共享约束时，它才是总设计。
 
-When writing a child-task design, make that relationship cheaply discoverable. Follow the repository's existing metadata convention when one exists; otherwise prefer this optional frontmatter:
+编写子任务设计时，让这一关系易于发现。仓库已有元数据约定时遵循它；否则可使用如下可选 frontmatter：
 
 ```yaml
 design_role: child
 governing_design: ./governing-design.md
 ```
 
-Resolve `governing_design` relative to the child document. If frontmatter is unsuitable, add one direct Markdown link that labels the governing design. Do not add relationship metadata to standalone designs, duplicate a repository-wide document index, or require design documents to remain after implementation.
+相对于子文档解析 `governing_design`。如果 frontmatter 不合适，添加一条直接标明总设计的 Markdown 链接。不要为独立设计添加关系元数据、复制全仓库文档索引，也不要要求设计文档在实施后必须保留。
 
-Do not impose a governing relationship on implementation tasks that are genuinely independent, and do not split work further when another slice would not improve ownership, sequencing, or verification.
+不要强行让真正独立的实施任务形成总从关系；如果额外切片不能改善责任、顺序或验证，也不要继续拆分。
 
-Present large designs in digestible sections, but do not require approval after every section unless incremental confirmation would genuinely reduce misunderstanding.
+将大型设计分成易于消化的部分，但除非逐段确认确实能减少误解，否则不要在每部分后要求批准。
 
-## Choose the Best Design
+## 选择最佳设计
 
-Use project context, user goals, and engineering judgment to select the best design.
+基于项目上下文、用户目标和工程判断选择最佳方案。
 
-If one approach clearly dominates, present it directly and briefly explain why it fits. Generate alternatives only to expose a material unresolved trade-off.
+如果某个方法明显更好，直接提出它并简要说明为何适合。只在需要暴露重要且未解决的取舍时才生成替代方案。
 
-Present multiple approaches only when two or more credible options remain after inspecting the context and they involve materially different trade-offs. Show only the minimum number of options needed to explain the decision.
+只有检查上下文后仍存在两个或更多可信方案，且它们的取舍明显不同时，才展示多个方案。只展示解释决策所需的最少选项。
 
-An alternative is credible only if a knowledgeable engineer could reasonably choose it under the current constraints. Do not include:
+可信方案是指了解情况的工程师在当前约束下可能合理选择的方案。不要包含：
 
-- Inferior or deliberately simplistic straw-man options.
-- The same design expressed with different terminology.
-- Options that conflict with established project conventions.
-- Speculative abstractions unsupported by current requirements.
+- 较差或故意过度简化的陪衬方案；
+- 只换用不同术语表达的同一设计；
+- 与既有项目约定冲突的方案；
+- 当前需求没有支持的推测性抽象。
 
-Even when multiple credible approaches exist, lead with a recommendation. Ask the user to choose only when the decision depends on product intent, risk tolerance, cost, or another preference the model cannot infer.
+即使存在多个可信方案，也先给出建议。只有当决定取决于产品意图、风险偏好、成本或模型无法推断的其他偏好时，才让用户选择。
 
-## Documentation
+## 文档
 
-Write a design document only when it will remain useful during implementation or future collaboration, such as for long-running, cross-component, or multi-person work, or when the user requests one.
+只有设计文档会在实施或未来协作中持续有用时才编写，例如耗时长、跨组件或多人协作的工作，或用户明确要求时。
 
-Record the evidence that determined the design, adopted patterns, and material deviations with their rationale. Link to external research when it was used; do not manufacture a research section when repository evidence suffices.
+记录决定设计的证据、采用的模式，以及重要偏离及其原因。使用外部研究时链接它；仓库证据足够时，不要硬造研究章节。
 
-Follow the repository's existing documentation conventions. Create a specification only when it will remain useful, and make a Git commit only when the user or repository workflow calls for it.
+遵循仓库现有文档约定。只有规格说明会持续有用时才创建；只有用户或仓库工作流要求时才创建 Git 提交。
 
-Before handing off a written design, check it for:
+交付书面设计前，检查其中是否有：
 
-- Unresolved placeholders or vague requirements.
-- Internal contradictions.
-- Scope that should be decomposed.
-- Decisions that could still be interpreted in materially different ways.
+- 未解决的占位符或模糊需求；
+- 内部矛盾；
+- 应拆分的范围；
+- 仍可能被实质性不同理解的决定。
 
-## Visual Decisions
+## 视觉决策
 
-Offer the visual companion just in time when a concrete visual question would be easier to judge by seeing it.
+当具体视觉问题通过看图更容易判断时，及时提供视觉辅助。
 
-If the user accepts, read `visual-companion.md` before using the companion.
+用户接受后，使用该辅助前先阅读 `visual-companion.md`。
 
-## Continue After Design
+## 设计完成后继续
 
-At the selected depth, design work is ready to stop when:
+在选定深度下，满足以下条件时可以停止设计：
 
-- The intended outcome and credible success evidence are clear.
-- Constraints that could invalidate the chosen direction have been resolved or made explicit.
-- One recommended approach is selected, with only materially relevant trade-offs retained.
-- No unresolved user-owned decision could substantially change the implementation.
-- The verification strategy is proportional to the change's risk.
+- 预期结果和可信的成功证据清晰；
+- 可能使所选方向失效的约束已解决或明确说明；
+- 已选定一个推荐方案，只保留重要取舍；
+- 没有尚未解决、且会大幅改变实现的用户决定；
+- 验证策略与变更风险相称。
 
-Use these as an internal completion check rather than a document template. Stop designing when any missing field cannot change the implementation.
+把它们作为内部完成检查，不要作为文档模板。任何缺失项都不会改变实现时，停止设计。
 
-Once this condition is met, continue through implementation and proportionate verification when authorized. A design-only request ends with the requested design; it does not authorize implementation.
+获得授权后，满足条件即继续实施和相称验证。仅要求设计的任务到交付所需设计为止；它不授权实施。
 
-Add a planning skill, design artifact, handoff, or additional approval step only when it improves the outcome.
+只有计划技能、设计产物、交接或额外批准确实能改善结果时，才添加它们。

@@ -1,45 +1,45 @@
 ---
 name: using-superpowers
-description: Route substantive tasks to the smallest set of explicitly requested or strongly matching skills. Use at task start when skill selection can materially change the process.
+description: 将实质性任务路由到用户明确要求或与任务强匹配的最小技能集合。任务开始时，若技能选择会明显改变执行方式，则使用本技能。
 license: MIT
 ---
 
 <SUBAGENT-STOP>
-A subagent with a bounded assignment follows its assigned workflow directly; this router belongs to the primary agent.
+有明确范围的子代理应直接遵循自己的任务流程；此路由器属于主代理。
 </SUBAGENT-STOP>
 
-# Route to the Right Skills
+# 路由到合适的技能
 
-At the start of a substantive task, decide whether an available skill would materially improve how the task is performed.
+开始一项实质性任务时，判断某个可用技能是否会明显改善执行方式。
 
-Select a skill when:
+在以下情况选择技能：
 
-- The user explicitly asks to apply it.
-- The request strongly matches its description.
-- It is a necessary prerequisite for another selected workflow.
+- 用户明确要求使用它。
+- 请求与其描述高度匹配。
+- 它是另一项已选流程的必要前提。
 
-Treat topic-only or weakly related mentions as source context rather than invocation. When the user asks to explain, compare, or audit skills, inspect them as source material; when the user asks to change a skill, use the relevant skill-authoring workflow.
+只涉及主题或关联很弱的提及，应作为上下文来源，而非调用信号。用户要求解释、比较或审查技能时，把技能当作源材料检查；用户要求修改技能时，使用相应的技能编写流程。
 
-## Select the Minimum Useful Set
+## 选择最小的有效集合
 
-Prefer the smallest set of skills that fully covers the task.
+优先选择能完整覆盖任务的最小技能集合。
 
-Use process skills when they materially change the approach. Use domain or implementation skills for specialized knowledge and execution. When both are needed, apply them in dependency order rather than repeatedly re-routing.
+当流程技能会实质改变方法时才使用它们。领域或实现技能用于专业知识和执行。当两者都需要时，按依赖顺序应用，不要反复重新路由。
 
-After selecting skills:
+选定技能后：
 
-1. Briefly tell the user which skills are being used and why.
-2. Let each selected skill own its relevant workflow.
-3. Keep the selection for the current task and re-route only after a substantial task change.
+1. 简短告知用户正在使用哪些技能以及原因。
+2. 让每个已选技能负责自己相关的流程。
+3. 在当前任务中保持该选择；只有任务发生重大变化时才重新路由。
 
-## Resolve Conflicts
+## 解决冲突
 
-Follow user instructions and repository-specific instructions over skill defaults.
+用户指令和仓库专属指令优先于技能默认规则。
 
-When multiple skill instructions overlap, prefer the more specific instruction and keep each gate or checklist owned by one skill.
+多个技能规则重叠时，优先使用更具体的规则，并让每个关卡或检查清单只由一个技能负责。
 
-## Use Judgment
+## 运用判断
 
-A skill is useful when it changes a decision or action by adding specialized knowledge, a meaningful decision framework, a fragile procedure, or a required tool workflow. If removing the skill would leave the task's process materially unchanged, treat it as unnecessary for that task.
+当技能通过专业知识、有意义的决策框架、易出错的流程或必需的工具工作流，改变某个决定或行动时，它才有价值。若移除该技能后任务流程没有实质变化，就不应在该任务中使用它。
 
-If context inspection shows that a selected skill changes no decision or action, release it and continue with the remaining workflow.
+如果检查上下文后发现已选技能没有改变任何决定或行动，停止使用它，继续执行其余流程。

@@ -1,79 +1,79 @@
 ---
 name: simplify-codebase
-description: Find and, when mutation is explicitly authorized and repository-aware evidence supports it, remove redundant production surface such as dead or superseded code, duplicated state, unused APIs, speculative abstractions, obsolete compatibility paths, dependencies, packages, tests, and documentation. Use for explicit cleanup or simplification requests, or when an already-observed candidate needs structured consumer tracing beyond the current lines. Supports bounded light cleanup and subsystem- or repository-level deep simplification. Do not trigger merely because code review is running, for ordinary lint findings, isolated unused imports, stylistic refactoring, or complexity without consumer evidence.
+description: 找出并且仅在用户明确授权修改、仓库感知证据支持时，移除多余的生产代码范围，例如死代码或已被替代的代码、重复状态、未使用的 API、推测性抽象、过时兼容路径、依赖、包、测试和文档。用于明确的清理或简化请求，或已观察到的候选项需要超出当前行的结构化使用者追踪时。支持有界的轻量清理，以及子系统或仓库级深入简化。不要仅因正在代码审查、普通 lint 发现、孤立未使用导入、风格重构，或缺少使用者证据的复杂度而触发。
 ---
 
-# Simplify the Codebase
+# 简化代码库
 
-Reduce owned surface area without guessing about product intent. Prefer a few proven removals over aesthetic cleanup.
+在不猜测产品意图的前提下，减少需要维护的范围。优先做少量已有证据支持的移除，而不是为美观清理。
 
-## Keep the Workflow Independent
+## 保持流程独立
 
-Keep simplification independent from code review. Let routine review report unnecessary code as an ordinary finding without loading this Skill. Use this Skill only for an explicit simplification request or an observed candidate that needs broader consumer tracing.
+让简化与代码审查保持独立。常规审查可将多余代码作为普通发现报告，不必加载本技能。只有明确要求简化，或观察到的候选项需要更广的使用者追踪时才使用。
 
-Do not add a simplification stage to every review or broaden a read-only workflow into cleanup. Select `audit` whenever mutation authority is absent or another active workflow requires the target to remain unchanged. Preserve unrelated user changes.
+不要为每次审查添加简化阶段，也不要把只读流程扩大成清理。没有修改权限，或另一个活跃流程要求目标保持不变时，选择 `audit`。保留无关的用户修改。
 
-## Establish the Repository Contract
+## 确定仓库契约
 
-Before judging candidates:
+判断候选项前：
 
-1. Read applicable repository instructions and inspect current worktree state when available.
-2. Discover repository-owned simplification, defensive-pattern, compatibility, generated-file, migration, architecture, and decision records relevant to the scope.
-3. Inspect manifests, task scripts, CI, analyzer configuration, and test configuration to confirm real entry points, exclusions, generated surfaces, and validation commands.
-4. Verify that declared paths, entries, owners, and commands still exist before relying on them. Use observed maps to locate evidence, not to override current source or confirmed contracts.
+1. 阅读适用仓库指令，并在可用时检查当前工作树状态。
+2. 找到与范围有关、由仓库维护的简化、防御模式、兼容性、生成文件、迁移、架构和决策记录。
+3. 检查清单、任务脚本、CI、分析器配置和测试配置，确认真实入口、排除项、生成范围和验证命令。
+4. 依赖已声明的路径、入口、所有者和命令前，确认它们仍存在。用观察到的地图定位证据，不要用它覆盖当前源代码或已确认契约。
 
-Let the repository own language conventions, tool selection, coverage policy, protected surfaces, and gate commands. A repository rule may require stronger protection, but it cannot grant mutation authority or downgrade a globally high-impact consequence. If no repository policy exists, infer conservatively and report the missing boundary. Do not install tools or create policy files merely because this Skill was invoked.
+语言约定、工具选择、覆盖策略、受保护范围和关卡命令由仓库决定。仓库规则可以要求更强保护，但不能授予修改权限，也不能降低全局高影响后果的等级。没有仓库策略时，保守推断并报告缺失边界。不要只因调用本技能就安装工具或创建策略文件。
 
-## Select Operation and Depth
+## 选择操作和深度
 
-Choose one operation and one depth:
+选择一种操作和一种深度：
 
-| Dimension | Mode | Select when |
+| 维度 | 模式 | 选择条件 |
 | --- | --- | --- |
-| Operation | `audit` | The user asks to find, assess, investigate, or propose candidates; another workflow is read-only; or mutation authority is unclear. |
-| Operation | `apply` | The user explicitly requests modification or removal within a bounded scope. |
-| Depth | `light` | The scope is a current task, current change, or named local candidate whose proof needs only direct consumers and companion artifacts. |
-| Depth | `deep` | The scope is a subsystem or repository, or proof crosses packages, dynamic loading, public contracts, persistence, wire formats, or lifecycle ownership. |
+| 操作 | `audit` | 用户要求查找、评估、调查或提出候选项；其他流程是只读；或修改权限不清楚。 |
+| 操作 | `apply` | 用户明确要求在有界范围内修改或移除。 |
+| 深度 | `light` | 范围是当前任务、当前变更或具名局部候选项，证明只需直接使用者和配套产物。 |
+| 深度 | `deep` | 范围是子系统或仓库，或证明跨越包、动态加载、公开契约、持久化、线格式或生命周期归属。 |
 
-Read [Light Workflow](references/light-workflow.md) completely for `light`. Read [Deep Workflow](references/deep-workflow.md) completely for `deep`. Do not load both for completeness.
+对 `light` 完整阅读 [Light Workflow](references/light-workflow.md)，对 `deep` 完整阅读 [Deep Workflow](references/deep-workflow.md)。不要为了完整性同时加载两者。
 
-If light work reaches a deep boundary outside the authorized scope, stop at an evidence-backed recommendation. Do not equate a large diff with deep work, or deep work with a mandatory pause.
+轻量工作若到达授权范围外的深入边界，停在有证据支持的建议。不要把大 diff 等同于深入工作，也不要把深入工作等同于必须暂停。
 
-## Apply Safety Once
+## 一次应用安全控制
 
-Before any `apply`, read [Layered Safety Controls](references/layered-safety.md) completely and follow it as the single mutation authority. For deep work or whenever repository analyzers and aggregate gates matter, also read [Layered Tool Evidence](references/layered-tool-evidence.md) completely.
+任何 `apply` 前，完整阅读 [Layered Safety Controls](references/layered-safety.md)，并将其作为唯一的修改权限依据。深入工作，或仓库分析器和聚合关卡重要时，也完整阅读 [Layered Tool Evidence](references/layered-tool-evidence.md)。
 
-## Establish Consumer Evidence
+## 建立使用者证据
 
-Classify every plausible reference:
+为每个看似相关的引用分类：
 
-- **Production**: runtime entries, application code, loaders, registries, configuration, jobs, shipped examples, and operational scripts.
-- **Non-production**: tests, docs, comments, snapshots, fixtures, generated expectations, and historical notes.
-- **Ambiguous**: reflection, dependency injection, string dispatch, plugins, generated code, examples, and conditional build inputs.
-- **External or contractual**: published APIs, extension points, persisted data, wire formats, migrations, CLI behavior, and consumers outside the repository.
+- **生产：** 运行时入口、应用代码、加载器、注册表、配置、任务、随产品发布的示例和运行脚本。
+- **非生产：** 测试、文档、注释、快照、夹具、生成的预期结果和历史记录。
+- **不明确：** 反射、依赖注入、字符串分发、插件、生成代码、示例和条件构建输入。
+- **外部或契约：** 已发布 API、扩展点、持久化数据、线格式、迁移、CLI 行为和仓库外的使用者。
 
-Search symbols, exports, filenames, event names, configuration keys, package names, wire strings, and registration paths. Read call sites instead of counting matches. Treat analyzers as candidate detectors, never as proof that dynamic or external consumers are absent.
+搜索符号、导出、文件名、事件名、配置键、包名、线协议字符串和注册路径。阅读调用点，不要只计数匹配。分析器只能发现候选项，绝不能证明不存在动态或外部使用者。
 
-Strong candidates have no production consumer, mirror a fact owned elsewhere, preserve a superseded path, or carry generality with no current owner. Tests and docs as sole consumers strengthen a candidate only when they do not protect remaining behavior. Isolated imports, formatting, routine warnings, style preferences, and complexity without consumer evidence belong to normal development, not this workflow.
+强候选项没有生产使用者、重复了别处拥有的事实、保留已被替代的路径，或承载没有当前所有者的通用性。只有测试和文档作为唯一使用者且它们不保护剩余行为时，才会增强候选项。孤立导入、格式、普通警告、风格偏好，以及没有使用者证据的复杂度属于正常开发，不属于本流程。
 
-## Decide and Act
+## 决定并行动
 
-Give each candidate exactly one disposition:
+每个候选项只给出一种处理结论：
 
-- `remove`: evidence supports deletion within current authority and scope.
-- `keep`: a current consumer, contract, owner, or distinct responsibility survives.
-- `defer`: product, migration, external-consumer, runtime, or ownership evidence is missing.
+- `remove`：证据支持在当前权限和范围内删除。
+- `keep`：仍有当前使用者、契约、所有者或独立职责。
+- `defer`：缺少产品、迁移、外部使用者、运行时或归属证据。
 
-Retain or defer when a production caller exists, a current defensive rationale survives, compatibility remains, or removal would make a product decision. Do not treat tests or historical decisions as permanent immunity, but require stronger current evidence before discarding their rationale.
+存在生产调用方、当前防御理由仍有效、兼容性仍需保留，或移除本身会做出产品决定时，保留或延后。不要把测试或历史决定当作永久豁免，但在放弃其理由前需要更强的当前证据。
 
-Prefer direct removal over replacement. Do not turn simplification into redesign by introducing a new architecture, dependency, replacement implementation, temporary path, or speculative abstraction merely to make a candidate removable. If deletion requires choosing one beyond the proven obsolete closure, `defer` or hand the work to the normal development workflow.
+优先直接移除而非替换。不要为让候选项可移除就引入新架构、依赖、替代实现、临时路径或推测性抽象，从而把简化变成重设计。如果删除需要在已证实过时的闭包之外做选择，`defer` 或交给正常开发流程。
 
-When an internal compatibility path is explicitly deprecated and semantic evidence shows its production consumers have migrated, remove its complete closure instead of adding or retaining a shim, fallback, or migration solely for hypothetical compatibility. Keep public or external contracts, persisted data, wire formats, and migrations under their existing impact and evidence rules.
+内部兼容路径已明确弃用，且语义证据显示其生产使用者已迁移时，移除完整闭包；不要仅为假设的兼容性新增或保留垫片、回退或迁移。公开或外部契约、持久化数据、线格式和迁移仍遵循其既有影响和证据规则。
 
-For `apply`, edit only candidates admitted by Layered Safety Controls. Remove the complete obsolete closure across implementation, imports, exports, registrations, exclusive tests, documentation, configuration, snapshots, generated inventories, package metadata, and dependencies as applicable. Preserve tests for remaining contracts, follow repository-owned generation and migration procedures, search for residual names, run the selected gates, and inspect the final diff.
+对 `apply`，只编辑通过分层安全控制准入的候选项。按需跨实现、导入、导出、注册、专属测试、文档、配置、快照、生成清单、包元数据和依赖，移除完整的过时闭包。保留剩余契约所需的测试，遵循仓库的生成和迁移流程，搜索残留名称，运行所选关卡，并检查最终 diff。
 
-## Report the Result
+## 报告结果
 
-For `audit`, report mode, scope, candidate dispositions with evidence, exclusions, executed checks, and residual uncertainty. For `apply`, report the candidate-to-change mapping, impact class, evidence layers, mutation authority, repository policy used, preserved pre-existing work, validation, and recovery path.
+对 `audit`，报告模式、范围、带证据的候选项处理结论、排除项、已执行检查和剩余不确定性。对 `apply`，报告候选项到变更的映射、影响类别、证据层、修改权限、采用的仓库策略、保留的既有工作、验证和恢复路径。
 
-If no strong candidate survives, say so and name representative evidence checked. Do not manufacture cleanup to justify invoking the Skill.
+没有强候选项时，如实说明并列出已检查的代表性证据。不要为了证明调用本技能合理而制造清理工作。

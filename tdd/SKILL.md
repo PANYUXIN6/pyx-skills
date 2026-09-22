@@ -1,41 +1,41 @@
 ---
 name: tdd
-description: Execute test-driven development through coherent red-green-refactor slices. Use when the user explicitly asks for TDD, test-first, red-green-refactor, or a regression test before fixing a bug. Always pair it with testing-guidelines when adding or changing tests; ordinary test requests use testing-guidelines without this skill.
+description: 通过连贯的红—绿—重构切片执行测试驱动开发。用户明确要求 TDD、先写测试、红—绿—重构，或在修复缺陷前先补回归测试时使用。新增或修改测试时，始终与 testing-guidelines 搭配；普通测试请求只使用 testing-guidelines，不使用本技能。
 license: MIT
 ---
 
-# Drive Implementation Test First
+# 让测试先行地实现功能
 
-Own the sequencing between confirmed behavior, failing evidence, implementation, and local refactoring. Use `testing-guidelines` to select and validate test evidence; this skill owns only the test-first development loop.
+负责已确认行为、失败证据、实现和局部重构之间的顺序。使用 `testing-guidelines` 选择并验证测试证据；本技能只负责测试优先的开发循环。
 
-## Establish Behavior Before RED
+## 在 RED 前确定行为
 
-Start from a requirement, contract, acceptance criterion, invariant, or confirmed regression. Resolve ambiguities that would materially change public or user-visible behavior before entering the loop. Do not let a test invent new requirements.
+从需求、契约、验收标准、不变量或已确认的回归问题开始。进入循环前，先解决会实质改变公开行为或用户可见行为的歧义。不要让测试凭空创造新需求。
 
-Use this progression for each coherent slice:
+每个连贯切片按以下顺序推进：
 
-`Requirement -> Acceptance Criteria -> Test Cases -> RED -> GREEN -> REFACTOR`
+`需求 -> 验收标准 -> 测试用例 -> RED -> GREEN -> REFACTOR`
 
-## Keep the TDD Gates
+## 保持 TDD 关卡
 
-- **Observe a meaningful RED.** Run the selected evidence before implementation and accept the red only when the intended behavior is absent or broken. Treat build, fixture, import, and environment failures as setup failures.
-- **Implement a reasonable GREEN.** Add only the production behavior required by the current slice, while preserving existing architecture and contracts. Do not trade maintainability or correctness for the fastest possible pass.
-- **Refactor locally.** Improve only what the current implementation justifies, keep all relevant evidence green, and avoid unrelated cleanup or broader redesign.
+- **观察到有意义的 RED。** 在实现前运行所选证据；只有目标行为确实缺失或已损坏时，才接受该失败。构建、夹具、导入和环境失败都属于准备失败。
+- **实现合理的 GREEN。** 仅添加当前切片需要的生产行为，同时保持现有架构和契约。不要为了最快通过而牺牲可维护性或正确性。
+- **局部重构。** 只改进当前实现已有理由支持的部分，保持所有相关证据为绿，并避免无关清理或大范围重设计。
 
-## Work in Coherent Vertical Slices
+## 使用连贯的纵向切片
 
-For each remaining behavior:
+对每个尚未完成的行为：
 
-1. Use `testing-guidelines` to select the smallest credible evidence for that behavior.
-2. Add the evidence and observe a valid red.
-3. Implement only what that slice requires.
-4. Run the focused evidence and keep it green.
-5. Refactor only when it improves the current slice, then verify green again.
+1. 用 `testing-guidelines` 为该行为选择最小且可信的证据。
+2. 添加证据并观察到有效的失败。
+3. 只实现该切片所需的内容。
+4. 运行聚焦证据并保持通过。
+5. 只有能改进当前切片时才重构，然后再次验证通过。
 
-A slice is one coherent behavior or contract, not necessarily one test function. Finish a slice before starting an independent behavior so each red and green has a clear cause.
+一个切片是一项连贯的行为或契约，不一定只对应一个测试函数。完成一个切片后再开始独立行为，确保每次失败和通过都有清晰原因。
 
-## Handle Cases Without a Genuine RED
+## 无法产生真实 RED 的情况
 
-For characterization tests or behavior-preserving refactors, a genuine red may be unsafe or impossible because the intended behavior already exists. Explain the alternative evidence, preserve current behavior, and do not simulate a meaningless failure merely to imitate the TDD sequence.
+对于特征测试或保持行为不变的重构，目标行为可能已经存在，因此真实失败既不安全也不可行。说明替代证据，保留当前行为，不要为了模仿 TDD 顺序而制造没有意义的失败。
 
-Ask the user only when unresolved authority, public behavior, or a substantial architecture change for testability could materially change the implementation. Handle ordinary sequencing, seams, and local refactors without a separate approval round.
+只有未解决的权限、公开行为，或为了可测试性而进行的重大架构调整会实质改变实现时，才询问用户。普通的执行顺序、接缝和局部重构无需额外审批。

@@ -1,52 +1,52 @@
 ---
 name: repo-map-first
-description: Locate code ownership and assess repository-map trust from source evidence. Use for unclear ownership, cross-boundary behavior changes, entry-point or dependency changes, or maps that may mislead placement. Also use for explicit map inspection, use, creation, or repair, and dependent-skill repository-context bootstrap or validation.
+description: 根据源代码证据定位代码归属并判断仓库地图是否可信。适用于归属不明、跨边界行为变更、入口或依赖变更，或地图可能误导代码放置的情况；也适用于明确要求检查、使用、创建或修复地图，以及依赖技能的仓库上下文初始化或验证。
 license: MIT
 ---
 
-# Place Changes with Repository Evidence
+# 用仓库证据决定变更位置
 
-Resolve where a change belongs before implementing it when placement mistakes could cross responsibilities or spread through the wrong layer. Keep repository maps evidence-based and update them only when the task or an explicit request justifies the documentation work.
+当放错位置可能跨越职责边界，或让影响扩散到错误层级时，先确定变更属于哪里，再实施。让仓库地图以证据为基础；只有任务或明确请求证明文档工作合理时才更新它。
 
-## Select the Invocation Mode
+## 选择调用模式
 
-### Explicit Map Mode
+### 明确地图模式
 
-Use this mode whenever the user names this skill or asks to create, repair, update, inspect, or use repository map documents.
+用户点名本技能，或要求创建、修复、更新、检查或使用仓库地图文档时，一律使用此模式。
 
-The requested action determines the scope; naming the skill does not itself authorize document changes.
+请求的动作决定范围；点名技能本身不授权修改文档。
 
-- **Inspect or use:** read relevant existing maps, verify task-relevant claims against source, and report ownership, discrepancies, and limitations. Resolve missing information from source when possible. Missing or stale maps do not turn inspection into a creation or repair task.
-- **Create, repair, or update:** inspect existing maps and source, then create missing documents or repair stale relevant sections within the requested scope. When the user requests repository maps without naming documents, cover both `docs/REPO_MAP.md` and `docs/ARCHITECTURE.md`; a request for one document does not require creating its companion. Leave accurate sections unchanged.
-- Complete the requested map work before any dependent implementation. A map-only request ends with the map result and its evidence; it does not authorize code changes.
+- **检查或使用：** 阅读相关现有地图，用源代码验证与任务有关的说法，并报告归属、差异和限制。尽可能从源代码补齐缺失信息。地图缺失或过时不会把检查变成创建或修复任务。
+- **创建、修复或更新：** 检查现有地图和源代码，然后在请求范围内创建缺失文档或修复过时的相关部分。用户要求仓库地图但未点名文档时，同时覆盖 `docs/REPO_MAP.md` 和 `docs/ARCHITECTURE.md`；请求其中一个并不要求创建另一个。准确部分保持不变。
+- 在任何依赖实施前完成被请求的地图工作。只要求地图的任务以地图结果和证据结束，不授权代码修改。
 
-Map work is sufficient when the requested owners, entry points, flows, and dependencies are locatable and evidence-backed, with material unknowns explicit. Inspection may report an unresolved gap without modifying documents. Creation and repair must produce the requested artifacts or explain which missing evidence prevents that.
+当所需的所有者、入口、流程和依赖都可定位且有证据支持，并已说明重要未知项时，地图工作即足够。检查可以报告未解决缺口而不修改文档。创建和修复必须生成所请求的产物，或说明哪些缺失证据阻止了完成。
 
-### Automatic Placement-Risk Mode
+### 自动位置风险模式
 
-Use this mode only when an existing-repository behavior change has a real placement risk, such as:
+只有既有仓库的行为变更存在真实位置风险时才使用此模式，例如：
 
-- responsibility ownership or the implementation location remains unclear from the request and known context;
-- the change crosses module or layer boundaries;
-- entry points, dependency direction, public contracts, or key call flows may change;
-- the repository is unfamiliar and the work is non-local;
-- a relevant map appears missing, stale, contradictory, or insufficient for a cross-boundary decision.
+- 从请求和已知上下文仍无法确定职责归属或实现位置；
+- 变更跨越模块或层级边界；
+- 入口、依赖方向、公开契约或关键调用流程可能改变；
+- 仓库陌生且工作并非局部修改；
+- 相关地图似乎缺失、过时、矛盾，或不足以支持跨边界决定。
 
-Cross-file work alone is not enough. A local, well-specified change within one clear responsibility does not need this skill.
+跨多个文件本身不够。职责清晰范围内的局部、规格明确变更不需要本技能。
 
-If brief inspection shows that placement is clear, no boundary is crossed, and no durable structure changes, release this skill and continue through the normal implementation workflow without placement analysis or map creation.
+如果简短检查表明放置位置清晰、没有跨越边界且没有持久结构变更，停止使用本技能，按正常实施流程继续，不做位置分析或创建地图。
 
-When maps are absent in automatic mode, resolve placement from the relevant source first. Create or repair repository documents only when they are necessary for safe placement or the task will change durable repository structure.
+自动模式下缺少地图时，先从相关源代码确定位置。只有安全放置所必需，或任务会改变持久仓库结构时，才创建或修复仓库文档。
 
-### Repository-Context Bootstrap
+### 仓库上下文初始化
 
-Use this mode only when another skill explicitly requests repository context because `docs/REPO_MAP.md` or `docs/ARCHITECTURE.md` is missing.
+只有另一项技能因 `docs/REPO_MAP.md` 或 `docs/ARCHITECTURE.md` 缺失而明确需要仓库上下文时，才使用此模式。
 
-1. Identify which documents are missing and preserve any existing companion document.
-2. Read applicable repository rules and existing documentation.
-3. Inspect the repository with `rg --files`, `rg`, and targeted reads. Locate manifests, workspaces, entry points, relevant modules, public contracts, callers, dependencies, and tests.
-4. Preserve the dependent skill's target artifact.
-5. Create only the missing documents and begin each generated file with:
+1. 确定缺失的文档，并保留现有配套文档。
+2. 阅读适用的仓库规则和已有文档。
+3. 使用 `rg --files`、`rg` 和定向阅读检查仓库，定位清单、工作区、入口、相关模块、公开契约、调用方、依赖和测试。
+4. 保留依赖技能的目标产物。
+5. 只创建缺失文档，并在每个生成文件开头写入：
 
 ```yaml
 ---
@@ -55,65 +55,65 @@ authority_status: observed
 ---
 ```
 
-6. Include only claims supported by repository evidence. Mark unknown relationships as unknown.
-7. If the repository lacks enough evidence for the minimum content below, report `INSUFFICIENT_INPUT` instead of creating a misleading map.
+6. 只包含有仓库证据支持的说法，未知关系标记为未知。
+7. 仓库证据不足以满足下列最小内容时，报告 `INSUFFICIENT_INPUT`，不要创建误导性的地图。
 
-The minimum `REPO_MAP.md` content is:
+`REPO_MAP.md` 的最小内容：
 
-- Relevant top-level directories and modules
-- One-sentence responsibility for each relevant module
-- Primary entry points
-- Key call chains or flows
-- Locations of public contracts and tests used as evidence
+- 相关顶层目录和模块；
+- 每个相关模块的一句话职责；
+- 主要入口；
+- 关键调用链或流程；
+- 作为证据使用的公开契约和测试位置。
 
-The minimum `ARCHITECTURE.md` content is:
+`ARCHITECTURE.md` 的最小内容：
 
-- Observed layers or module boundaries
-- Observed dependency direction
-- Main control or data flows
-- Ownership of important state or data
-- External systems and operational boundaries when present
+- 观察到的层级或模块边界；
+- 观察到的依赖方向；
+- 主要控制或数据流程；
+- 重要状态或数据的归属；
+- 存在时的外部系统和运行边界。
 
-Return control to the dependent skill after the requested documents exist. Generated documents remain observed context until the user explicitly changes `authority_status` to `confirmed`.
+所需文档存在后，把控制权交回依赖技能。生成文档始终只是观察到的上下文，直到用户明确将 `authority_status` 改为 `confirmed`。
 
-### Repository-Context Validation
+### 仓库上下文验证
 
-Use this mode only when another skill explicitly requests validation because a recently completed predecessor or repository evidence makes existing `docs/REPO_MAP.md` or `docs/ARCHITECTURE.md` claims potentially stale for the dependent task.
+只有另一项技能因刚完成的前置任务，或仓库证据表明现有 `docs/REPO_MAP.md` 或 `docs/ARCHITECTURE.md` 对依赖任务可能过时时，才使用此模式。
 
-1. Preserve the dependent skill's target artifact.
-2. Read the existing map documents and [staleness-checklist.md](./references/staleness-checklist.md).
-3. Inspect only the source, entry points, owners, dependencies, flows, and tests needed to validate the relevant scope.
-4. Leave accurate map sections unchanged. Repair only stale relevant claims in `authority_status: observed` documents and preserve their provenance.
-5. Do not rewrite an unmarked or `authority_status: confirmed` contract from observed code. Report the contradiction and return `INSUFFICIENT_INPUT` when the dependent workflow requires the conflict to be resolved.
-6. Report the evidence checked, any repaired claims, and remaining limitations, then return control to the dependent skill.
+1. 保留依赖技能的目标产物。
+2. 阅读现有地图和 [staleness-checklist.md](./references/staleness-checklist.md)。
+3. 只检查验证相关范围所需的源代码、入口、所有者、依赖、流程和测试。
+4. 准确的地图部分保持不变。只修复 `authority_status: observed` 文档中已过时的相关说法，并保留其来源信息。
+5. 不要根据观察到的代码改写未标记或 `authority_status: confirmed` 的契约。报告矛盾；依赖流程需要解决冲突时，返回 `INSUFFICIENT_INPUT`。
+6. 报告检查的证据、修复的说法和剩余限制，然后把控制权交回依赖技能。
 
-## Keep These Boundaries
+## 保持这些边界
 
-- Begin implementation only after responsibility ownership and code placement are materially resolved.
-- Verify stale or contradictory map claims against the relevant source and current behavior.
-- In explicit map mode, complete the requested map work before implementation.
-- Reuse existing modules, boundaries, and extension points; introduce a layer only when the requested behavior establishes a durable responsibility.
-- Keep refactoring to boundary corrections required by the requested behavior. Explain the root cause and make the smallest justified correction.
-- Preserve `generated_by` and `authority_status` provenance unless the user explicitly confirms a different authority status.
-- Keep a dependent skill's target artifact unchanged during repository-context bootstrap or validation.
+- 只有职责归属和代码放置已得到实质解决后才开始实施。
+- 用相关源代码和当前行为验证过时或矛盾的地图说法。
+- 在明确地图模式中，实施前完成被请求的地图工作。
+- 复用已有模块、边界和扩展点；只有请求的行为确立了长期职责时才引入新层。
+- 重构仅限于请求行为需要的边界修正。说明根因，并做最小且有理由的修正。
+- 除非用户明确确认不同的权威状态，否则保留 `generated_by` 和 `authority_status` 的来源信息。
+- 仓库上下文初始化或验证期间，保持依赖技能的目标产物不变。
 
-## Placement Workflow
+## 位置分析流程
 
-Use this workflow for implementation with unresolved placement risk. Explicit map-only work, repository-context bootstrap, and repository-context validation follow their scoped workflows above.
+此流程用于位置风险尚未解决的实施。仅地图工作、仓库上下文初始化和验证遵循各自上面的限定流程。
 
-1. Read applicable repository rules and inspect enough source to locate the current entry point, owner, call flow, and dependency direction.
-2. Read the relevant portions of `docs/REPO_MAP.md` and then `docs/ARCHITECTURE.md` when present.
-3. Use [staleness-checklist.md](./references/staleness-checklist.md) to decide whether the maps are trustworthy and what the current invocation mode requires.
-4. State the placement decision using [placement-analysis.md](./references/placement-analysis.md) as a quality rubric, not a fixed template. Keep it brief unless the task crosses several independent subsystems or has high placement uncertainty.
-5. Make the smallest viable change within the resolved responsibility boundary.
-6. Use [map-sync-checklist.md](./references/map-sync-checklist.md) after implementation. Update `REPO_MAP.md` when responsibilities, files, entry points, or flows changed; also update `ARCHITECTURE.md` when layers, dependencies, or cross-system relationships changed.
-7. Report whether responsibilities, entry points, or key flows changed and whether map documents were synchronized.
+1. 阅读适用仓库规则，并检查足够的源代码以定位当前入口、所有者、调用流程和依赖方向。
+2. 存在时先阅读 `docs/REPO_MAP.md` 的相关部分，再阅读 `docs/ARCHITECTURE.md`。
+3. 使用 [staleness-checklist.md](./references/staleness-checklist.md) 判断地图是否可信，以及当前调用模式需要什么。
+4. 使用 [placement-analysis.md](./references/placement-analysis.md) 作为质量标准而非固定模板，说明放置决定。除非任务跨越多个独立子系统或位置不确定性很高，否则保持简短。
+5. 在已确定的职责边界内做最小可行修改。
+6. 实施后使用 [map-sync-checklist.md](./references/map-sync-checklist.md)。职责、文件、入口或流程改变时更新 `REPO_MAP.md`；层级、依赖或跨系统关系改变时也更新 `ARCHITECTURE.md`。
+7. 报告职责、入口或关键流程是否改变，以及地图文档是否已同步。
 
-## Working Principles
+## 工作原则
 
-- Prefer repository evidence over remembered or intended architecture.
-- Discover context before asking generic placement questions.
-- Use the least map detail needed to place the current change safely.
-- Keep explicit user control stronger than automatic routing judgment.
-- Distinguish responsibility boundaries from file count.
-- Keep placement analysis concise and implementation-focused.
+- 优先信任仓库证据，而非记忆中的或预期的架构。
+- 先发现上下文，再问泛泛的位置问题。
+- 只使用安全放置当前变更所需的最少地图细节。
+- 明确的用户控制优先于自动路由判断。
+- 区分职责边界和文件数量。
+- 保持位置分析简洁，并聚焦实施。

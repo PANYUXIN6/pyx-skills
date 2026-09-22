@@ -1,205 +1,95 @@
 ---
 name: code-review
-description: Review code and machine-consumed implementation artifacts for defects, risks, quality, correctness, requirements, or standards. Use when the user requests an implementation review, findings, or a review conclusion, including focused reviews. Exclude prose-document review and requests only to read, explain, summarize, map, or trace implementation; neutral verbs such as check or inspect alone do not establish review intent.
+description: 审查代码和供机器使用的实现产物中的缺陷、风险、质量、正确性、需求或标准问题。用户要求实现审查、发现或审查结论（包括聚焦审查）时使用。排除对散文文档的审查，以及仅要求阅读、解释、总结、绘制地图或追踪实现的请求；单独使用“检查”或“查看”等中性动词不构成审查意图。
 ---
 
-# Code Review
+# 代码审查
 
-Use this Skill as the thin orchestration layer for code review. Let Codex understand
-intent, contracts, behavior, and risk; let `scripts/review.mjs` own mechanically
-decidable target membership, snapshots, evidence coordinates, declared dispositions,
-challenge coverage, input freshness, and conclusion consistency. The Runner does not
-dispatch the model and cannot prove that an Agent understood an item or that a
-challenge verdict is semantically true or independent; a successful command proves
-only the frozen inputs and recorded process state, not semantic completeness or
-correctness.
+本技能是代码审查的轻量协调层。Codex 负责理解意图、契约、行为和风险；`scripts/review.mjs` 负责可机械判定的目标成员、快照、证据坐标、声明的处理状态、质疑覆盖、输入新鲜度和结论一致性。Runner 不派发模型，也不能证明代理理解了项目，或质疑结论在语义上真实、独立；命令成功只能证明冻结输入和已记录的流程状态，不能证明语义完整性或正确性。
 
-Keep target code, specifications, and Git history read-only until the user separately
-authorizes fixes. Runtime and candidate artifacts may be written only outside the
-target repository unless the user explicitly chooses another location.
+在用户另行授权修复前，目标代码、规格和 Git 历史保持只读。除非用户明确选择其他位置，运行时和候选产物只能写到目标仓库外。
 
-Before invoking the Runner or creating review artifacts, require both an implementation
-target and explicit review intent. Requests to find bugs or risks, assess quality,
-verify correctness or requirement compliance, check coding or implementation standards,
-perform a named review dimension, or produce Findings satisfy the intent gate. Requests
-that only ask to read, explain, summarize, map, or trace architecture, data flow,
-implementation behavior, or an implementation approach do not. A neutral verb such as
-"inspect", "check", "look at", or "检查一下" does not satisfy the gate by itself. For
-exploratory requests, do not invoke the Runner or create Finding artifacts; use ordinary
-repository exploration or another directly applicable Skill.
+调用 Runner 或创建审查产物前，同时需要实现目标和明确审查意图。查找缺陷或风险、评估质量、验证正确性或需求符合性、检查编码或实现标准、执行具名审查维度，或产出 Findings，都满足意图门槛。仅阅读、解释、总结、绘制地图，或追踪架构、数据流、实现行为或实现方法的请求不满足。“inspect”“check”“look at”或“检查一下”等中性动词单独出现也不满足。探索性请求不得调用 Runner 或创建 Finding 产物；使用普通仓库探索或其他直接适用技能。
 
-The review target must contain at least one software implementation artifact. Treat
-prose requirements and design documents only as authority or context for evaluating
-that implementation. If the user asks to review a document's own clarity, structure,
-consistency, or design quality, this Skill and its Runner are out of scope.
+审查目标必须至少包含一个软件实现产物。散文需求和设计文档只能作为评估实现的权威或上下文。用户要求审查文档自身的清晰度、结构、一致性或设计质量时，本技能和 Runner 不适用。
 
-## 1. Establish authority and target
+## 1. 确定权威和目标
 
-Read all repository rules governing the target, such as applicable `AGENTS.md`,
-`CLAUDE.md`, `CONTRIBUTING.md`, and coding standards. Load only architecture documents
-and ADRs relevant to the changed modules, contracts, or call paths. Repository rules
-and confirmed requirements override this general baseline.
+阅读约束目标的全部仓库规则，如适用的 `AGENTS.md`、`CLAUDE.md`、`CONTRIBUTING.md` 和编码标准。只加载与变更模块、契约或调用路径有关的架构文档和 ADR。仓库规则和已确认需求优先于本通用基线。
 
-Resolve the requested target:
+解析被请求目标：
 
-- For current changes, freeze `HEAD -> index` staged changes and `index -> worktree`
-  unstaged changes as independent items, plus untracked files. Never collapse them
-  into one `HEAD -> worktree` net diff.
-- For a branch, commit, range, or PR comparison, resolve the fixed comparison point
-  once. A three-dot comparison uses its merge base.
-- For a current-state feature review, semantically discover the complete file scope
-  from entry points, callers, contracts, configuration, and tests before freezing it
-  as explicit files. This mode does not require Git, a diff, or a baseline.
-- Require a Git baseline only for change attribution, regression, omission, or
-  change-set scope conclusions. Ask when repository evidence cannot identify the
-  requested target.
+- 当前变更：将 `HEAD -> index` 已暂存变更、`index -> worktree` 未暂存变更及未跟踪文件作为独立项目冻结；绝不可合并为一个 `HEAD -> worktree` 净 diff。
+- 分支、提交、范围或 PR 对比：只解析一次固定比较点；三点比较使用其合并基点。
+- 当前状态功能审查：从入口、调用方、契约、配置和测试中按语义发现完整文件范围，再将其作为显式文件冻结；此模式不需要 Git、diff 或基线。
+- 只有归因变更、回归、遗漏或变更集范围结论需要 Git 基线。仓库证据无法识别所请求目标时才询问。
 
-For a follow-up such as "fixed, review again", default to verifying the original
-findings, the repair changes, and affected call paths unless the user requests a
-broader review. Use available prior reports and challenge records as evidence leads.
-Recheck whether prior counterevidence still applies; re-raise a refuted claim only
-when new evidence, a changed contract, or relevant code changes invalidate that
-counterevidence, and explain why. `insufficient_evidence` is not a refutation.
-Prepare a fresh run for the current follow-up scope; do not reuse prior anchors,
-dispositions, challenge verdicts, or approval as current validation. Report the
-current status of the original findings and bound the conclusion to what was
-actually rechecked; repair verification alone does not approve the entire PR.
+“已修复，再审查”等后续请求，除非用户要求更广范围，否则默认验证原发现、修复变更及受影响调用路径。把已有报告和质疑记录作为证据线索。重新检查先前反证是否仍适用；只有新证据、契约变更或相关代码变更使其失效时，才重新提出已反驳的主张并解释原因。`insufficient_evidence` 不是反驳。针对当前后续范围准备全新运行；不得把旧锚点、处理状态、质疑结论或批准当作当前验证。报告原发现的当前状态，并让结论仅覆盖实际复查内容；仅验证修复并不批准整个 PR。
 
-Use `node <skill-directory>/scripts/review.mjs prepare --repo <repository>` for a
-workspace, add `--base <ref> --head <ref>` for a fixed range, or repeat `--file
-<path>` for a current-state scope. Read the returned `queue_path`, not the full
-Manifest: the queue contains only the item IDs, paths, changed ranges, metadata, and
-exclusions needed for semantic review. Frozen source is available relative to the
-queue directory as `snapshots/<item_id>.before|after`. The Runner retains the full
-integrity data outside model context.
+工作区使用 `node <skill-directory>/scripts/review.mjs prepare --repo <repository>`；固定范围增加 `--base <ref> --head <ref>`；当前状态范围重复使用 `--file <path>`。读取返回的 `queue_path`，而非完整 Manifest：队列只含语义审查所需的项目 ID、路径、变更范围、元数据和排除项。冻结源代码相对于队列目录位于 `snapshots/<item_id>.before|after`；完整完整性数据由 Runner 保留在模型上下文外。
 
-Read [Deterministic Review Runtime Protocol](references/review-runtime-protocol.md)
-only when a command fails, an input is excluded or invalidated, the run must be
-resumed or diagnosed, or the trust boundary matters. If Node.js or the Runner is
-unavailable, or the target is only remote/pasted and cannot be represented, disclose
-`UNMANAGED_REVIEW`; continue only when useful, never issue `APPROVE`, and do not
-claim complete coverage.
+只有命令失败、输入被排除或失效、运行必须恢复或诊断，或信任边界重要时，才阅读 [确定性审查运行时协议](references/review-runtime-protocol.md)。Node.js 或 Runner 不可用，或目标仅远程/粘贴、无法表示时，披露 `UNMANAGED_REVIEW`；只在有用时继续，绝不输出 `APPROVE`，也不声称覆盖完整。
 
-When a diff exceeds roughly 500 lines, summarize and batch the review queue by module or
-feature. Group mixed concerns by logical function rather than file order. Every item
-must still receive an explicit disposition.
+diff 超过约 500 行时，按模块或功能总结并分批审查队列。混合问题按逻辑功能而非文件顺序分组，但每个项目仍必须有明确处理状态。
 
-## 2. Select one primary workflow
+## 2. 选择一个主流程
 
-Read exactly one primary workflow completely:
+完整阅读且只阅读一个主流程：
 
-| Scenario | Primary workflow |
+| 场景 | 主流程 |
 |---|---|
-| Current workspace, routine PR, commit, range, or named feature review without specification acceptance | [Routine review](references/routine-review.md) |
-| Verify whether current implementation or a defined change set satisfies confirmed specifications, tickets, or acceptance criteria | [Acceptance review](references/acceptance-review.md) |
-| User explicitly restricts review to security, reliability, architecture, SOLID, performance, correctness, specification compliance, or removal candidates | [Focused review](references/focused-review.md) |
+| 当前工作区、常规 PR、提交、范围，或没有规格验收的具名功能审查 | [常规审查](references/routine-review.md) |
+| 验证当前实现或明确变更集是否符合已确认规格、工单或验收标准 | [验收审查](references/acceptance-review.md) |
+| 用户明确限制为安全、可靠性、架构、SOLID、性能、正确性、规格符合性或移除候选项 | [聚焦审查](references/focused-review.md) |
 
-Default a resolvable general code-review request to routine review. Clarify only when
-routine versus acceptance review would materially change the conclusion.
+能够解析的一般代码审查请求默认使用常规审查。只有常规与验收审查会实质改变结论时才澄清。
 
-## 3. Load justified review modules
+## 3. 加载有理由的审查模块
 
-Load the workflow defaults, then only modules justified by the request or concrete
-signals:
+加载工作流默认项后，只加载请求或具体信号证明合理的模块：
 
-| Module | Load when |
+| 模块 | 加载条件 |
 |---|---|
-| [Correctness and quality](references/correctness-quality.md) | Default for routine; focused correctness, performance, error handling, or edge cases; acceptance changes carrying those risks |
-| [Security and reliability](references/security-reliability.md) | Authentication, authorization, input, payments, secrets, writes, transactions, concurrency, external calls, or resource consumption |
-| [Architecture and standards](references/architecture-standards.md) | Default for acceptance; module or public-contract boundaries, inheritance, new abstractions, large refactors, architecture, or SOLID |
-| [Specification compliance](references/spec-compliance.md) | Default for acceptance; focused specification, ticket, or acceptance-criteria comparison |
-| [Removal plan](references/removal-plan.md) | Deprecated, superseded, disabled, or unused paths; explicit cleanup-candidate review |
+| [正确性与质量](references/correctness-quality.md) | 常规默认；聚焦正确性、性能、错误处理或边缘情况；承载这些风险的验收变更 |
+| [安全与可靠性](references/security-reliability.md) | 身份验证、授权、输入、支付、机密信息、写入、事务、并发、外部调用或资源消耗 |
+| [架构与标准](references/architecture-standards.md) | 验收默认；模块或公开契约边界、继承、新抽象、大型重构、架构或 SOLID |
+| [规格符合性](references/spec-compliance.md) | 验收默认；聚焦规格、工单或验收标准比较 |
+| [移除计划](references/removal-plan.md) | 弃用、被替代、禁用或未使用的路径；明确的清理候选审查 |
 
-Focused reviews stay inside the requested dimensions. Do not load checklist modules
-as a substitute for tracing the actual code path.
+聚焦审查不得超出请求维度。不要用加载检查清单模块替代追踪实际代码路径。
 
-## 4. Review semantically and account deterministically
+## 4. 按语义审查并确定性记录
 
-For each pending queue item:
+对每个待处理队列项目：
 
-1. Inspect the relevant change or current-state file, callers, consumers, contracts,
-   and tests required by the selected modules.
-2. Form and challenge concrete defect hypotheses. Distinguish verified behavior from
-   possibility and omit claims without a reproducible trigger or contract violation.
-3. Record the item as `reviewed` only after that work. This is an Agent declaration,
-   not mechanical proof that the analysis occurred. Record `skipped` or `failed` with
-   the real reason; never use disposition state to exaggerate semantic coverage.
+1. 检查所选模块所需的相关变更或当前状态文件、调用方、使用者、契约和测试。
+2. 提出并质疑具体缺陷假设。区分已验证行为和可能性；没有可复现触发条件或契约违反的主张一律省略。
+3. 只有完成上述工作后才把项目记录为 `reviewed`。这只是代理声明，不是分析已发生的机械证明。以真实原因记录 `skipped` 或 `failed`；绝不利用处理状态夸大语义覆盖。
 
-If a current-state feature scope expands, discard the old run and prepare a new
-run with the complete explicit file set. Repository context read only to explain
-a changed item need not become a finding target; any file used as a finding location
-must belong to the Manifest.
+当前状态功能范围扩大时，丢弃旧运行，以完整显式文件集准备新运行。仅为解释变更项目而读取的仓库上下文无需成为发现目标；任何用作发现位置的文件必须属于 Manifest。
 
-## 5. Validate candidates, challenge findings, and gate the conclusion
+## 5. 验证候选项、质疑发现并限制结论
 
-Create one schema-version-2 candidate document conforming to
-[findings.schema.json](references/findings.schema.json). Bind every Finding to its
-exact Manifest `item_id`. Use a line anchor with path, side, range, and
-`existing_code`, or a file anchor containing exact frozen Git metadata changes when
-the change has no text hunk. Also include P0-P3 severity, trigger, impact, evidence,
-and the smallest safe fix direction.
+创建一个符合 [findings.schema.json](references/findings.schema.json) 的 schema-version-2 候选文档。每个 Finding 绑定到精确 Manifest `item_id`。使用包含路径、侧别、范围和 `existing_code` 的行锚点；没有文本块的变更则使用包含精确冻结 Git 元数据变更的文件锚点。还需包含 P0–P3 严重性、触发条件、影响、证据和最小安全修复方向。
 
-Assess the contract, trigger, and impact before assigning severity. For a
-maintainability-based P2, identify the affected existing consumer, confirmed change
-scenario, or applicable repository rule, and explain the concrete cost or risk that
-warrants blocking approval. Hypothetical extensibility concerns or personal design
-preferences are insufficient; a rule citation alone does not establish P2 impact.
+先评估契约、触发条件和影响，再确定严重性。可维护性 P2 必须指出受影响的现有使用者、已确认变更场景或适用仓库规则，并解释足以阻断批准的具体成本或风险。假设性的可扩展性担忧或个人设计偏好不充分；仅引用规则不能确立 P2 影响。
 
-After all dispositions are current, run `validate`; correct rejected anchors from
-the frozen snapshot or omit the Finding. Any later `mark` invalidates the validated
-set and all challenge decisions, so validate again before finalization. Never relocate
-a comment by guesswork. Treat `validate` as mechanical candidate admission, not proof
-that the defect exists.
+所有处理状态更新后运行 `validate`；从冻结快照修正被拒绝锚点，或省略该 Finding。之后的任何 `mark` 都会使已验证集合和全部质疑决定失效，因此最终确定前重新验证。绝不可猜测性地移动评论。`validate` 只是机械准入候选项，并不证明缺陷存在。
 
-When at least one candidate validates, read [Finding Challenge
-Protocol](references/finding-challenge.md) completely. Challenge every validated
-candidate exactly once without performing another general review. Use a fresh,
-read-only subagent for independent challenges when the protocol's risk routing
-justifies the coordination cost and Native delegation is available; otherwise perform
-the bounded self-challenge it permits. The verifier may confirm, refute, or declare
-insufficient evidence for only the supplied candidate. It must not modify code, emit
-new findings, or inherit the full implementation conversation.
+至少有一个候选项验证通过时，完整阅读 [发现质疑协议](references/finding-challenge.md)。每个验证候选项恰好质疑一次，不再做一次一般审查。协议的风险路由证明协作成本合理且 Native 委派可用时，使用全新只读子代理做独立质疑；否则进行其允许的有限自我质疑。验证者只能确认、反驳或声明给定候选项证据不足；不得修改代码、提出新发现或继承完整实现对话。
 
-Create one challenge document conforming to
-[challenges.schema.json](references/challenges.schema.json), then run `challenge`.
-Only the Runner-produced `confirmed_findings_path` may populate the final Findings
-section. Keep refuted candidates in the challenge summary, not the bug list. Keep
-insufficient P2/P3 candidates as explicit residual risks. An insufficient P0/P1
-candidate or `scope_status: expanded` blocks `APPROVE`; do not silently ignore it or
-start a recursive full review.
+创建一个符合 [challenges.schema.json](references/challenges.schema.json) 的质疑文档，然后运行 `challenge`。最终 Findings 章节只能由 Runner 生成的 `confirmed_findings_path` 填充。被反驳的候选项留在质疑摘要中，不放入缺陷列表。证据不足的 P2/P3 候选项作为明确剩余风险保留。证据不足的 P0/P1 候选项或 `scope_status: expanded` 会阻断 `APPROVE`；不得悄然忽略或递归启动完整审查。
 
-Run `finalize` with the intended workflow conclusion and use only the Runner-allowed
-result. Confirmed P0-P2 findings block approval. Do not translate `PARTIAL`,
-`INVALIDATED`, excluded inputs, unresolved high-risk candidates, scope expansion, or a
-blocked conclusion into approval.
+使用预期工作流结论运行 `finalize`，且只采用 Runner 允许的结果。确认的 P0–P2 发现阻断批准。不得将 `PARTIAL`、`INVALIDATED`、排除输入、未解决高风险候选项、范围扩大或被阻断结论转化为批准。
 
-Render the selected workflow's user-facing report from confirmed findings and the
-challenge summary. State the frozen scope, workflow and dimensions, candidate counts
-by verdict, challenge mode, executed versus merely observed checks, excluded or
-incomplete items, unreviewed areas, and residual risks. When no findings confirm, say
-so without implying more than the frozen target, declared dispositions, and recorded
-challenges prove.
+根据确认发现和质疑摘要生成所选工作流的面向用户报告。说明冻结范围、工作流和维度、按结论统计的候选数量、质疑方式、已执行与仅观察到的检查、被排除或未完成项目、未审查区域和剩余风险。没有确认发现时可以如实说明，但不得暗示超出冻结目标、声明处理状态和已记录质疑所能证明的内容。
 
-Do not use “the AI can no longer find issues” as a completion test and do not launch a
-second comprehensive review merely to seek zero new findings. Stop this review when
-the frozen queue is fully dispositioned, every candidate has one challenge decision,
-the Runner permits the stated conclusion, required checks have their actual status
-reported, and every applicable acceptance criterion in an acceptance review has a
-recorded result. Choose `APPROVE` only when required test, typecheck, lint, build, or CI
-checks passed on the current input or were explicitly confirmed not applicable, and
-all applicable acceptance criteria passed; use `COMMENT` when required evidence was
-not executed or remains unavailable. `APPROVE` is bounded to that process state; it is
-not proof of global semantic completeness. Then wait for separate authorization
-before fixing anything.
+不要把“AI 再也找不到问题”当作完成标准，也不要为了寻求零新发现启动第二次全面审查。冻结队列全部处理、每个候选项都有一个质疑决定、Runner 允许所述结论、必需检查已报告真实状态，且验收审查的每条适用验收标准已有记录结果时，结束本次审查。只有当前输入上的必需测试、类型检查、lint、构建或 CI 通过，或已明确确认不适用，且所有适用验收标准通过时，才选择 `APPROVE`；必需证据未执行或仍不可用时使用 `COMMENT`。`APPROVE` 只限定于该流程状态，并不证明全局语义完整。随后等待单独授权后再修复任何内容。
 
-## Exceptional cases
+## 例外情况
 
-- Empty scope: report what was checked and remain non-approving; ask about another
-  reasonable scope when one exists.
-- Invalid required baseline: stop comparison review without pass/fail attribution.
-- Current-state acceptance without baseline: disclose that history, regression, and
-  change-set attribution were not reviewed.
-- Missing confirmed acceptance source: ask where to find it; omit that axis only
-  after the user confirms none exists.
-- Input drift: treat the run as `INVALIDATED`, prepare a fresh run, and do not reuse
-  prior anchors or coverage.
+- 空范围：报告检查内容，保持不批准；存在合理替代范围时询问。
+- 必需基线无效：停止比较审查，不做通过/失败归因。
+- 当前状态验收且无基线：披露未审查历史、回归和变更集归因。
+- 缺少已确认验收来源：询问位置；只有用户确认不存在时才省略该维度。
+- 输入漂移：将运行视为 `INVALIDATED`，准备新运行，不复用旧锚点或覆盖。

@@ -1,81 +1,81 @@
 ---
 name: testing-guidelines
-description: Design, add, modify, or review automated tests and test strategies using risk-driven evidence selection. Use for unit, integration, regression, and end-to-end test work, including as the test-design companion to TDD. Do not use merely to run existing tests or report their results; this skill does not impose test-first sequencing.
+description: 基于风险选择证据，设计、新增、修改或审查自动化测试与测试策略。适用于单元、集成、回归和端到端测试，也可作为 TDD 的测试设计配套。仅运行已有测试或汇报测试结果时不使用；本技能不要求测试先行。
 license: MIT
 ---
 
-# Build the Smallest Credible Test Evidence
+# 构建最小且可信的测试证据
 
-Protect observable behavior and material risk rather than implementation detail. Treat test quality, not test count or coverage percentage, as the goal. Apply repository-specific test commands and constraints when they are stronger or more specific than these guidelines.
+保护可观察行为和重要风险，而非实现细节。目标是测试质量，不是测试数量或覆盖率百分比。若仓库的测试命令和约束更严格或更具体，应遵循它们。
 
-## Start from Behavior and Risk
+## 从行为和风险开始
 
-Before adding or changing a test:
+新增或修改测试前：
 
-1. Identify the independent behavior, contract, invariant, or confirmed regression to protect.
-2. Identify the realistic defect or consequential failure the test could expose.
-3. Inspect existing tests and static guarantees before assuming new evidence is needed.
-4. Choose a stable observation boundary with sufficient fidelity at reasonable cost.
-5. Select the smallest test set that distinguishes the intended behavior from the failures that matter.
+1. 确定要保护的独立行为、契约、不变量或已确认回归问题。
+2. 确定测试能够暴露的真实缺陷或会造成明显后果的失败。
+3. 先检查已有测试和静态保证，再判断是否需要新证据。
+4. 选择足够真实且成本合理的稳定观察边界。
+5. 选择能区分目标行为和重要失败情况的最小测试集合。
 
-Derive expected results from requirements, contracts, known examples, invariants, or historical regressions instead of restating the production algorithm. Tests are evidence for established behavior, not a source of new requirements. Treat existing tests, snapshots, and assertions as possible contract evidence until repository authority shows that the expected behavior changed.
+从需求、契约、已知示例、不变量或历史回归中推导预期结果，不要复述生产算法。测试是既有行为的证据，不是新需求的来源。除非仓库权威资料表明预期已改变，否则把现有测试、快照和断言视作可能的契约证据。
 
-If a proposed test protects no distinct behavior, contract, or material failure, do not add it.
+如果拟议测试没有保护独立的行为、契约或重要失败情形，就不要添加。
 
-## Prioritize Valuable Coverage
+## 优先覆盖有价值的内容
 
-Prioritize:
+优先覆盖：
 
-- confirmed acceptance criteria and the core successful path;
-- boundaries where crossing the boundary changes the result;
-- failure paths with real product, operational, or user impact;
-- permissions, security, privacy, and data integrity;
-- complex business rules and state transitions;
-- regressions for defects that have already occurred.
+- 已确认的验收标准和核心成功路径；
+- 跨越后会改变结果的边界；
+- 对产品、运行或用户有真实影响的失败路径；
+- 权限、安全、隐私和数据完整性；
+- 复杂业务规则和状态转换；
+- 已经发生过的缺陷的回归场景。
 
-Avoid tests for:
+避免测试：
 
-- trivial accessors, simple pass-throughs, or facts already guaranteed by types or static tooling;
-- framework behavior that the project does not own;
-- private implementation details that can change without observable impact;
-- mock call counts or internal ordering unless the interaction itself is a contract;
-- repeated inputs that exercise the same behavior and failure mechanism;
-- unsupported speculative extremes or cases added only to increase coverage.
+- 简单访问器、直接透传，或类型和静态工具已经保证的事实；
+- 项目并不拥有的框架行为；
+- 可在不影响可观察行为的情况下改变的私有实现细节；
+- 除非交互本身是契约，否则避免 mock 调用次数或内部顺序；
+- 触发同一行为和失败机制的重复输入；
+- 只为提高覆盖率而添加的、没有依据的极端场景。
 
-## Control the Evidence Set
+## 控制证据集合
 
-Choose representative cases from behaviorally distinct equivalence classes rather than enumerating inputs. Test boundary values only where the boundary changes behavior. Use parameterized or table-driven cases when they keep one rule legible.
+从行为上不同的等价类中选择代表性案例，而不是枚举输入。只有边界会改变行为时才测试边界值。参数化或表驱动案例应让同一规则保持清晰。
 
-If two tests would fail for the same defect and protect no different contract, consolidate or remove one. Add evidence at more than one level only when each level protects a distinct risk.
+如果两个测试会因同一缺陷失败，且不保护不同的契约，就合并或删除其中一个。只有每个层级保护不同风险时，才在多个层级添加证据。
 
-## Choose the Observation Level
+## 选择观察层级
 
-Use the lowest-cost level that provides sufficient confidence:
+使用成本最低、但足够有把握的层级：
 
-- Use static checks for guarantees that types, lint rules, schemas, or builds can establish reliably.
-- Use unit tests for isolated business logic with meaningful inputs and outputs.
-- Use integration tests when the important behavior or failure exists in collaboration between modules, persistence, serialization, or infrastructure boundaries.
-- Reserve end-to-end tests for a small number of critical user journeys; do not use them to enumerate edge cases.
+- 类型、lint 规则、模式或构建能可靠证明的保证，使用静态检查。
+- 对具有明确输入输出的独立业务逻辑，使用单元测试。
+- 重要行为或失败发生在模块协作、持久化、序列化或基础设施边界时，使用集成测试。
+- 端到端测试只保留少量关键用户旅程；不要用它枚举边缘情况。
 
-Do not create unit tests merely so every function has one. Prefer real, cheap, deterministic dependencies. Use fakes, stubs, or mocks when isolation, controllable failures, determinism, or cost justifies their reduced fidelity. Do not use extensive mocks to repeat internal relationships already protected by higher-fidelity evidence.
+不要为了让每个函数都有测试而创建单元测试。优先使用真实、廉价且确定的依赖。只有隔离、可控失败、确定性或成本足以证明降低真实性合理时，才使用假对象、桩或 mock。不要用大量 mock 重复已被更高真实性证据保护的内部关系。
 
-## Verify and Stop
+## 验证并停止
 
-Run the focused new or changed tests and the directly affected existing tests. Expand to broader suites only when coupling, risk, or repository rules justify the cost.
+运行新增或修改的聚焦测试，以及直接受影响的已有测试。只有耦合、风险或仓库规则证明成本合理时，才扩大到更广的测试套件。
 
-Use coverage reports to locate possible blind spots, not as completion targets. Do not manufacture low-value cases for a percentage, simple branch, or 100% coverage. Prefer credible protection of core behavior and consequential failures over a higher aggregate number.
+把覆盖率报告用于发现可能的盲区，而非作为完成目标。不要为了百分比、简单分支或 100% 覆盖率制造低价值案例。相比更高的总数字，更应优先可信地保护核心行为和有明显后果的失败。
 
-Keep tests isolated from paid or production services, production data, and difficult-to-reverse external actions unless the user clearly authorizes that impact. Keep the change tied to the requested behavior and record unrelated issues instead of expanding the diff.
+除非用户明确授权，否则测试应与付费或生产服务、生产数据及难以恢复的外部操作隔离。让改动始终服务于请求的行为；记录无关问题，不扩大 diff。
 
-## Ask Only for User-Owned Decisions
+## 只询问属于用户的决定
 
-Investigate first, then ask when available evidence cannot resolve:
+先调查；只有现有证据无法解决以下问题时才询问：
 
-- conflicting specifications, existing tests, and current behavior;
-- a change to a public contract or user-visible behavior;
-- acceptance thresholds or residual risk for security, payments, privacy, permissions, or data migration;
-- whether to remove or weaken a test that may still represent a valid requirement;
-- a substantial production-architecture change made primarily for testability;
-- a test strategy with materially different external impact or execution cost.
+- 规格、现有测试与当前行为互相冲突；
+- 公开契约或用户可见行为发生改变；
+- 安全、支付、隐私、权限或数据迁移的验收阈值或剩余风险；
+- 是否删除或削弱仍可能代表有效需求的测试；
+- 主要为了可测试性而做的重大生产架构改动；
+- 外部影响或执行成本明显不同的测试策略。
 
-Handle ordinary seams, cases, assertions, test doubles, and local test refactors without a separate approval round.
+普通的接缝、测试案例、断言、替身和局部测试重构无需另行审批。
