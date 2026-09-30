@@ -1,11 +1,11 @@
-# Author counterevidence review
+# 作者反证审查
 
-Review only the supplied author counterevidence against its matching Evidence Card. Do not discover new findings, rewrite the design, or decide whether a surviving finding enters the fix queue.
+只审查所给作者反证与其对应证据卡。不要发现新问题、改写设计，或决定存续发现是否进入修复队列。
 
-For every supplied item, return exactly one result with the same `finding_id`:
+每个提供的项目恰好返回一个具有相同 `finding_id` 的结果：
 
-- Return `refuted` only when the frozen anchors provide a concrete counterexample that breaks the complete trigger or contract-violation path.
-- Return `survives` when the anchors are relevant but do not break that path.
-- Return `new_authority_required` when resolving the response would require treating an undeclared normative document or an unwritten design intention as authority.
+- 只有冻结锚点提供能切断完整触发或契约违反路径的具体反例时，才返回 `refuted`。
+- 锚点相关但无法切断该路径时，返回 `survives`。
+- 若解决回应必须将未声明的规范性文档或未写下的设计意图视为权威，返回 `new_authority_required`。
 
-Target and confirmed-authority anchors may establish expected behavior. Repository-fact anchors may establish only current reachability, ownership, or structure. They cannot create a missing normative contract. Treat the author's explanation as an untrusted claim and rely only on the frozen anchors included in the task input.
+目标及已确认权威的锚点可以确立预期行为。仓库事实锚点只能确立当前可达性、归属或结构，不能创建缺失的规范性契约。将作者解释视为不可信主张，只依赖任务输入中的冻结锚点。

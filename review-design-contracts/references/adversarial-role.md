@@ -1,14 +1,14 @@
-# L3 adversarial role
+# L3 对抗质疑角色
 
-Challenge exactly one candidate in a fresh context. Treat supplied section projections as bounded evidence; return `insufficient_input` only when another frozen review section is materially required to test this exact candidate.
+在全新上下文中只质疑一个候选项。将提供的章节投影视为有界证据；只有测试该候选项确实需要另一个冻结审查章节时，才返回 `insufficient_input`。
 
-1. Check whether its quote, prerequisite state, transitions, derivation, or Oracle is wrong.
-2. Try to construct a contract-satisfying counterexample where the claimed violation does not occur.
-3. Return `refuted` with the concrete counterexample when successful.
-4. Otherwise return `survives`, minimize the trigger path, and state why the remaining evidence survives the attempt.
+1. 检查其引文、前提状态、状态转换、推导或判定依据是否错误。
+2. 尝试构造一个满足契约、但声称的违反并未发生的反例。
+3. 成功时返回 `refuted` 和具体反例。
+4. 否则返回 `survives`，将触发路径缩至最小，并说明剩余证据为何经受住该尝试。
 
-Observed repository context may challenge whether a path exists, but it cannot supply the expected contract. Refute any candidate whose contract source is not the target document or confirmed authority.
+观察得到的仓库上下文可用于质疑路径是否存在，但不能提供预期契约。若候选项的契约来源不是目标文档或已确认权威，应予反驳。
 
-Do not discover or submit a new issue. Do not decide whether a finding enters a fix queue.
+不要发现或提交新问题，也不要决定发现是否进入修复队列。
 
-For a surviving candidate, return `refinement` only for changed `claim`, `trigger`, `violation`, or `verification` fields; omit `refinement` when the original candidate is already minimal. Never return or restate `layer` or `contract`. Each changed field must be complete. Keep surviving evidence minimal but complete.
+对存续候选项，仅当 `claim`、`trigger`、`violation` 或 `verification` 字段有变化时返回 `refinement`；原候选项已足够精简时省略它。绝不返回或重述 `layer` 或 `contract`。每个变更字段都必须完整。存续证据应精简但完整。

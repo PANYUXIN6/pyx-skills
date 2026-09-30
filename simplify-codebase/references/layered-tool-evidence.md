@@ -1,36 +1,36 @@
-# Layered Tool Evidence
+# 分层工具证据
 
-Use repository-owned analyzers and gates as complementary evidence. Let the repository own tool choice, entries, exclusions, thresholds, and command composition. Do not install a favorite tool, copy another repository's policy, or run every available command merely because this Skill was invoked.
+将仓库自有分析器和关卡作为互补证据。工具选择、入口、排除项、阈值及命令组合由仓库决定。不要仅因调用本技能，就安装偏爱的工具、照搬其他仓库的政策或运行所有可用命令。
 
-## Discover the Repository Portfolio
+## 查明仓库的工具组合
 
-Read repository instructions, package or task scripts, CI workflows, analyzer configuration, test configuration, architecture maps, and documented defensive patterns. Prefer an existing aggregate command when it owns dependency order, platform differences, generated prerequisites, or package validation.
+阅读仓库指令、包或任务脚本、CI 流程、分析器与测试配置、架构地图及已记录的防御模式。若已有汇总命令负责依赖顺序、平台差异、生成前置条件或包验证，优先使用它。
 
-Record explicit entry points, project scopes, ignored workspaces, exclusions, and allowlists. They are part of a tool's claim boundary: an unconfigured dynamic entry can create a false dead-code report, while an excluded file has not passed that gate. Preserve justified exceptions; challenge only stale, overly broad, or unexplained ones.
+记录明确入口、项目范围、被忽略的工作区、排除项和允许清单。这些共同限定工具结论：未配置的动态入口可能导致误报无用代码，被排除文件也没有通过该关卡。保留有理由的例外；只质疑过时、过宽或缺少解释的例外。
 
-## Interpret Each Signal
+## 解读各类信号
 
-| Signal | Examples | Useful evidence | Does not prove |
+| 信号 | 示例 | 可提供的证据 | 不能证明 |
 | --- | --- | --- | --- |
-| Unused surface and dependency analysis | Knip, vulture, dead-code or dependency graph tools | Candidate files, exports, packages, and dependencies | Dynamic, reflective, generated, external, or configuration-driven absence |
-| Duplication analysis | jscpd, clone detectors, identical-function rules | Repeated implementation or lifecycle ownership worth tracing | That intentional twins, fixtures, generated code, or distinct responsibilities should merge |
-| Lint and type-aware rules | Oxlint, ESLint, Ruff, Clippy, compiler diagnostics | Unused locals, impossible branches, redundant type operations, identical conditions, lost promises | Repository-wide API deadness or safe behavior removal |
-| Coverage | Vitest, pytest, language coverage tools | Executed and unexecuted paths inside the declared corpus | Whether an uncovered path is dead versus insufficiently tested, or whether excluded code is safe |
-| Focused tests and snapshots | Unit, integration, replay, UI or protocol snapshots | Remaining behavior, lifecycle, output, and real entry paths | External consumers or unmodeled environments |
-| Structural and artifact gates | Typecheck, build, module graph, package lint, consumer smoke, generated catalogs | Imports, exports, artifacts, package boundaries, and downstream assembly remain coherent | Product intent by themselves |
-| Documentation and defensive records | Docs checks, ADRs, incident-derived defensive patterns | Current contracts, protected negative guarantees, and reasons apparently redundant machinery exists | Permanent immunity when stronger current evidence supersedes the rationale |
+| 未使用内容与依赖分析 | Knip、vulture、无用代码或依赖图工具 | 候选文件、导出、包和依赖 | 动态、反射、生成、外部或配置驱动的使用者不存在 |
+| 重复分析 | jscpd、克隆检测器、相同函数规则 | 值得追踪的重复实现或生命周期归属 | 有意保留的相同实现、测试夹具、生成代码或不同职责应合并 |
+| lint 与类型感知规则 | Oxlint、ESLint、Ruff、Clippy、编译器诊断 | 未使用局部变量、不可能分支、冗余类型操作、相同条件、遗漏的 Promise | 全仓库 API 已无使用者，或移除行为是安全的 |
+| 覆盖率 | Vitest、pytest、语言覆盖工具 | 声明范围内已执行和未执行路径 | 未覆盖路径是无用代码还是测试不足，或被排除代码可安全移除 |
+| 聚焦测试与快照 | 单元、集成、重放、UI 或协议快照 | 剩余行为、生命周期、输出及真实入口 | 外部使用者或未建模环境 |
+| 结构与产物关卡 | 类型检查、构建、模块图、包 lint、使用方冒烟测试、生成清单 | 导入、导出、产物、包边界及下游组装仍一致 | 单凭这些证明产品意图 |
+| 文档与防御记录 | 文档检查、ADR、从事故总结的防御模式 | 当前契约、受保护的不允许行为，以及看似冗余机制的存在理由 | 更强的当前证据推翻理由后仍永久免于清理 |
 
-Coverage creates a decision point, not an automatic instruction: either the path is supported and needs credible coverage, or semantic evidence shows it should be deleted. Follow the repository's coverage policy and justified exemptions. When no policy exists, use coverage only as diagnostic evidence and do not introduce thresholds as a cleanup side effect.
+覆盖率只提供决策点，不会自动指示应怎样处理：路径可能仍受支持并需要可信覆盖，也可能有语义证据表明应删除。遵循仓库覆盖率政策及合理豁免。若无此类政策，只把覆盖率当诊断证据，不要顺带引入阈值。
 
-## Compose and Run Gates
+## 组合并运行关卡
 
-For an audit, run non-mutating discovery tools only when they materially improve the survey. Read their configuration before trusting findings, and classify each result through production, ambiguous, external, and non-production consumers.
+`audit` 时，只有非修改性发现工具能切实改善调查时才运行。先读其配置再相信结果，并按生产环境、归属不明、外部和非生产环境使用者分类各结果。
 
-For an apply:
+`apply` 时：
 
-1. Select focused checks for the candidate's remaining behavior and real entry path.
-2. Add structural, generated, documentation, package, or aggregate gates when the removal crosses those surfaces.
-3. Use the repository's exhaustive aggregate only for a genuinely broad change, an explicit request, or when the repository declares it mandatory. Let CI own platform matrices and other exhaustive lanes when repository policy says so.
-4. Treat a dependency-skipped gate as not executed. Preserve every independent failure fact and distinguish a current regression from an evidenced pre-existing failure.
+1. 为候选项的剩余行为和真实入口选择聚焦检查。
+2. 移除跨越结构、生成内容、文档或包范围时，加入相应关卡或汇总关卡。
+3. 仅在变更确实广泛、用户明确要求，或仓库强制规定时，使用仓库的完整汇总检查。仓库政策规定时，让 CI 承担平台矩阵等穷尽性检查。
+4. 因依赖条件而跳过的关卡视为未执行。保留每项独立失败事实，并区分当前回归与有证据支持的既有失败。
 
-Never delete code solely because one analyzer reports it, never add tests solely to silence a coverage threshold for behavior with no owner, and never weaken an analyzer configuration or exclusion merely to make the cleanup pass.
+不要仅凭单个分析器报告就删除代码，不要只为满足覆盖率阈值而给无人负责的行为补测试，也不要仅为让清理通过而削弱分析器配置或排除规则。

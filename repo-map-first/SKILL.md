@@ -81,7 +81,7 @@ authority_status: observed
 只有另一项技能因刚完成的前置任务，或仓库证据表明现有 `docs/REPO_MAP.md` 或 `docs/ARCHITECTURE.md` 对依赖任务可能过时时，才使用此模式。
 
 1. 保留依赖技能的目标产物。
-2. 阅读现有地图和 [staleness-checklist.md](./references/staleness-checklist.md)。
+2. 阅读现有地图和 [仓库地图时效性检查清单](./references/staleness-checklist.md)。
 3. 只检查验证相关范围所需的源代码、入口、所有者、依赖、流程和测试。
 4. 准确的地图部分保持不变。只修复 `authority_status: observed` 文档中已过时的相关说法，并保留其来源信息。
 5. 不要根据观察到的代码改写未标记或 `authority_status: confirmed` 的契约。报告矛盾；依赖流程需要解决冲突时，返回 `INSUFFICIENT_INPUT`。
@@ -103,10 +103,10 @@ authority_status: observed
 
 1. 阅读适用仓库规则，并检查足够的源代码以定位当前入口、所有者、调用流程和依赖方向。
 2. 存在时先阅读 `docs/REPO_MAP.md` 的相关部分，再阅读 `docs/ARCHITECTURE.md`。
-3. 使用 [staleness-checklist.md](./references/staleness-checklist.md) 判断地图是否可信，以及当前调用模式需要什么。
-4. 使用 [placement-analysis.md](./references/placement-analysis.md) 作为质量标准而非固定模板，说明放置决定。除非任务跨越多个独立子系统或位置不确定性很高，否则保持简短。
+3. 使用 [仓库地图时效性检查清单](./references/staleness-checklist.md) 判断地图是否可信，以及当前调用模式需要什么。
+4. 使用 [代码放置分析准则](./references/placement-analysis.md) 作为质量标准而非固定模板，说明放置决定。除非任务跨越多个独立子系统或位置不确定性很高，否则保持简短。
 5. 在已确定的职责边界内做最小可行修改。
-6. 实施后使用 [map-sync-checklist.md](./references/map-sync-checklist.md)。职责、文件、入口或流程改变时更新 `REPO_MAP.md`；层级、依赖或跨系统关系改变时也更新 `ARCHITECTURE.md`。
+6. 实施后使用 [仓库地图同步检查清单](./references/map-sync-checklist.md)。职责、文件、入口或流程改变时更新 `REPO_MAP.md`；层级、依赖或跨系统关系改变时也更新 `ARCHITECTURE.md`。
 7. 报告职责、入口或关键流程是否改变，以及地图文档是否已同步。
 
 ## 工作原则

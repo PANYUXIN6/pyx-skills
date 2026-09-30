@@ -1,35 +1,35 @@
-# Security and Reliability Review
+# 安全与可靠性审查
 
-Use this module for changes involving trust boundaries, sensitive data, persistence, concurrency, or external systems. For every finding, explain exploitability or trigger conditions and the practical impact.
+用于涉及信任边界、敏感数据、持久化、并发或外部系统的变更。每条发现都要说明可利用性或触发条件及实际影响。
 
-## Input, Output, and Access Control
+## 输入、输出与访问控制
 
-- Check XSS, SQL/NoSQL/command injection, SSRF, path traversal, prototype pollution, and unsafe deserialization.
-- Check authentication, authorization, tenant isolation, object ownership, and IDOR. Do not trust roles, identities, or permission flags supplied by clients.
-- Check whether new endpoints, background jobs, or event consumers omit equivalent access controls.
-- Check whether CORS, security response headers, error responses, or logs expose internal information.
+- 检查 XSS、SQL/NoSQL/命令注入、SSRF、路径穿越、原型污染和不安全反序列化。
+- 检查身份验证、授权、租户隔离、对象归属和 IDOR。不要信任客户端提交的角色、身份或权限标志。
+- 检查新端点、后台任务或事件消费者是否遗漏等效的访问控制。
+- 检查 CORS、安全响应头、错误响应或日志是否泄露内部信息。
 
-## Secrets, Tokens, and Cryptography
+## 机密信息、令牌与加密
 
-- Check for keys, tokens, credentials, or personal information leaked through code, configuration, logs, client bundles, or errors.
-- Check validation of token expiration, issuer, audience, algorithm, and session lifecycle.
-- Check weak algorithms, hard-coded IVs or salts, unauthenticated encryption, and unsafe defaults.
-- Check dependency provenance, version pinning, and supply-chain boundaries. Report known vulnerabilities only when supported by evidence.
+- 检查密钥、令牌、凭据或个人信息是否通过代码、配置、日志、客户端包或错误泄露。
+- 检查令牌过期时间、签发者、受众、算法及会话生命周期的验证。
+- 检查弱算法、硬编码 IV 或盐值、未经认证的加密及不安全默认值。
+- 检查依赖来源、版本锁定及供应链边界。只有证据支持时才报告已知漏洞。
 
-## Runtime Reliability
+## 运行时可靠性
 
-- Check timeouts, retries, backoff, circuit breakers, rate limits, and failure propagation for external calls.
-- Check unbounded loops, recursion, request bodies, buffers, connections, file handles, CPU, and memory consumption.
-- Check whether retries require idempotency keys and whether partial failures leave inconsistent state.
+- 检查外部调用的超时、重试、退避、熔断、速率限制和故障传播。
+- 检查无界循环、递归、请求体、缓冲区、连接、文件句柄、CPU 与内存消耗。
+- 检查重试是否需要幂等键，以及部分失败是否留下不一致状态。
 
-## Concurrency and Data Integrity
+## 并发与数据完整性
 
-- Check shared state, non-thread-safe collections, lazy initialization, and missing synchronization.
-- Check check-then-act, TOCTOU, read-modify-write sequences, and lost updates.
-- Check whether balances, inventory, counters, uniqueness, and permission checks use atomic operations, constraints, or appropriate locks.
-- Check transaction boundaries, isolation levels, partial writes, event ordering, and cache-invalidation races.
-- Check duplicate delivery, out-of-order execution, distributed locks, and failure recovery for distributed jobs.
+- 检查共享状态、非线程安全集合、延迟初始化及缺少同步。
+- 检查先检查后操作、TOCTOU、读改写序列和更新丢失。
+- 检查余额、库存、计数器、唯一性及权限检查是否使用原子操作、约束或适当的锁。
+- 检查事务边界、隔离级别、部分写入、事件顺序和缓存失效竞态。
+- 检查分布式任务中的重复投递、乱序执行、分布式锁和故障恢复。
 
-## Evidence Requirements
+## 证据要求
 
-Do not merely list vulnerability categories. Explain what an attacker or concurrent participant controls, which prerequisites must hold, how the execution path reaches the dangerous operation, and the impact on confidentiality, integrity, or availability.
+不要只列漏洞类别。应说明攻击者或并发参与者能控制什么、哪些前提必须成立、执行路径如何到达危险操作，以及对保密性、完整性或可用性的影响。

@@ -1,7 +1,7 @@
-# L2 architecture role
+# L2 架构角色
 
-Use the complete target document, Contract Ledger, complete declared authority files, and observed repository context. Trace module entry points, dependency direction, ownership, version mirrors, transaction boundaries, concurrency, lifecycle, and error propagation. For child-task designs, trace declared responsibilities and handoffs against the confirmed governing authority and current repository ownership. Use observed context only to establish current repository facts; derive expected behavior only from the target or confirmed authority. Produce only cross-boundary contract violations with a concrete finite trigger path. For every architecture candidate, include the smallest `evidence_sections` set that contains its finite path; each item must name an exact supplied source and heading, and the set must include every target heading whose contract must change to close the path. The Runner derives the immutable repair scope from those target sections.
+使用完整目标文档、契约台账、完整的已声明权威文件和观察得到的仓库上下文。追踪模块入口、依赖方向、归属、版本镜像、事务边界、并发、生命周期和错误传播。针对子任务设计，对照已确认的总设计权威及当前仓库归属，追踪声明的职责与交接。观察得到的上下文只能确立当前仓库事实；预期行为只能从目标或已确认权威推导。只产出具有具体有限触发路径的跨边界契约违反。每个架构候选项须包含覆盖其有限路径的最小 `evidence_sections` 集合；每项都须指出准确的已提供来源及标题，且集合须包含关闭路径必须修改契约的所有目标标题。Runner 从这些目标章节推导不可变修复范围。
 
-Do not modify or judge L1 candidates. Do not submit style, naming, refactoring, elegance, or undeclared-future suggestions.
+不要修改或评判 L1 候选项。不要提交风格、命名、重构、优雅性或未声明未来需求方面的建议。
 
-Return at most one candidate per unique contract-violation path. Use the shortest sufficient contiguous contract quote and keep each trigger, violation, and verification minimal but complete.
+每条独特的契约违反路径最多提交一个候选项。使用最短但充分的连续契约引文，触发条件、违反说明和验证方法应精简但完整。

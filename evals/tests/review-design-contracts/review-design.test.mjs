@@ -306,15 +306,15 @@ test('prepare creates one pinned native L1 task without running a model', () => 
   assert.match(input.target.content, /A completed run must be terminal/)
   assert.equal(Object.hasOwn(input.target, 'sections'), false)
   assert.equal(outputSchema.properties.task_id.const, result.tasks[0].task_id)
-  assert.match(instructions, /closed evidence set/)
-  assert.match(instructions, /Do not read parent tasks, sibling tasks/)
+  assert.match(instructions, /封闭证据集/)
+  assert.match(instructions, /不得读取父任务、同级任务/)
   assert.match(
     instructions,
-    /Do not invoke Skill, Subagent, Web, MCP, or Git/,
+    /不得调用 Skill、Subagent、Web、MCP 或 Git/,
   )
-  assert.match(instructions, /Shell is allowed only for local file operations/)
-  assert.match(instructions, /Do not run project commands/)
-  assert.match(instructions, /re-read response\.json/)
+  assert.match(instructions, /Shell 只允许在/)
+  assert.match(instructions, /不要运行项目命令/)
+  assert.match(instructions, /重新读取 response\.json/)
   const manifest = JSON.parse(
     readFileSync(path.join(result.run_dir, 'manifest.json'), 'utf8'),
   )
@@ -1672,11 +1672,11 @@ test('Manifest version 4 legacy L3 response matches version 5 delta output', () 
       'utf8',
     )
     if (legacy) {
-      assert.match(instructions, /complete `refined_finding`/)
-      assert.doesNotMatch(instructions, /return `refinement` only/)
+      assert.match(instructions, /完整 `refined_finding`/)
+      assert.doesNotMatch(instructions, /仅当.*返回 `refinement`/)
     } else {
-      assert.match(instructions, /return `refinement` only/)
-      assert.doesNotMatch(instructions, /complete `refined_finding`/)
+      assert.match(instructions, /仅当.*返回 `refinement`/)
+      assert.doesNotMatch(instructions, /完整 `refined_finding`/)
     }
     writeTaskResponse(
       afterL1.tasks.find((task) => task.stage === 'architecture'),
@@ -3003,16 +3003,16 @@ test('the migrated skill does not depend on its former repository path', () => {
 test('the skill stops a queue-consuming task before independent fix verification', () => {
   const skill = readFileSync(path.join(skillDirectory, 'SKILL.md'), 'utf8')
 
-  assert.match(skill, /Choose exactly one mode/)
+  assert.match(skill, /选择一种操作/)
   assert.match(
     skill,
-    /Completing `apply-fixes` never authorizes the same task to enter `verify-fixes`/,
+    /完成 `apply-fixes` 绝不授权同一任务进入 `verify-fixes`/,
   )
   assert.match(
     skill,
-    /Do not run `verify-fixes`, `prepare`, or dispatch any review task/,
+    /不要运行 `verify-fixes`、`prepare`，也不要派发审查任务/,
   )
-  assert.match(skill, /a separate reviewer task/)
+  assert.match(skill, /由独立审查任务执行验证/)
 })
 
 test('verify-fixes creates one bounded local verification task for a contained self-consistency repair', () => {

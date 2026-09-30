@@ -1,34 +1,34 @@
-# Safe Operations
+# 安全操作
 
-Preserve user control and recoverability when an action changes external state or is difficult to undo.
+操作会改变外部状态或难以撤销时，保留用户控制权和恢复能力。
 
-## Assess the Operation
+## 评估操作
 
-Before acting, determine:
+行动前确定：
 
-- The exact resources, files, branches, records, or environments affected.
-- Whether the action is local or external, reversible or irreversible.
-- Whether the user authorized this specific action and scope.
-- Whether another tool, process, or person owns the target.
-- What recovery path exists if the action fails or was mistaken.
+- 受影响的准确资源、文件、分支、记录或环境。
+- 操作是本地还是外部、可逆还是不可逆。
+- 用户是否授权此操作及其范围。
+- 目标是否由其他工具、进程或人员管理。
+- 操作失败或判断有误时的恢复路径。
 
-Resolve targets with read-only checks. Avoid broad paths, unresolved variables, ambiguous globs, or inferred ownership for destructive operations.
+通过只读检查确认目标。破坏性操作应避免宽泛路径、未解析变量、含糊的通配符或未经证实的归属判断。
 
-## Match Protection to Risk
+## 保护措施与风险相称
 
-Use ordinary implementation judgment for local, reversible changes. Add safeguards as impact or uncertainty increases:
+对局部且可逆的变更使用常规实施判断。影响或不确定性增加时，逐步增加保护：
 
-- Preview or dry-run the operation when supported.
-- Back up or snapshot state when recovery would otherwise be difficult.
-- Use a worktree or isolated environment for long-running, parallel, or high-risk changes when its isolation benefit exceeds setup cost.
-- Require explicit authorization before deletion, destructive migration, force push, publication, production changes, or other difficult-to-reverse external actions.
+- 支持时预览或试运行操作。
+- 恢复困难时备份或制作快照。
+- 长时间、并行或高风险变更中，若隔离收益大于准备成本，则使用 worktree 或隔离环境。
+- 删除、破坏性迁移、强制推送、发布、生产环境变更或其他难以撤销的外部操作前，须有明确授权。
 
-A direct user request supplies that authorization when the exact target, scope, and material consequence are already clear. Ask for confirmation only when one of them remains ambiguous; do not infer destructive authority from a general request to fix, clean up, or finish work.
+若用户的直接请求已经明确准确目标、范围和重要后果，该请求即构成授权。只有其中某项仍不明确时才请求确认；不要从笼统的修复、清理或完成请求推断破坏性操作授权。
 
-## Execute and Close Out
+## 执行与收尾
 
-Recheck the resolved target immediately before execution when state may have changed. Stop on unexpected scope, ownership, or precondition changes.
+若状态可能变化，执行前立即重新核对已确认的目标。范围、归属或前提条件意外变化时停止。
 
-When an external operation returns an ambiguous result, inspect the current state before retrying so a timeout or lost response does not create a duplicate action.
+外部操作返回模糊结果时，先检查当前状态再重试，避免超时或响应丢失造成重复操作。
 
-Afterward, verify the resulting state and report what changed, what was preserved, and how recovery works when relevant. Clean up only resources demonstrably created or owned by the current task.
+之后验证结果状态，并在相关时说明改动、保留内容及恢复方法。只清理有证据表明由当前任务创建或拥有的资源。

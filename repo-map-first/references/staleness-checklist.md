@@ -1,28 +1,28 @@
-# Repository Map Staleness Checklist
+# 仓库地图时效性检查清单
 
-Use this checklist to decide whether relevant map information is trustworthy. A stale map is evidence to investigate, not authority to follow.
+用此清单判断相关地图信息是否可信。过时地图是需要调查的线索，不是应直接遵循的权威。
 
-## Missing or Inadequate
+## 缺失或信息不足
 
-- `docs/REPO_MAP.md` or `docs/ARCHITECTURE.md` is absent when the active invocation mode requires it.
-- The relevant document lists names without responsibilities, entry points, or relationships needed for the task.
-- The module or boundary relevant to the task is omitted.
-- The map does not reveal the current entry, owner, dependency direction, or cross-module relationship needed to place the change.
+- 当前调用模式要求的 `docs/REPO_MAP.md` 或 `docs/ARCHITECTURE.md` 不存在。
+- 相关文档只列名称，缺少本任务所需的职责、入口或关系。
+- 与任务有关的模块或边界未被记录。
+- 地图无法说明放置变更所需的当前入口、归属、依赖方向或跨模块关系。
 
-## Clearly Stale or Contradictory
+## 明显过时或相互矛盾
 
-- Current directories, modules, services, pages, endpoints, or jobs are absent from the relevant map.
-- Files or directories moved or were renamed while the map still uses old paths.
-- Entry points or key flows changed while the map still describes the old route.
-- Responsibility ownership in the map differs from current code.
-- `REPO_MAP.md` and `ARCHITECTURE.md` contradict each other.
+- 当前目录、模块、服务、页面、端点或任务未出现在相关地图中。
+- 文件或目录已移动或重命名，地图仍使用旧路径。
+- 入口或关键流程已变化，地图仍描述旧路径。
+- 地图记录的职责归属与当前代码不符。
+- `REPO_MAP.md` 与 `ARCHITECTURE.md` 相互矛盾。
 
-## Respond by Invocation Mode
+## 根据调用模式处理
 
-- **Explicit inspection or use:** verify relevant claims against source and report gaps or contradictions; do not create or repair documents merely because a map is missing or stale.
-- **Explicit creation, repair, or update:** produce or repair the requested documents before dependent implementation. Keep changes limited to the requested scope and available evidence.
-- **Automatic placement-risk mode:** verify placement against source. Create or repair maps before implementation only when missing or stale information prevents safe placement, or when the task will change durable structure. Otherwise do not create documentation solely because it is absent.
-- **Repository-context bootstrap:** create only the missing documents. Do not repair or overwrite an existing companion unless the requesting skill explicitly expands the scope.
-- **Repository-context validation:** verify only the dependent task's relevant scope. Repair stale observed claims, leave accurate sections unchanged, and report rather than overwrite a contradiction involving unmarked or confirmed authority.
+- **明确要求检查或使用：** 对照源码验证相关陈述并报告缺口或矛盾；不要仅因地图缺失或过时就创建或修复文档。
+- **明确要求创建、修复或更新：** 在依赖地图的实施工作之前，按请求范围和现有证据创建或修复文档。
+- **自动位置风险模式：** 根据源码验证放置方案。只有缺失或过时信息妨碍安全放置，或任务将改变持久结构时，才在实施前创建或修复地图；否则不要只因地图不存在就补文档。
+- **仓库上下文初始化：** 只创建缺失的文档。除非发起请求的技能明确扩大范围，否则不要修复或覆盖已有的配套文档。
+- **仓库上下文验证：** 只验证依赖任务的相关范围。修复过时的 `observed` 陈述，保留准确部分；遇到未标记或已确认的权威内容发生矛盾时，报告问题而不要覆盖。
 
-Never convert `authority_status: observed` to `confirmed` without explicit user confirmation. If evidence is insufficient, state the limitation instead of inferring intended architecture.
+未经用户明确确认，不得将 `authority_status: observed` 改为 `confirmed`。证据不足时说明限制，不要推断预期架构。

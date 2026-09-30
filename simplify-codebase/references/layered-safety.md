@@ -1,44 +1,44 @@
-# Layered Safety Controls
+# 分层安全控制
 
-Read this file completely before any `apply`. Scale protection to impact, uncertainty, and recoverability instead of requiring the same approval ceremony for every deletion.
+进行任何 `apply` 前须完整阅读本文。保护措施应随影响、不确定性和可恢复性调整，无须每次删除都套用相同审批流程。
 
-## Classify Impact and Reversibility
+## 按影响与可逆性分类
 
-Use the highest applicable class:
+采用适用的最高等级：
 
-| Class | Typical surface | Application rule |
+| 等级 | 典型范围 | 应用规则 |
 | --- | --- | --- |
-| Low | Private task-local residue, an internal helper or branch with resolved direct callers, Git-tracked and easily reversible | Apply when mutation is requested and semantic proof plus focused validation agree. |
-| Moderate | Cross-module internal API, package, dependency, registry, configuration, generated inventory, or duplicated lifecycle machinery; still repository-local and recoverable | Apply without candidate-by-candidate confirmation only when mutation scope is explicit, ownership is resolved, detection, semantic, behavior-validation, and recovery evidence agree, and relevant aggregate gates are known. |
-| High | Public or external contract, persisted data, wire format, migration, user-visible capability, production or external state, irreversible artifact, security boundary, disputed ownership, or overlapping user work | Require specific acceptance of the candidate and consequence plus the repository's recovery or migration procedure; otherwise `defer`. |
+| 低 | 任务局部的私有残留、直接调用者已查清的内部辅助函数或分支；已由 Git 跟踪且容易撤销 | 已请求修改，语义证明与聚焦验证一致时可应用。 |
+| 中 | 跨模块内部 API、包、依赖、注册表、配置、生成清单或重复的生命周期机制；仍限于仓库内部且可恢复 | 仅当修改范围明确、归属已解决、发现与语义及行为验证和恢复证据一致、相关汇总关卡已知时，才可不逐项确认而应用。 |
+| 高 | 公开或外部契约、持久化数据、传输格式、迁移、用户可见能力、生产或外部状态、不可逆产物、安全边界、有争议的归属或与用户工作重叠 | 须明确接受该候选项及其后果，并具备仓库的恢复或迁移流程；否则记为 `defer`。 |
 
-A broad request to modify and simplify a bounded repository can authorize low- and moderate-impact application. It does not silently authorize high-impact consequences the user could not identify from the request.
+用户要求修改和简化有界仓库时，可以授权应用低、中影响候选项；但不能默许用户从请求中无法识别的高影响后果。
 
-Repository policy may classify additional surfaces as protected or require stronger gates. It cannot grant mutation authority, waive unresolved evidence, or downgrade a globally high-impact consequence.
+仓库政策可以将更多范围列为受保护对象，或要求更严格的关卡；但不能赋予修改权限、免除未解决证据，或降低全局高影响后果的等级。
 
-## Build the Evidence Stack
+## 建立证据层
 
-Use independent layers rather than one universal gate:
+使用相互独立的层次，而非一道万能关卡：
 
-1. **Detection**: searches and repository analyzers identify a candidate, duplicated surface, coverage gap, dependency, or suspicious branch.
-2. **Semantic proof**: call sites, runtime entry paths, consumer classification, ownership, current decisions, compatibility, and defensive rationale establish what the surface does and whether it is still needed.
-3. **Behavior validation**: focused tests, snapshots, type or lint checks, builds, module or package checks, and documentation or generated-file gates exercise what remains.
-4. **Recovery evidence**: repository state and change scope show that the edit is reviewable and can be reverted without discarding unrelated work.
+1. **发现：** 搜索与仓库分析器识别候选项、重复代码、覆盖缺口、依赖或可疑分支。
+2. **语义证明：** 调用点、运行入口、使用者分类、归属、当前决策、兼容性和防御性理由，说明该内容做什么、是否仍有必要。
+3. **行为验证：** 聚焦测试、快照、类型或 lint 检查、构建、模块或包检查，以及文档或生成文件关卡，验证剩余行为。
+4. **恢复证据：** 仓库状态和变更范围证明修改可供审查，且可在不丢失无关工作的前提下撤销。
 
-Detection never substitutes for semantic proof. Multiple tools built on the same static reference graph count as one supporting layer, not independent agreement. A green test or coverage gate proves only its declared corpus and cannot establish the absence of external or dynamic consumers.
+发现不能替代语义证明。依赖同一静态引用图的多个工具只算一个辅助证据层，而非独立共识。绿色测试或覆盖率关卡只证明其声明的检查范围，不能证明不存在外部或动态使用者。
 
-## Resolve Workspace and Scope
+## 核对工作区与范围
 
-- Name the candidate and expected removal closure before editing.
-- Inspect staged, unstaged, and untracked work when available. Preserve pre-existing changes and stop on overlap that cannot be separated safely.
-- Identify the recovery path. Keep ordinary Git changes as a reviewable diff; use repository backup, migration, or rollback procedures for data, generated state, or external resources.
-- Do not use broad recursive deletion, repository cleaning, destructive Git commands, or ambiguous globs for source cleanup.
+- 编辑前指出候选项及预期移除闭包。
+- 可用时检查已暂存、未暂存和未跟踪工作。保留既有变更；若重叠且无法安全拆分则停止。
+- 确定恢复路径。普通 Git 变更保留为可审查差异；涉及数据、生成状态或外部资源时，采用仓库的备份、迁移或回滚流程。
+- 清理源码时不要使用宽泛的递归删除、仓库清理、破坏性 Git 命令或含糊的通配符。
 
-## Apply and Reassess
+## 应用后重新评估
 
-- Edit only the candidate and its proven closure. Do not include adjacent pre-existing cleanup.
-- Do not delete tests merely to make a gate pass. Remove a test only when it exclusively protects deleted behavior; preserve or adapt tests for every remaining contract.
-- Update generated output through its owning source and generator when repository policy requires it.
-- Stop and reclassify when an unexpected caller, registration, decision record, migration, data format, defensive pattern, or user change appears. New evidence may move a candidate from low to moderate or high.
+- 只编辑候选项及已证明的闭包，不纳入相邻的既有清理。
+- 不要仅为让关卡通过而删除测试。仅当测试只保护已删除行为时才移除；对每项剩余契约保留或调整测试。
+- 仓库政策要求时，通过生成内容的源文件及生成器更新它。
+- 若发现意外的调用者、注册、决策记录、迁移、数据格式、防御模式或用户变更，应停止并重新分类。新证据可能让候选项从低影响升为中影响或高影响。
 
-After editing, run residual searches, execute the relevant repository-owned gates, inspect the final diff and status, and report the impact class, evidence layers, preserved surfaces, failures, residual risk, and recovery path.
+编辑后搜索残留、运行相关仓库自有关卡、检查最终差异和状态，并报告影响等级、证据层、保留内容、失败情况、剩余风险及恢复路径。

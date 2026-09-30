@@ -1,35 +1,35 @@
-# Independent Review
+# 独立审查
 
-Use an independent reviewer where fresh judgment is worth the coordination cost. Review at meaningful risk boundaries rather than after every mechanical step.
+独立判断的价值高于协调成本时，使用独立审查者。在有意义的风险边界开展审查，无须每一步机械操作后都审查。
 
-## Trigger by Risk
+## 根据风险触发
 
-Consider independent review for:
+以下情况可考虑独立审查：
 
-- Security, privacy, authorization, payment, or secret-handling changes.
-- Data migrations, consistency rules, concurrency, or resource lifecycles.
-- Public APIs, persistent schemas, and cross-system contracts.
-- Large refactors or changes spanning several ownership boundaries.
-- Repeated failed fixes or disputed technical conclusions.
-- High-impact work before merge, release, or deployment.
-- Explicit user requests for review.
+- 安全、隐私、授权、支付或机密信息处理变更。
+- 数据迁移、一致性规则、并发或资源生命周期。
+- 公开 API、持久化结构和跨系统契约。
+- 大型重构，或跨越多个职责边界的变更。
+- 多次失败的修复，或存在争议的技术结论。
+- 合并、发布或部署前的高影响工作。
+- 用户明确要求审查。
 
-Skip independent review when the change is small, locally verifiable, low-risk, and the reviewer would only repeat the implementer's work.
+若变更很小、可在局部验证且风险低，审查者只会重复实施者的工作，则可跳过独立审查。
 
-## Preserve Reviewer Independence
+## 保持审查独立性
 
-Provide the reviewer with:
+向审查者提供：
 
-- Requirements or acceptance criteria.
-- The exact change range or artifacts to inspect.
-- Only the architecture context needed to judge the work.
-- Verification evidence already collected.
-- A rubric focused on the relevant risks.
+- 需求或验收标准。
+- 准确的变更范围或待检查产物。
+- 判断工作所需的架构上下文。
+- 已收集的验证证据。
+- 聚焦相关风险的判断准则。
 
-Do not provide the full implementation conversation or ask the reviewer to validate the implementer's reasoning. Ask them to judge the work product against requirements and evidence.
+不要提供完整实施对话，也不要让审查者验证实施者的推理过程。应让其依据需求和证据评判工作产物。
 
-## Produce Actionable Findings
+## 产出可执行的发现
 
-Require each finding to identify the affected location, evidence, consequence, and severity. Distinguish blocking correctness or safety issues from optional improvements. Allow technically supported disagreement rather than treating reviewer output as authority.
+每条发现应指出受影响位置、证据、后果和严重性。区分阻塞正确性或安全性的问题与可选改进。允许有技术依据的不同意见，不要把审查者输出直接当作权威。
 
-After fixes, scope re-review to the changed areas and their interactions unless the fixes materially alter the wider design. Use [verification.md](verification.md) before the final completion claim.
+修复后，除非修复实质改变更广泛的设计，否则只复审变更区域及其相互作用。在最终声明完成前使用 [验证](verification.md)。

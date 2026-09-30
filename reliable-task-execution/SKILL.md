@@ -22,12 +22,12 @@ license: MIT
 
 | 情况 | 模块 |
 |---|---|
-| 即将声明工作已完成、已修复、正确或已通过 | [verification.md](references/verification.md) |
-| 即将删除、覆盖、发布、合并、部署、强制推送，或改变难以恢复的外部状态 | [safe-operations.md](references/safe-operations.md) |
-| 排查缺陷、失败、性能问题，或多次修复仍未成功 | [diagnosis-and-recovery.md](references/diagnosis-and-recovery.md) |
-| 工作可能跨越上下文压缩、中断、会话或多个代理 | [task-continuity.md](references/task-continuity.md) |
-| 考虑委派给子代理或并行执行 | [delegation.md](references/delegation.md) |
-| 变更跨越重要的正确性、安全、数据或集成风险边界 | [independent-review.md](references/independent-review.md) |
+| 即将声明工作已完成、已修复、正确或已通过 | [验证](references/verification.md) |
+| 即将删除、覆盖、发布、合并、部署、强制推送，或改变难以恢复的外部状态 | [安全操作](references/safe-operations.md) |
+| 排查缺陷、失败、性能问题，或多次修复仍未成功 | [诊断与恢复](references/diagnosis-and-recovery.md) |
+| 工作可能跨越上下文压缩、中断、会话或多个代理 | [任务延续](references/task-continuity.md) |
+| 考虑委派给子代理或并行执行 | [委派](references/delegation.md) |
+| 变更跨越重要的正确性、安全、数据或集成风险边界 | [独立审查](references/independent-review.md) |
 
 只有任务确实跨越多个边界时才加载多个模块。例如，一个耗时且委派执行的迁移可能同时需要连续性、委派、安全操作、审查和最终验证；一个小型本地修改可能只需最终验证。
 

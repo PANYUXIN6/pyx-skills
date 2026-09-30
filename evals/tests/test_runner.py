@@ -105,32 +105,32 @@ class IsolationTests(unittest.TestCase):
         skill = (SKILLS_ROOT / "brainstorming" / "SKILL.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("Define Reliable Implementation Slices", skill)
-        self.assertIn("one governing design", skill)
-        self.assertIn("not task chronology", skill)
-        self.assertIn("before treating dependent slice designs as final", skill)
-        self.assertIn("independently verifiable slices", skill)
-        self.assertIn("local implementation choices that remain free", skill)
-        self.assertIn("evidence that proves completion", skill)
+        self.assertIn("定义可靠的实施切片", skill)
+        self.assertIn("建立一个总设计（父设计）", skill)
+        self.assertIn("而不是任务先后", skill)
+        self.assertIn("在把依赖切片设计视为最终方案前", skill)
+        self.assertIn("可独立验证的切片", skill)
+        self.assertIn("仍可自由选择的局部实现方式", skill)
+        self.assertIn("证明完成的证据", skill)
 
     def test_testing_guidelines_owns_test_design_and_tdd_owns_sequence(self):
         guidelines = (SKILLS_ROOT / "testing-guidelines" / "SKILL.md").read_text(
             encoding="utf-8"
         )
         tdd = (SKILLS_ROOT / "tdd" / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("behaviorally distinct equivalence classes", guidelines)
-        self.assertIn("Choose the Observation Level", guidelines)
-        self.assertIn("Use coverage reports", guidelines)
-        self.assertIn("this skill owns only the test-first development loop", tdd)
-        self.assertIn("Use `testing-guidelines`", tdd)
-        self.assertNotIn("Choose the Observation Level", tdd)
-        self.assertNotIn("coverage percentage", tdd)
+        self.assertIn("行为上不同的等价类", guidelines)
+        self.assertIn("选择观察层级", guidelines)
+        self.assertIn("把覆盖率报告用于", guidelines)
+        self.assertIn("本技能只负责测试优先的开发循环", tdd)
+        self.assertIn("使用 `testing-guidelines`", tdd)
+        self.assertNotIn("选择观察层级", tdd)
+        self.assertNotIn("覆盖率百分比", tdd)
 
     def test_repo_map_first_preserves_context_contracts(self):
         skill_root = SKILLS_ROOT / "repo-map-first"
         skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
-        self.assertIn("Repository-Context Bootstrap", skill)
-        self.assertIn("Repository-Context Validation", skill)
+        self.assertIn("仓库上下文初始化", skill)
+        self.assertIn("仓库上下文验证", skill)
         self.assertIn("authority_status: observed", skill)
         self.assertTrue((skill_root / "references" / "placement-analysis.md").is_file())
         self.assertFalse(
@@ -144,14 +144,14 @@ class IsolationTests(unittest.TestCase):
             skill_root / "references" / "review-runtime-protocol.md"
         ).read_text(encoding="utf-8")
         self.assertIn("scripts/review.mjs", skill)
-        self.assertIn("never issue `APPROVE`", skill)
+        self.assertIn("绝不输出 `APPROVE`", skill)
         self.assertIn("existing_code", skill)
-        self.assertIn("does not require Git, a diff, or a baseline", skill)
-        self.assertIn("cannot prove that an Agent understood an item", skill)
-        self.assertIn("do not invoke the Runner or create Finding artifacts", skill)
+        self.assertIn("不需要 Git、diff 或基线", skill)
+        self.assertIn("不能证明代理理解了项目", skill)
+        self.assertIn("不得调用 Runner 或创建 Finding 产物", skill)
         self.assertIn("current_input_drift", protocol)
         self.assertIn("queue_path", skill)
-        self.assertIn("only when a command fails", skill)
+        self.assertIn("只有命令失败", skill)
         self.assertIn("8 MiB", protocol)
         self.assertTrue((skill_root / "scripts" / "review.mjs").is_file())
         self.assertTrue((skill_root / "references" / "findings.schema.json").is_file())
@@ -168,21 +168,21 @@ class IsolationTests(unittest.TestCase):
         role = (skill_root / "references" / "self-consistency-role.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("authority precheck", skill)
-        self.assertIn("unambiguous non-observed governing design", skill)
+        self.assertIn("权威预检查", skill)
+        self.assertIn("明确且非 observed 的总设计", skill)
         self.assertIn("--discovered-authority", skill)
         self.assertIn(
-            "proximity, numbering, chronology, or semantic similarity", skill
+            "相邻位置、编号、时间顺序或语义相似性", skill
         )
-        self.assertIn("repository-context validation mode", skill)
-        self.assertIn("explicit authorities", skill)
-        self.assertIn("conflicting candidates remain", protocol)
+        self.assertIn("仓库上下文验证模式", skill)
+        self.assertIn("明确权威项", skill)
+        self.assertIn("仍存在相互冲突的候选文档", protocol)
         self.assertIn(
-            "user-specified authority paths, automatically discovered authority paths",
+            "用户指定的权威路径、自动发现的权威路径",
             protocol,
         )
-        self.assertIn("undefined or cyclic prerequisites", role)
-        self.assertIn("incompatible upstream outputs and downstream inputs", role)
+        self.assertIn("未定义或循环依赖", role)
+        self.assertIn("上下游输入输出不兼容", role)
 
     @unittest.skipUnless(
         os.environ.get("RUN_VISUAL_COMPANION_SMOKE") == "1",

@@ -1,46 +1,46 @@
-# Deep Simplification Workflow
+# 深入简化流程
 
-Use this workflow for subsystem- or repository-level simplification, or when proof crosses public contracts, dynamic loading, package boundaries, persistence, wire formats, or lifecycle ownership.
+适用于子系统或仓库级简化，或证明需要跨越公开契约、动态加载、包边界、持久化、传输格式或生命周期归属的情况。
 
-## Build the Survey Map
+## 建立调查地图
 
-1. Apply the repository contract discovered through `SKILL.md`.
-2. Define the production corpus and real entry points before searching for dead surface.
-3. Inventory public APIs, packages, services, registries, configuration, schemas, durable formats, jobs, scripts, generated catalogs, and extension mechanisms in scope.
-4. Separate non-production, ambiguous, generated, and excluded corpora.
-5. Inventory repository-owned analyzers and aggregate gates with Layered Tool Evidence, including their entries, exclusions, and claim boundaries.
-6. Track examined domains, representative consumers, exclusions, and unresolved areas.
+1. 应用通过 `SKILL.md` 查明的仓库契约。
+2. 搜索无用代码前，定义生产环境代码范围和真实入口。
+3. 清点范围内的公开 API、包、服务、注册表、配置、结构定义、持久格式、任务、脚本、生成目录和扩展机制。
+4. 将非生产环境、归属不明、生成内容和排除范围分别列出。
+5. 按 [分层工具证据](layered-tool-evidence.md) 清点仓库自有分析器与汇总关卡，包括入口、排除项和结论边界。
+6. 记录已检查领域、代表性使用者、排除项和未解决区域。
 
-Survey meaningful owned surface rather than only analyzer findings. Complete the declared survey or name unchecked domains; do not stop after the first attractive candidate.
+应调查有意义的自有代码范围，而不能只看分析器发现。完成已声明调查，或明确指出未检查领域；不要找到第一个看似合适的候选项就停止。
 
-## Respect Trust and Lifecycle Boundaries
+## 尊重信任与生命周期边界
 
-Treat repository defensive records and current contracts as negative evidence against removal. Preserve validation and ownership transfer at external, durable, generated, subprocess, worker, plugin, and other untrusted boundaries unless stronger semantic evidence proves them obsolete.
+将仓库中的防御性记录和当前契约视为反对移除的证据。外部、持久化、生成内容、子进程、工作线程、插件等不可信边界上的校验和归属转移必须保留，除非更强的语义证据证明其已无必要。
 
-For concurrency or lifecycle candidates, build only the ownership graph needed for that candidate. Do not merge repeated flags, queues, cancellation paths, callbacks, or terminal handling until they are proven to protect the same fact and owner. Defer when the trust or ownership boundary remains unresolved.
+对于并发或生命周期候选项，只建立该候选项所需的归属图。只有证明重复的标志、队列、取消路径、回调或终止处理保护同一事实且归属相同，才能合并。信任或归属边界尚未解决时推迟处理。
 
-## Investigate by Ownership
+## 按归属调查
 
-Trace runtime callers, exports, loaders, registries, dependency injection, string dispatch, configuration, feature flags, serialization, migrations, persisted data, package graphs, published entries, generated inventories, tests, documentation, examples, snapshots, and current decisions relevant to each candidate.
+追踪各候选项相关的运行时调用者、导出、加载器、注册表、依赖注入、字符串分发、配置、功能开关、序列化、迁移、持久化数据、包关系图、发布入口、生成清单、测试、文档、示例、快照和当前决策。
 
-For dependency substitution, count net deletion after adapter glue and operational burden. Verify exact semantics, runtime compatibility, transitive footprint, maintenance, and supply-chain cost; prefer a platform builtin when it satisfies the repository contract.
+替换依赖时，计入适配代码及运维负担之后的净删除量。验证准确语义、运行时兼容性、传递依赖体积、维护和供应链成本；若平台内置能力满足仓库契约，优先使用它。
 
-## Build Evidence Cards
+## 建立证据卡
 
-For each serious candidate, record:
+对每个重要候选项记录：
 
-- Current responsibility and owner.
-- Production, non-production, ambiguous, and external consumers checked.
-- Removal evidence, complete closure, and behavior given up.
-- Strongest reason to keep it.
-- Compatibility, persistence, lifecycle, migration, and reintroduction risk.
-- Acceptance criteria and repository-owned validation gates.
-- Detection, semantic, behavior-validation, and recovery evidence.
+- 当前职责及归属。
+- 已检查的生产环境、非生产环境、归属不明及外部使用者。
+- 移除证据、完整闭包和将放弃的行为。
+- 保留它的最强理由。
+- 兼容性、持久化、生命周期、迁移和重新引入风险。
+- 验收标准及仓库自有验证关卡。
+- 发现、语义、行为验证及恢复证据。
 
-Prefer a few complete cards over many thin guesses. Explicitly retain protected seams whose rationale survives.
+少量完整的证据卡优于大量薄弱猜测。对理由仍成立的受保护边界，应明确保留。
 
-## Finish the Selected Operation
+## 完成所选操作
 
-For `audit`, keep the target unchanged and report candidates, retained surfaces, exclusions, checks, and uncertainty.
+`audit` 时，保持目标不变，报告候选项、保留内容、排除项、检查和不确定性。
 
-For `apply`, let Layered Safety Controls admit candidates and Layered Tool Evidence select checks. Apply eligible candidates across their complete closure, defer candidates that lack authority or evidence, then run residual searches and relevant repository gates.
+`apply` 时，由 [分层安全控制](layered-safety.md) 决定候选项准入，由 [分层工具证据](layered-tool-evidence.md) 选择检查。对准入候选项应用其完整闭包，缺少授权或证据的候选项推迟处理，然后搜索残留并运行相关仓库关卡。

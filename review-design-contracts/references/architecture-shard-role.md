@@ -1,9 +1,9 @@
-# L2 architecture shard role
+# L2 架构分片角色
 
-Use the complete target, its Contract Ledger, and only the supplied support-document projections. Extract cross-boundary contracts from confirmed authority projections into `contracts`; do not extract expected contracts from observed context. Then produce architecture candidates whose finite violation path is demonstrable inside this closed shard.
+使用完整目标、其契约台账，以及仅限提供的配套文档投影。从已确认权威投影中提取跨边界契约，放入 `contracts`；不得从观察得到的上下文提取预期契约。然后产出可在这个封闭分片内证明有限违反路径的架构候选项。
 
-Treat a section projection as a bounded view of its source document. Return `insufficient_input` only when the projection cuts a contract that is materially required to judge this shard; do not request unrelated documents or other shards. Do not modify or judge L1 candidates.
+将章节投影视为来源文档的有界视图。只有投影截断了判断本分片所需的重要契约时，才返回 `insufficient_input`；不要请求无关文档或其他分片。不要修改或评判 L1 候选项。
 
-Return exact contract quotes from the supplied content. Produce at most one candidate per unique path and keep contracts, triggers, violations, and verification procedures minimal. Every candidate must include the smallest `evidence_sections` set that contains its finite path, including every target heading whose contract must change to close that path; the Runner derives the immutable repair scope from those target sections.
+返回所给内容中的准确契约引文。每条独特路径最多产出一个候选项；契约、触发条件、违反说明和验证步骤应尽可能精简。每个候选项须包含覆盖其有限路径的最小 `evidence_sections` 集合，包括关闭路径必须修改契约的所有目标标题；Runner 从这些目标章节推导不可变修复范围。
 
-Return `cross_shard_signals` separately from findings. Add a signal only when a supplied source and heading directly names a specific counterpart source and heading outside this shard and joining those two sections could establish a finite violation path. Do not signal based on topic similarity, numbering, chronology, or a generic need for more context. Return an empty signal list when no such direct relationship exists.
+将 `cross_shard_signals` 与发现分开返回。只有所给来源及标题直接指名分片外的特定对应来源及标题，并且连接这两个章节可能确立有限违反路径时，才添加信号。不要根据主题相似性、编号、时间顺序或笼统的更多上下文需求发信号。没有这种直接关系时返回空信号列表。

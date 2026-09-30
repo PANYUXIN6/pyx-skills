@@ -1,28 +1,28 @@
-# Light Simplification Workflow
+# 轻量简化流程
 
-Use this workflow for a current task, current change, or named local candidate. Limit the investigation to that surface, direct production consumers, and companion tests, documentation, configuration, snapshots, and generated files.
+适用于当前任务、当前变更或具名的局部候选项。调查范围限于该对象、直接的生产环境使用者，以及配套测试、文档、配置、快照和生成文件。
 
-## Establish the Bound
+## 确定边界
 
-1. Apply the repository contract discovered through `SKILL.md`.
-2. Inspect the current diff when the task concerns recent changes, separating pre-existing work where needed.
-3. Name the candidate and why it may be obsolete, duplicated, or over-built.
-4. List direct runtime entries and callers before non-production references.
+1. 应用从 `SKILL.md` 确认的仓库契约。
+2. 若任务涉及近期变更，检查当前差异，必要时区分既有工作。
+3. 指明候选项，以及它为何可能已过时、重复或过度设计。
+4. 在非生产环境引用之前，先列出直接运行入口和调用者。
 
-A Git baseline helps attribute task-created residue but is not required for a named current-state candidate. Do not absorb unrelated nearby cleanup.
+Git 基线有助于归属本任务产生的残留，但具名的当前状态候选项不强制要求基线。不要顺带清理附近的无关内容。
 
-## Trace the Local Closure
+## 追踪局部闭包
 
-Search old and replacement symbols, imports, exports, filenames, calls, registrations, event names, configuration keys, tests, docs, snapshots, generated inventories, and compatibility branches tied to the candidate. Read every plausible production call site and classify non-production references separately.
+搜索与候选项关联的新旧符号、导入、导出、文件名、调用、注册、事件名、配置键、测试、文档、快照、生成清单和兼容分支。阅读每个可能的生产环境调用点，另行分类非生产环境引用。
 
-Good light candidates include a replacement's orphaned helper, branch, export, dependency, test path, temporary shim, duplicated local fact, or companion artifact that describes removed behavior. Handle isolated imports, variables, formatting, and routine analyzer warnings through normal implementation or lint.
+合适的轻量候选项包括：替代实现留下的孤立辅助函数、分支、导出、依赖、测试路径、临时适配层、重复的局部事实，或描述已移除行为的配套产物。孤立的导入、变量、格式问题和普通分析器警告由常规实施或 lint 处理。
 
-## Stop at a Deep Boundary
+## 遇到深入边界时停止
 
-Stop when proof requires repository-wide consumer discovery, dynamic registration, a package deletion, downstream compatibility, persistence or wire decisions, or cross-module lifecycle ownership. Record the concrete boundary and recommend deep work unless that scope is already authorized.
+若证明需要全仓库使用者调查、动态注册、删除包、下游兼容性、持久化或传输格式决策，或跨模块生命周期归属，应停止并记录具体边界；除非该范围已获授权，否则建议转入深入工作。
 
-## Finish the Selected Operation
+## 完成所选操作
 
-For `audit`, keep the workspace unchanged and report `remove`, `keep`, or `defer`.
+`audit` 时，保持工作区不变，分别报告 `remove`、`keep` 或 `defer`。
 
-For `apply`, use Layered Safety Controls as the only admission rule. Remove the proven local closure, search for stale names, and run repository-owned checks targeted to the remaining behavior. Report unrelated residue without fixing it.
+`apply` 时，只依据 [分层安全控制](layered-safety.md) 准入。移除已有证据证明的局部闭包，搜索过时名称，并针对剩余行为运行仓库自有检查。报告无关残留，但不顺手修复。

@@ -35,13 +35,13 @@ description: 找出并且仅在用户明确授权修改、仓库感知证据支�
 | 深度 | `light` | 范围是当前任务、当前变更或具名局部候选项，证明只需直接使用者和配套产物。 |
 | 深度 | `deep` | 范围是子系统或仓库，或证明跨越包、动态加载、公开契约、持久化、线格式或生命周期归属。 |
 
-对 `light` 完整阅读 [Light Workflow](references/light-workflow.md)，对 `deep` 完整阅读 [Deep Workflow](references/deep-workflow.md)。不要为了完整性同时加载两者。
+对 `light` 完整阅读 [轻量简化流程](references/light-workflow.md)，对 `deep` 完整阅读 [深入简化流程](references/deep-workflow.md)。不要为了完整性同时加载两者。
 
 轻量工作若到达授权范围外的深入边界，停在有证据支持的建议。不要把大 diff 等同于深入工作，也不要把深入工作等同于必须暂停。
 
 ## 一次应用安全控制
 
-任何 `apply` 前，完整阅读 [Layered Safety Controls](references/layered-safety.md)，并将其作为唯一的修改权限依据。深入工作，或仓库分析器和聚合关卡重要时，也完整阅读 [Layered Tool Evidence](references/layered-tool-evidence.md)。
+任何 `apply` 前，完整阅读 [分层安全控制](references/layered-safety.md)，并将其作为唯一的修改权限依据。深入工作，或仓库分析器和聚合关卡重要时，也完整阅读 [分层工具证据](references/layered-tool-evidence.md)。
 
 ## 建立使用者证据
 

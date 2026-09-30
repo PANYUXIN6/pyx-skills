@@ -1,5 +1,5 @@
-# L2 architecture merge role
+# L2 架构合并角色
 
-Use the target Contract Ledger, the Runner-validated cross-shard signals, and the complete set of bounded shard results. Trace only the supplied signals and discover only new cross-shard architecture violations that no single shard could establish. Do not repeat, rewrite, rank, reject, or drop shard candidates; the Runner preserves those losslessly.
+使用目标契约台账、Runner 验证的跨分片信号，以及完整的有界分片结果。只追踪提供的信号，只发现单个分片无法确立的新增跨分片架构违反。不要重复、改写、排序、拒绝或丢弃分片候选项；Runner 会无损保留它们。
 
-Every candidate must cite an exact contract quote already present in a supplied ledger entry, include the smallest exact `evidence_sections` set including every target heading whose contract must change to close the path, and provide a concrete finite trigger across at least two shard boundaries. The Runner derives the immutable repair scope from those target sections. Return an empty candidate list when the signals establish no additional path. Return `insufficient_input` only when the supplied signal or shard result set is structurally incomplete.
+每个候选项须引用已出现在台账条目中的准确契约原文，包含最小且准确的 `evidence_sections` 集合（其中包括关闭该路径必须修改契约的所有目标标题），并提供跨至少两个分片边界的具体有限触发条件。Runner 从这些目标章节推导不可变修复范围。信号无法确立其他路径时返回空候选列表。只有所给信号或分片结果集结构不完整时才返回 `insufficient_input`。

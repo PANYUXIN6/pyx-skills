@@ -1,34 +1,34 @@
-# Delegation
+# 委派
 
-Default to a single agent. Delegate only when context isolation, parallel execution, specialized capability, or independent judgment creates more value than the handoff costs.
+默认由单个代理完成工作。只有上下文隔离、并行执行、专门能力或独立判断的收益大于交接成本时才委派。
 
-## Decide Whether to Delegate
+## 判断是否委派
 
-Compare the expected benefit with the cost of preparing context, coordinating decisions, integrating output, and verifying the result.
+比较预期收益与准备上下文、协调决策、整合产出及验证结果的成本。
 
-Delegate when one or more of these are substantial:
+以下情况有明显收益时可委派：
 
-- A bounded investigation would otherwise consume significant main-context capacity.
-- Independent tasks can run concurrently through stable interfaces.
-- A specialized tool or domain context can be isolated cleanly.
-- An independent perspective is required for review or adjudication.
+- 有界调查会占用大量主任务上下文。
+- 独立任务能通过稳定接口并行执行。
+- 专门工具或领域上下文能够清楚隔离。
+- 审查或裁决需要独立视角。
 
-Keep work local when the subtask needs most of the current context, shares rapidly changing state, touches the same files as ongoing work, or requires frequent back-and-forth. Do not delegate merely because subagents are available or a plan contains multiple steps.
+如果子任务需要当前上下文的大部分内容、与进行中的工作共享频繁变化的状态、修改同一批文件，或需要频繁往返沟通，则留在当前任务处理。不要仅因有子代理可用或计划分了多步就委派。
 
-## Define the Handoff Contract
+## 定义交接约定
 
-Give a delegated agent the minimum complete context:
+向受委派代理提供最少且完整的上下文：
 
-- Objective and reason for delegation.
-- Relevant inputs, constraints, and authoritative files.
-- Exact scope of allowed changes or read-only investigation.
-- Required output and evidence.
-- Success criteria and conditions that require escalation.
+- 目标及委派原因。
+- 相关输入、约束和权威文件。
+- 允许修改的准确范围，或只读调查范围。
+- 所需产出和证据。
+- 成功标准及需要上报的情况。
 
-Prefer a short, self-contained brief. If the brief must reproduce most of the parent context, reconsider delegation.
+优先写简短、自包含的任务说明。如果必须复制父任务的大部分上下文，应重新考虑委派。
 
-## Coordinate and Integrate
+## 协调与整合
 
-Assign clear ownership and avoid overlapping writes. Parallelize only independent work. Answer blocking questions without broadening scope.
+明确归属，避免写入范围重叠。只并行执行相互独立的工作。回答阻塞问题时不要扩大范围。
 
-Treat the agent's report as a summary, not proof. Inspect the returned artifacts, reconcile conflicts, and run relevant verification before accepting completion. Use [task-continuity.md](task-continuity.md) when delegated work must survive compaction or resume across sessions.
+代理报告只是摘要，并非证明。接受完成结论前，应检查产物、解决冲突并运行相关验证。委派工作需要跨上下文压缩或会话恢复时，使用 [任务延续](task-continuity.md)。

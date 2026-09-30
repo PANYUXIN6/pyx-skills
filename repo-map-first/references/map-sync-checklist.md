@@ -1,39 +1,39 @@
-# Map Synchronization Checklist
+# 仓库地图同步检查清单
 
-After implementation, update the map documents if any condition below applies.
+实施后，如符合以下任一条件，就更新地图文档。
 
-Explicit map creation or repair is handled before dependent implementation, even when no structural change is planned. Inspection or use alone does not authorize map edits; the checks below apply after an authorized implementation changes repository structure.
+明确要求创建或修复地图时，应在依赖它的实施工作之前完成，即使预计不会改变结构。仅检查或使用地图并不授权修改地图；以下检查适用于已授权的实施工作改变仓库结构之后。
 
-## Update `docs/REPO_MAP.md`
+## 更新 `docs/REPO_MAP.md`
 
-- A new file, directory, or module introduces a new responsibility.
-- A file or directory was moved or renamed.
-- The responsibility of a file or module changed.
-- A new entry point was added, such as a page, endpoint, command, or job.
-- The feature's actual implementation location differs from the old map.
-- A responsibility previously contained in one module was split across multiple locations.
+- 新文件、目录或模块承担了新的职责。
+- 文件或目录被移动或重命名。
+- 文件或模块的职责发生变化。
+- 新增页面、端点、命令或任务等入口。
+- 功能的实际实现位置与旧地图不同。
+- 原本由一个模块承担的职责分散到了多个位置。
 
-## Also Update `docs/ARCHITECTURE.md`
+## 同时更新 `docs/ARCHITECTURE.md`
 
-- Layering relationships changed.
-- The direction of module dependencies changed.
-- A key call chain or main flow changed.
-- A durable cross-module collaboration mechanism was introduced.
-- New infrastructure or an external system changed the system relationships.
+- 分层关系发生变化。
+- 模块依赖方向发生变化。
+- 关键调用链或主要流程发生变化。
+- 引入了持久的跨模块协作机制。
+- 新基础设施或外部系统改变了系统间关系。
 
-## Usually No Update Is Needed
+## 通常无须更新
 
-- A bug was fixed within an existing responsibility.
-- Only local implementation details changed, with no changes to entry points, boundaries, or responsibilities.
-- Only tests, comments, copy, or styles were changed without affecting system structure.
+- 在既有职责范围内修复缺陷。
+- 仅改变局部实现细节，入口、边界和职责均未变化。
+- 仅修改测试、注释、文案或样式，且不影响系统结构。
 
-## Minimum Update Contents
+## 最少应记录的内容
 
-- Path or module name
-- One-sentence responsibility
-- The flow or entry point it belongs to
-- Its relationship with adjacent modules
+- 路径或模块名称；
+- 一句话说明职责；
+- 所属流程或入口；
+- 与相邻模块的关系。
 
-If the document contains `generated_by` or `authority_status` frontmatter, preserve it during synchronization. Do not change `authority_status: observed` to `confirmed` without explicit user confirmation.
+如果文档的 frontmatter 含有 `generated_by` 或 `authority_status`，同步时应保留。没有用户明确确认，不要将 `authority_status: observed` 改为 `confirmed`。
 
-Update the map so the next person can determine where to find the code and why it lives there without rereading the entire codebase.
+更新后的地图应让后来者无须重读整个代码库，就能找到代码并理解它为何放在那里。

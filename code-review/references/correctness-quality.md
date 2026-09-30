@@ -1,38 +1,38 @@
-# Correctness and Quality Review
+# 正确性与质量审查
 
-Focus on issues that may cause incorrect behavior, silent failures, performance regressions, or real maintenance costs.
+关注可能造成错误行为、无声失败、性能回归或真实维护成本的问题。
 
-## Correctness and Edge Cases
+## 正确性与边界情况
 
-- Check null values, empty collections, first and last elements, zero values, negative numbers, maximum values, and off-by-one errors.
-- Distinguish valid `0`, empty-string, and `false` values to avoid incorrect truthiness checks.
-- Check division by zero, numeric precision, overflow, pagination boundaries, Unicode, and oversized inputs.
-- Check the completeness of state transitions, defaults, enum branches, retries, and idempotent behavior.
-- Check whether changes to return values, exceptions, types, or side effects break caller contracts.
+- 检查 null 值、空集合、首尾元素、零值、负数、最大值和差一错误。
+- 区分有效的 `0`、空字符串与 `false`，避免错误的真假值判断。
+- 检查除零、数值精度、溢出、分页边界、Unicode 和超大输入。
+- 检查状态转换、默认值、枚举分支、重试及幂等行为是否完整。
+- 检查返回值、异常、类型或副作用的变化是否破坏调用方契约。
 
-## Error Handling
+## 错误处理
 
-- Flag swallowed exceptions, log-and-continue behavior, overly broad catches, and unhandled asynchronous errors.
-- Check whether errors are transformed or propagated at the correct boundary and whether callers can detect failure.
-- Prevent exposure of stack traces, internal paths, or sensitive context to users.
-- Watch for unnecessary fallbacks added to trusted paths that conceal invariant violations.
-- Check whether recovery strategies preserve data consistency and provide enough diagnostic context.
+- 标出吞掉异常、记日志后继续、过宽的 catch 和未处理的异步错误。
+- 检查错误是否在正确边界转换或传播，以及调用方能否检测失败。
+- 避免向用户暴露堆栈、内部路径或敏感上下文。
+- 留意在可信路径添加不必要的兜底逻辑，以致掩盖不变量违反。
+- 检查恢复策略是否保留数据一致性，并提供足够诊断信息。
 
-## Performance and Resources
+## 性能与资源
 
-- Check repeated computation, synchronous I/O, expensive parsing, regular expressions, and cryptographic operations on hot paths.
-- Check N+1 queries, unpaginated reads, over-fetching, missing batching, and potentially missing indexes.
-- Check unbounded collections, caches, queues, recursion, buffers, and whole-file loading.
-- Check cache keys, TTLs, invalidation strategies, and accidental sharing of user data.
-- Report performance issues only when call frequency and data scale support the conclusion.
+- 检查高频路径中的重复计算、同步 I/O、昂贵解析、正则表达式及加密操作。
+- 检查 N+1 查询、未分页读取、过量获取、缺少批处理和可能缺失的索引。
+- 检查无限增长的集合、缓存、队列、递归、缓冲区及整文件加载。
+- 检查缓存键、TTL、失效策略和意外共享用户数据。
+- 只有调用频率和数据规模支持结论时，才报告性能问题。
 
-## Types and Local Quality
+## 类型与局部质量
 
-- Check whether `any`, forced assertions, or `unknown as T` bypass real type problems.
-- Check whether deep nesting, repeated branches, or inconsistent local patterns make correctness difficult to verify.
-- Flag duplicated code, mysterious names, and comments that conflict with behavior, but do not nitpick stylistic differences with no practical impact.
-- Accept a new abstraction only when it reduces real duplication or coupling. Do not recommend speculative generalization.
+- 检查 `any`、强制断言或 `unknown as T` 是否绕开真实类型问题。
+- 检查深层嵌套、重复分支或不一致的局部模式是否妨碍验证正确性。
+- 标出重复代码、含义不明的名称及与行为冲突的注释；不要纠缠没有实际影响的风格差异。
+- 只有新抽象能减少真实重复或耦合时才接受；不要建议猜测性泛化。
 
-## Evidence Requirements
+## 证据要求
 
-For every finding, answer: What input or state triggers it? What is the current behavior? What is the expected contract? Who is affected? What is the smallest fix? Continue investigating or omit the finding when these questions cannot be answered.
+每条发现都应回答：什么输入或状态会触发？当前行为是什么？预期契约是什么？谁受影响？最小修复是什么？无法回答时继续调查或省略该发现。

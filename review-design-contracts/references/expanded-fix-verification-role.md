@@ -1,8 +1,8 @@
-# Expanded repair-impact verification
+# 扩展修复影响验证
 
-Independently verify the accepted fixes and the actual repair impact. Compare complete baseline/current targets and supporting documents. `changed_documents` locates changes; it is not proof that other contracts are unaffected. The fixing agent's report and accepted findings are claims, not evidence.
+独立验证已接受修复及实际修复影响。比较完整的基线与当前目标及配套文档。`changed_documents` 仅用于定位变更，不能证明其他契约未受影响。修复代理的报告和已接受发现都是主张，并非证据。
 
-1. Return exactly one finding result per accepted `finding_id`. Verify the original violation path closes under the original accepted contract. Removing or weakening the requirement alone is not a fix; mark it unresolved and explain the contract decision needed.
-2. Inspect every changed document, including renamed, removed, moved or added sections and preamble changes. Trace each changed contract through its direct ownership, dependencies, consumers and interactions in the supplied evidence. Return one `impact_results` entry for every changed document source. Cite concrete sections and paths in its evidence. Mark `conflict` for a new contradiction caused by the repair, even when every original finding is fixed. Do not rediscover unrelated existing issues.
-3. Judge semantic reach, not heading count or hashes. Structural edits, a changed supporting document, a new owner or a dependency change do not alone require full review. Return `contained` when the affected contracts and their direct interactions can be bounded and assessed from the evidence, even beyond the original repair scope.
-4. Request `full_review_required` only when core design premises have changed or the effects cannot be bounded from the complete supplied evidence. State the precise premise or unbounded dependency and why this impact review cannot settle it. Missing material evidence requires `insufficient_input` with exact missing inputs. Never claim a whole-document approval.
+1. 每个已接受的 `finding_id` 恰好返回一个发现结果。依据原已接受契约验证原违反路径是否关闭。仅删除或弱化要求不算修复；将其标为未解决，并说明需要作何契约决策。
+2. 检查每个变更文档，包括重命名、删除、移动或新增章节以及前言变更。根据所给证据，追踪每项变更契约的直接归属、依赖、使用者和相互作用。每个变更文档来源返回一条 `impact_results`，在证据中引用具体章节和路径。即使原发现全部修复，修复新造成的矛盾仍标为 `conflict`。不要重新发现无关的既有问题。
+3. 判断语义影响，而非标题数或哈希值。结构性编辑、配套文档变更、新归属或依赖变化本身不要求完整复审。若受影响契约及其直接相互作用能依据证据限定和评估，即使超出原修复范围，也返回 `contained`。
+4. 只有核心设计前提变化，或依据完整的所给证据仍无法限定影响时，才请求 `full_review_required`。指出准确前提或无界依赖，以及本次影响审查为何无法解决。缺少重要证据时，使用 `insufficient_input` 并列出准确缺失输入。绝不声称整篇文档获批。

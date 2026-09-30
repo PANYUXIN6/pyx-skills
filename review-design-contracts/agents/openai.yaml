@@ -1,6 +1,6 @@
 interface:
-  display_name: 'Review Design Contracts'
-  short_description: 'Evidence-gated design review with human arbitration'
-  default_prompt: 'Use $review-design-contracts to review the design document I provide.'
+  display_name: '设计契约审查'
+  short_description: '基于证据关卡与人工裁决的设计审查'
+  default_prompt: '使用 $review-design-contracts 审查我提供的设计文档。'
 policy:
   allow_implicit_invocation: false

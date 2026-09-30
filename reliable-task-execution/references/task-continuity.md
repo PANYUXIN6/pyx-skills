@@ -1,30 +1,30 @@
-# Task Continuity
+# 任务延续
 
-Preserve enough factual state to resume long-running work after interruption, context compaction, session changes, or multi-agent execution.
+保留足够的事实状态，以便长时间工作在中断、上下文压缩、会话变更或多代理执行后继续。
 
-## Decide Whether to Persist State
+## 判断是否持久记录状态
 
-Keep work in conversation and repository state when the task is short and coherent. Create persistent task state only when losing context would cause material rediscovery, duplicate work, or unsafe assumptions.
+任务简短且连贯时，依靠对话和仓库状态即可。只有丢失上下文会造成实质性重复调查、重复工作或不安全假设时，才创建持久任务状态。
 
-Use persistence when work spans long sessions, multiple agents, likely compaction, or several similarly named plans. Follow an existing repository workflow when one exists. Otherwise use a task-scoped location with a stable identity rather than a shared global ledger.
+工作跨长会话、多个代理、可能发生上下文压缩，或存在多个名称相近的计划时，使用持久记录。若仓库已有流程则遵循它；否则使用具有稳定标识的任务专属位置，不要共用全局台账。
 
-## Record the Minimum Recovery Set
+## 记录最小恢复信息
 
-Capture only facts needed to resume:
+只记录恢复所需事实：
 
-- Task identity and objective.
-- Confirmed constraints and decisions.
-- Completed work with authoritative references such as commits or file paths.
-- Current work and the next safe action.
-- Open blockers or unresolved decisions.
-- Verification already performed and the state it covered.
+- 任务标识和目标。
+- 已确认的约束与决定。
+- 已完成工作及提交、文件路径等权威引用。
+- 当前工作和下一项安全操作。
+- 未解决的阻塞事项或待决策问题。
+- 已进行的验证及其覆盖的状态。
 
-Do not copy full conversations, speculative reasoning, or information that can be cheaply rediscovered.
+不要复制完整对话、推测性推理或可低成本重新查明的信息。
 
-## Resume Safely
+## 安全恢复
 
-Confirm that persisted state belongs to the current task. Reconcile it with Git history, files, tool output, and external systems; prefer those sources over model memory or stale notes.
+确认持久记录属于当前任务。将其与 Git 历史、文件、工具输出和外部系统核对；这些来源优先于模型记忆或过时笔记。
 
-Do not redispatch completed work merely because the conversation no longer remembers it. Do not trust a completion marker whose referenced artifact or commit does not exist.
+不要只因对话不再记得，就重新派发已完成工作。若完成标记引用的产物或提交不存在，不要信任该标记。
 
-Remove temporary task state when the task is complete and durable history exists. Preserve decisions that remain useful in the repository's normal documentation rather than in a private ledger.
+任务完成且已有持久历史后，清除临时任务状态。仍有价值的决定应保存在仓库常规文档中，而非私人台账。

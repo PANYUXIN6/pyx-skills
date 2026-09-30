@@ -1,14 +1,14 @@
-# Placement Analysis Rubric
+# 代码放置分析准则
 
-Before implementation, communicate enough evidence to show that the change has a resolved owner and boundary. Use the relevant lenses below; do not force them into fixed headings or repeat information that is already obvious.
+实施前，说明足够的证据，证明变更的归属和边界已经确定。按需采用以下视角；不必强行套用固定标题，也不要重复显而易见的信息。
 
-- **Map status:** whether relevant map information is usable, missing, stale, or unnecessary in automatic mode.
-- **Responsibility:** which module owns the changed behavior and why.
-- **Entry and flow:** where the behavior enters and the relevant call or data path.
-- **Placement:** the files or layer to change and why the logic belongs there.
-- **Boundary:** adjacent modules or responsibilities that should remain unchanged.
-- **Risk and evidence:** the likely regression points and the narrowest credible verification.
+- **地图状态：** 在自动模式下，相关地图信息是可用、缺失、过时，还是并不需要。
+- **职责归属：** 哪个模块负责变更的行为，以及原因。
+- **入口与流程：** 行为从何处进入，相关调用或数据路径是什么。
+- **代码位置：** 要改哪些文件或层，以及逻辑为何属于那里。
+- **边界：** 哪些相邻模块或职责应保持不变。
+- **风险与证据：** 可能的回归点，以及足以验证的最小可信检查。
 
-For a local but explicitly invoked map-first task, a few concise sentences may be enough. For work spanning several independent subsystems, expand the analysis to make ownership, interfaces, dependency direction, and failure boundaries clear.
+对于局部但明确调用地图优先流程的任务，几句简洁说明可能就够了。若工作跨越多个独立子系统，则展开分析，明确归属、接口、依赖方向和故障边界。
 
-Do not begin implementation while two materially different placements remain plausible. Ask the user only when repository evidence cannot resolve a choice that depends on product intent, ownership policy, or risk tolerance.
+当两种实质不同的放置方案仍都有可能时，不要开始实施。只有仓库证据无法解决、且选择取决于产品意图、归属政策或风险偏好时才询问用户。

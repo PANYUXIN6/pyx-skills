@@ -1,40 +1,40 @@
-# Verification
+# 验证
 
-Use current evidence to support factual claims about completion, correctness, or system state.
+使用当前证据支持有关完成情况、正确性或系统状态的事实陈述。
 
-## Match the Evidence to the Claim
+## 让证据对应结论
 
-Identify what would directly prove the claim before choosing a command or check.
+选择命令或检查前，先明确什么能直接证明该结论。
 
-| Claim | Direct evidence |
+| 结论 | 直接证据 |
 |---|---|
-| Tests pass | The relevant test command completes with no failures |
-| Build succeeds | The full build command exits successfully |
-| Static checks pass | The configured lint or type-check command reports no errors |
-| A bug is fixed | The original reproduction no longer fails, preferably with a regression check |
-| Requirements are satisfied | Each acceptance criterion is checked against the implementation |
-| Delegated work is complete | The resulting changes and verification output are independently inspected |
+| 测试通过 | 相关测试命令运行结束，且没有失败 |
+| 构建成功 | 完整构建命令成功退出 |
+| 静态检查通过 | 已配置的 lint 或类型检查没有报错 |
+| 缺陷已修复 | 原复现方式不再失败，最好有回归检查 |
+| 满足需求 | 根据实现逐一核对验收标准 |
+| 委派工作已完成 | 独立检查变更结果及验证输出 |
 
-Do not substitute adjacent evidence. A passing linter does not prove a build succeeds, and a changed diff does not prove a bug is fixed.
+不要用相邻证据代替。lint 通过不能证明构建成功，差异中出现改动也不能证明缺陷已修复。
 
-## Verify the Current State
+## 验证当前状态
 
-1. Select the narrowest check that directly proves the claim.
-2. Run it against the current files and state.
-3. Read the complete relevant output and exit status.
-4. Run broader regression checks when the change could affect neighboring behavior.
-5. State only the conclusion supported by the evidence.
+1. 选择能直接证明结论的最窄检查。
+2. 针对当前文件和状态运行。
+3. 阅读完整的相关输出及退出状态。
+4. 如果变更可能影响相邻行为，再运行更广的回归检查。
+5. 只陈述证据支持的结论。
 
-Prefer project-defined commands and repository conventions. Do not rerun expensive checks without reason, but do not rely on stale results after relevant state has changed.
+优先使用项目定义的命令和仓库约定。不要无故重复昂贵检查，但相关状态变化后也不要依赖旧结果。
 
-## Close the Loop
+## 完成验证闭环
 
-When a relevant check fails and the failure is caused by the current work or is otherwise within scope, diagnose the supported cause, correct it, and rerun the check against the new state. Continue until the claim is supported or a genuine blocker remains.
+相关检查失败且原因来自当前工作，或仍属于任务范围时，诊断有证据支持的原因、修正并针对新状态重跑检查。持续处理，直到结论得到支持或出现真实阻塞。
 
-Distinguish current regressions from unrelated pre-existing failures with evidence. Stop and report the gap when proceeding would require new authority, a material scope expansion, unavailable infrastructure, or an unresolved consequential decision. Use [diagnosis-and-recovery.md](diagnosis-and-recovery.md) when the cause is not already clear or repair attempts repeat.
+根据证据区分当前回归与无关的既有失败。若继续处理需要新增授权、实质扩大范围、不可用的基础设施，或尚未解决的重要决策，应停止并说明缺口。原因不明确或修复尝试重复时使用 [诊断与恢复](diagnosis-and-recovery.md)。
 
-## Report Accurately
+## 准确报告
 
-Include the command or observable used, its result, and any remaining gap. If verification is unavailable or incomplete, say so directly and avoid language that implies success.
+说明使用的命令或可观察事实、结果以及剩余缺口。验证不可用或不完整时直接说明，避免暗示成功。
 
-Treat reports from subagents, CI summaries, and earlier turns as leads to verify, not as substitutes for inspecting the current result.
+子代理报告、CI 摘要和先前轮次的结果都只是待核对的线索，不能代替检查当前结果。

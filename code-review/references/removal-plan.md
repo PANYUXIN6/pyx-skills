@@ -1,30 +1,30 @@
-# Removal and Iteration Plan
+# 移除与迭代计划
 
-Propose removal candidates only when evidence shows that code is unused, duplicated, superseded, permanently disabled, or creates real risk. Search static references first, then consider dynamic loading, reflection, external consumers, and runtime configuration.
+只有证据表明代码未使用、重复、已被替代、永久禁用或造成真实风险时，才提出移除候选项。先搜索静态引用，再考虑动态加载、反射、外部使用者和运行时配置。
 
-## Safe to Remove Immediately
+## 可以立即安全移除
 
-Use this category only when there are provably no active consumers and the removal scope can be verified. For each item, state:
+仅在能够证明没有活跃使用者、且移除范围可验证时使用此类别。逐项说明：
 
-- Location and responsibility
-- Evidence that it is unused or superseded
-- Impact scope
-- Minimal removal steps
-- Tests, configuration, or documentation that must be updated
-- Verification method
+- 位置和职责；
+- 未使用或已被替代的证据；
+- 影响范围；
+- 最小移除步骤；
+- 必须更新的测试、配置或文档；
+- 验证方法。
 
-## Defer Removal
+## 推迟移除
 
-Do not recommend immediate removal when external consumers, migrations, monitoring, or team confirmation are prerequisites. Provide:
+若外部使用者、迁移、监控或团队确认是前置条件，不要建议立即移除。应提供：
 
-- The reason for deferral and current risk
-- Required prerequisites
-- Compatibility or migration steps
-- Verification metrics and observation window
-- Rollback plan
+- 推迟原因与当前风险；
+- 必要前提；
+- 兼容或迁移步骤；
+- 验证指标和观察窗口；
+- 回滚计划。
 
-## Reporting Constraints
+## 报告约束
 
-- Do not treat “looks unused” as evidence for removal.
-- Do not recommend opportunistic deletion of pre-existing dead code unrelated to the current change; mention it separately as a residual risk if useful.
-- Removal plans must protect external contracts, data migrations, and recoverability.
+- 不要把“看起来没用”当作移除证据。
+- 不要建议顺手删除与当前变更无关的既有无用代码；有帮助时可单独列为剩余风险。
+- 移除计划必须保护外部契约、数据迁移和可恢复性。

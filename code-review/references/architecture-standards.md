@@ -1,25 +1,25 @@
-# Architecture and Standards Review
+# 架构与标准审查
 
-Apply explicit repository standards, architecture, and ADRs first; they override the general guidance in this module. Report only issues that create real coupling, extension, comprehension, or regression costs.
+优先应用仓库明确规定的标准、架构与 ADR；它们高于本模块的通用指导。只报告会造成真实耦合、扩展、理解或回归成本的问题。
 
-## SOLID and Boundaries
+## SOLID 与边界
 
-- **Single Responsibility**: Check whether a module has unrelated reasons to change or mixes transport, persistence, and domain rules.
-- **Open/Closed**: Check whether adding a real variant requires modifying multiple stable branches. Do not create extension points in advance for hypothetical needs.
-- **Liskov Substitution**: Check whether a subtype weakens preconditions, strengthens postconditions, rejects base-type behavior, or forces callers to inspect concrete types.
-- **Interface Segregation**: Check whether implementers are forced to depend on or implement methods they do not need.
-- **Dependency Inversion**: Check whether high-level rules are unnecessarily coupled to concrete I/O, storage, or network implementations.
+- **单一职责：** 检查模块是否有无关的变更原因，或混杂传输、持久化和领域规则。
+- **开闭原则：** 检查增加真实变体是否要求修改多个稳定分支。不要为假设需求提前创建扩展点。
+- **里氏替换：** 检查子类型是否削弱前置条件、加强后置条件、拒绝基类型行为，或迫使调用方识别具体类型。
+- **接口隔离：** 检查实现者是否被迫依赖或实现不需要的方法。
+- **依赖倒置：** 检查高层规则是否无必要地耦合到具体 I/O、存储或网络实现。
 
-## Code Smell Baseline
+## 代码异味基准
 
-Check for Mysterious Name, Duplicated Code, Feature Envy, Data Clumps, Primitive Obsession, Repeated Switches, Shotgun Surgery, Divergent Change, Speculative Generality, Message Chains, Middle Man, and Refused Bequest.
+检查含义不明的名称、重复代码、依恋情结、数据泥团、基本类型偏执、重复条件分支、散弹式修改、发散式变化、猜测性泛化、消息链、中间人和被拒绝的遗赠。
 
-Treat these smells as investigation prompts, not automatic violations. Do not duplicate rules that formatters or static analysis tools already enforce reliably.
+这些异味只是调查线索，并非自动违规。不要重复格式化工具或静态分析已经可靠执行的规则。
 
-## Minimal Improvement Principles
+## 最小改进原则
 
-- Split by responsibility, not file size.
-- Introduce an abstraction only when a real second use case or stable boundary exists.
-- Provide incrementally verifiable steps for non-trivial refactoring; do not recommend a one-shot rewrite.
-- Explain how an improvement reduces coupling or increases cohesion, and identify the existing behavior and tests that must be protected.
-- Distinguish issues introduced by the current change from existing debt. Usually mention pre-existing issues that the change does not worsen only as residual risks.
+- 按职责拆分，而非按文件大小拆分。
+- 只有存在真实的第二个用例或稳定边界时才引入抽象。
+- 对非平凡重构提供可逐步验证的步骤；不要建议一次性重写。
+- 说明改进如何减少耦合或提高内聚，并指出必须保护的既有行为与测试。
+- 区分当前变更新引入的问题与既有债务。当前变更未加重的既有问题，通常仅作为剩余风险提及。

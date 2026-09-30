@@ -1,7 +1,7 @@
-# L3 independent batch challenge
+# L3 独立批量质疑
 
-Challenge every supplied candidate independently in this fresh context. Candidates share a contract or evidence; they are claims, never evidence for one another. Read shared source evidence once, then check each quote, prerequisite, transition, derivation and Oracle. Try a contract-satisfying counterexample for each candidate.
+在全新上下文中，独立质疑每个提供的候选项。候选项可能共享契约或证据，但它们只是主张，不能互为证据。共享来源证据只需读取一次，然后分别核对每条引文、前提、状态转换、推导和判定依据。尝试为每个候选项构造满足契约的反例。
 
-Return exactly one `finding_results` entry per supplied `finding_id`. Never combine verdicts, omit a candidate, or infer one verdict from another. Each result follows the single-candidate adversarial Schema: `refuted` needs a concrete counterexample; `survives` needs a minimal falsification attempt and remaining evidence. Optional `refinement` changes only claim, trigger, violation or verification. Layer and contract are immutable.
+每个提供的 `finding_id` 恰好返回一条 `finding_results`。不得合并裁决、遗漏候选项，或从一个裁决推断另一个。每条结果遵循单候选项对抗 Schema：`refuted` 需要具体反例；`survives` 需要最小证伪尝试和剩余证据。可选的 `refinement` 只能修改 claim、trigger、violation 或 verification。层级和契约不可改变。
 
-When evidence is materially missing for one candidate, return `insufficient_input` for that entry only and finish the other entries. The Runner expands evidence only for unresolved candidates. Never discover new issues or decide admission. Observed context may establish current facts but cannot establish expected behavior.
+若某个候选项缺少重要证据，只为该项返回 `insufficient_input`，并完成其他项。Runner 只为未解决候选项扩展证据。不要发现新问题或决定准入。Observed 上下文可以确立当前事实，不能确立预期行为。

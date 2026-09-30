@@ -1,32 +1,32 @@
-# Focused Review Workflow
+# 聚焦审查流程
 
-Use this workflow when the user explicitly restricts the review to one or more dimensions. Load only the modules dispatched by the top-level router; do not silently expand the request into a comprehensive code review.
+用户明确将审查限制为一个或多个维度时使用。只加载顶层路由选中的模块，不要擅自扩展为全面代码审查。
 
-## Steps
+## 步骤
 
-1. Fix the review target specified by the user; when none is specified, use the resolvable current changes.
-2. Map the user's request to the corresponding review modules and list the covered dimensions at the beginning of the report.
-3. Inspect only the code, callers, contracts, and tests required to substantiate findings in those dimensions.
-4. Apply P0–P3 severity: P0 for critical security incidents, data loss, or core unavailability; P1 for clear high-risk defects; P2 for medium-risk or maintainability issues; P3 for low-risk improvements.
-5. Explicitly disclose other review dimensions that were not performed so the report is not mistaken for comprehensive approval.
+1. 确定用户指定的审查目标；未指定时使用能够确定的当前变更。
+2. 将用户请求映射到相应审查模块，并在报告开头列出覆盖的维度。
+3. 只检查足以证实这些维度中发现的代码、调用者、契约和测试。
+4. 按 P0–P3 分级：P0 对应严重安全事故、数据丢失或核心功能不可用；P1 对应明确的高风险缺陷；P2 对应中等风险或可维护性问题；P3 对应低风险改进。
+5. 明确披露未执行的其他审查维度，以免报告被误认为全面批准。
 
-## Output
+## 输出
 
 ```markdown
-## Focused Review Summary
+## 聚焦审查摘要
 
-**Review scope**: <target>
-**Covered dimensions**: <security / architecture / correctness / specification / removal candidates / etc.>
-**Overall conclusion**: APPROVE / REQUEST_CHANGES / COMMENT
+**审查范围**：<目标>
+**覆盖维度**：<安全 / 架构 / 正确性 / 规格 / 移除候选项等>
+**总体结论**：APPROVE / REQUEST_CHANGES / COMMENT
 
-## Findings
+## 发现
 
-<Order by P0–P3>
+<按 P0–P3 排序>
 
-## Finding Challenge Summary
-<Candidate verdict counts, challenge independence, unresolved high-risk candidates, and scope expansion>
+## 发现质疑摘要
+<候选裁决数量、质疑独立性、未解决的高风险候选及范围扩展>
 
-## Unreviewed Areas and Residual Risks
+## 未审查区域与剩余风险
 ```
 
-Every published finding must include its location, trigger, impact, evidence, challenge result, and the smallest safe fix direction. When no candidates confirm, state that explicitly within the focused scope and summarize refuted or insufficient candidates separately; this does not mean other dimensions passed.
+每条发布的发现都须包含位置、触发条件、影响、证据、质疑结果和最小安全修复方向。若无候选项被确认，应明确说明此结论仅限聚焦范围，并分别概述被反驳或证据不足的候选项；这不表示其他维度已经通过。

@@ -1,24 +1,24 @@
-# Acceptance Review Workflow
+# 验收审查流程
 
-Use this workflow to verify whether a complete implementation faithfully satisfies confirmed specifications, tickets, and repository standards. The top-level router is the single source of truth for module selection; this file defines the acceptance procedure and output.
+用于验证完整实现是否忠实满足已确认的规格、工单和仓库标准。模块选择以顶层路由为准；本文只定义验收步骤和输出。
 
-## 1. Fix the Review Scope
+## 1. 确定审查范围
 
-Choose the scope mode that matches the conclusion requested.
+按所需结论选择范围模式。
 
-### Current-State Mode
+### 当前状态模式
 
-Use this mode when the user asks whether the current implementation of a feature satisfies confirmed requirements without asking what changed relative to Git history.
+用户询问功能的当前实现是否满足已确认需求、但不要求相对 Git 历史分析变更时，使用此模式。
 
-Identify the implementation scope from the named feature, relevant entry points, callers, contracts, configuration, tests, staged and unstaged changes, and relevant untracked files. Review the current repository state as one implementation. A Git baseline is optional.
+根据具名功能、相关入口、调用者、契约、配置、测试、已暂存与未暂存变更及相关未跟踪文件确定实现范围。将仓库当前状态作为一个整体实现审查。Git 基线可选。
 
-Without a baseline, disclose that the review cannot attribute behavior to a particular change set or establish historical regressions, change-set omissions, or scope expansion relative to an earlier state. This limitation does not prevent a conclusion about whether the current implementation satisfies confirmed requirements.
+没有基线时，应说明审查无法将行为归因于某个变更集，也无法确认相对旧状态的历史回归、变更集遗漏或范围扩张。这不妨碍判断当前实现是否满足已确认需求。
 
-### Comparison Mode
+### 对比模式
 
-Use this mode when the user asks what a branch, PR, commit range, or uncommitted change set introduced, whether that change set is complete, or whether it caused regressions or scope expansion.
+用户询问分支、PR、提交范围或未提交变更引入了什么、该变更集是否完整，或是否造成回归或范围扩张时，使用此模式。
 
-Use a fixed baseline provided or confirmed by the user, such as a commit, branch, tag, or merge base. Resolve it once and keep that result fixed:
+使用用户提供或确认的固定基线，如提交、分支、标签或合并基点。解析一次并固定结果：
 
 ```bash
 git rev-parse <fixed-point>
@@ -26,58 +26,58 @@ git diff <fixed-point>...HEAD
 git log <fixed-point>..HEAD --oneline
 ```
 
-Three-dot diffs compare from the merge base. Stop without issuing a comparison-mode acceptance conclusion if the reference is invalid. If the diff is empty, report that no change set exists at that comparison point; switch to current-state mode only when that still answers the user's request.
+三点差异从合并基点比较。若引用无效，停止且不要给出对比模式的验收结论。若差异为空，应说明该对比点没有变更集；只有当前状态模式仍能回答用户请求时才切换过去。
 
-For workflows spanning multiple tickets, review the complete requested implementation scope and the complete set of confirmed specifications and tickets by default unless the user explicitly restricts the scope to one ticket.
+流程跨多个工单时，默认审查所请求实现的完整范围和已确认规格、工单全集，除非用户明确限制为单个工单。
 
-## 2. Confirm Sources of Truth
+## 2. 确认权威来源
 
-Search in this order:
+按顺序搜索：
 
-1. Ticket references in commit messages and the ticket system configured for the repository.
-2. Specifications, PRDs, or ticket paths provided by the user.
-3. Files in `docs/`, `specs/`, or `.scratch/` that match the branch or feature.
+1. 提交消息中的工单引用，以及仓库配置的工单系统。
+2. 用户提供的规格、PRD 或工单路径。
+3. `docs/`、`specs/` 或 `.scratch/` 中与分支或功能匹配的文件。
 
-Do not treat unconfirmed implementation notes as approved specifications. If the specification changed during implementation, use the version most recently confirmed by the user and describe the change.
+不要把未确认的实施笔记视为已批准规格。若规格在实施期间变更，使用用户最近一次确认的版本，并说明变化。
 
-Ask the user when no source of truth can be found. Omit the specification axis only after the user confirms that no specification exists, and disclose the omission in the summary.
+找不到权威来源时询问用户。只有用户确认不存在规格后，才可省略规格审查维度，并在摘要中说明。
 
-## 3. Execute Two Independent Review Axes
+## 3. 执行两个独立审查维度
 
-Complete two separate review processes without allowing one to obscure the other:
+分别完成以下审查，不要让一个维度掩盖另一个：
 
-- **Specification axis**: Follow `spec-compliance.md` to check omissions, incorrect implementations, scope creep, and dependency conditions.
-- **Standards axis**: Follow `architecture-standards.md` and repository rules to check implementation quality; add correctness or security modules based on risk.
+- **规格维度：** 按 `spec-compliance.md` 检查遗漏、错误实现、范围蔓延和依赖条件。
+- **标准维度：** 按 `architecture-standards.md` 和仓库规则检查实现质量；根据风险加入正确性或安全模块。
 
-The specification axis determines whether the agreed requirements were implemented. The standards axis determines whether the implementation itself meets engineering requirements. Do not merge findings from the two axes into one ranking.
+规格维度判断约定需求是否实现；标准维度判断实现本身是否符合工程要求。不要将两个维度的发现合并为一份排名。
 
-## 4. Output
+## 4. 输出
 
 ```markdown
-## Specification
+## 规格
 
-<List findings individually; cite specification or ticket evidence and the implementation location for each>
+<逐条列出发现；每条引用规格或工单证据与实现位置>
 
-## Standards
+## 标准
 
-<List findings individually; cite repository standards or the general baseline and the implementation location for each>
+<逐条列出发现；每条引用仓库标准或通用基准与实现位置>
 
-## Finding Challenge Summary
+## 发现质疑摘要
 
-- Candidate, confirmed, refuted, and insufficient-evidence counts for each axis
-- Independent versus self-challenge coverage
-- Unresolved P0/P1 candidates or scope expansion
+- 各维度候选、确认、反驳及证据不足的数量
+- 独立质疑与自行质疑的覆盖情况
+- 未解决的 P0/P1 候选或范围扩展
 
-## Summary
+## 摘要
 
-- Number of specification-axis findings and the most severe issue
-- Number of standards-axis findings and the most severe issue
-- Whether a confirmed specification exists
-- Review scope mode and implementation target
-- Fixed baseline and reviewed commit range when comparison mode was used
-- Historical or change-attribution limitations when current-state mode had no baseline
-- Tests and checks that were executed versus merely observed
-- Unreviewed areas and residual risks
+- 规格维度发现数量及最严重的问题
+- 标准维度发现数量及最严重的问题
+- 是否存在已确认规格
+- 审查范围模式和实现目标
+- 使用对比模式时的固定基线及已审查提交范围
+- 当前状态模式没有基线时，历史或变更归因方面的限制
+- 实际执行与仅观察到的测试和检查
+- 未审查区域及剩余风险
 ```
 
-Keep both axes and the challenge summary even when one axis has no confirmed findings. Publish only candidates confirmed by the top-level challenge protocol. Do not fix findings automatically.
+即使一个维度没有已确认发现，也要保留两个维度和质疑摘要。只发布顶层质疑协议确认的候选项。不要自动修复发现。

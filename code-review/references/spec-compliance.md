@@ -1,26 +1,26 @@
-# Specification Compliance Review
+# 规格符合性审查
 
-Use this module only to determine whether the implementation faithfully follows confirmed sources of truth. Do not judge whether the specification itself is reasonable.
+本模块只判断实现是否忠实遵循已确认的权威来源，不评判规格本身是否合理。
 
-## Establish Traceability
+## 建立可追踪性
 
-Locate corresponding implementation and test evidence for every specification item, ticket, and acceptance criterion. Classify each as implemented, partially implemented, not implemented, incorrectly implemented, or unverifiable.
+对每项规格、工单和验收标准找到对应实现及测试证据。将其分类为已实现、部分实现、未实现、错误实现或无法验证。
 
-## Checks
+## 检查内容
 
-- Requirements that are missing or only partially implemented.
-- Implementations that appear present but fail to match required behavior, boundaries, or error paths.
-- Unsatisfied ticket dependencies, prerequisites, or acceptance criteria.
-- Behavior, interfaces, or configuration that the user did not request and no confirmed source supports. Call it change-set scope creep only when comparison evidence or confirmed implementation history shows that the reviewed change introduced it.
-- Specification changes made during implementation without user confirmation.
-- Tests that cover only internal implementation details without proving acceptance behavior.
+- 缺失或仅部分实现的需求。
+- 表面存在、却不符合规定行为、边界或错误路径的实现。
+- 未满足的工单依赖、前提条件或验收标准。
+- 用户未要求且无已确认来源支持的行为、接口或配置。只有对比证据或已确认实施历史证明其由受审变更引入时，才称为变更集范围蔓延。
+- 实施期间未经用户确认的规格变更。
+- 仅覆盖内部实现细节、不能证明验收行为的测试。
 
-## Evidence Requirements
+## 证据要求
 
-Cite all of the following for every finding:
+每条发现都须引用以下全部信息：
 
-1. The exact location and content of the relevant specification, ticket, or acceptance criterion.
-2. The file location of the corresponding implementation or missing implementation.
-3. The input, state, or flow that reproduces the discrepancy.
+1. 相关规格、工单或验收标准的准确位置和内容。
+2. 对应实现或缺失实现的文件位置。
+3. 可复现差异的输入、状态或流程。
 
-Do not treat unconfirmed comments, commit messages, or implementation notes as approved requirements. Do not guess expected behavior when no source of truth exists.
+不要将未确认注释、提交消息或实施笔记视为已批准需求。没有权威来源时不要猜测预期行为。

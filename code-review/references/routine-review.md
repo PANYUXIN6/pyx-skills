@@ -1,50 +1,50 @@
-# Routine Review Workflow
+# 常规审查流程
 
-Use this workflow for engineering reviews of the current workspace, named feature implementations without specification acceptance, routine PRs, commits, or explicit ranges. The top-level router is the single source of truth for module selection; this file defines the routine review procedure and output.
+适用于当前工作区、没有规格验收要求的具名功能实现、常规 PR、提交或明确范围的工程审查。模块选择以顶层路由为准；本文只定义常规审查步骤和输出。
 
-## Steps
+## 步骤
 
-1. Fix the review scope using `git status -sb`, diff statistics, and the actual diff when changes are the target. For the current workspace, cover staged changes, unstaged changes, and relevant untracked files. For a named feature review, trace the current implementation through its entry points, callers, contracts, and tests even when some relevant code is already committed.
-2. Identify entry points, ownership boundaries, and critical paths. Search relevant callers, types, tests, and external contracts as needed.
-3. Verify correctness and regression risk first, then perform dispatched security, architecture, or removal checks.
-4. Keep only findings with explainable triggers and practical impact. Do not report personal preferences as issues.
-5. Record tests that were actually executed or observed. Do not infer that a change is correct merely because tests exist.
-6. Treat these as candidates until the top-level Finding challenge finishes. Publish only confirmed candidates and preserve every other verdict in the challenge summary.
+1. 当目标是变更时，用 `git status -sb`、差异统计和实际差异确定审查范围。当前工作区要覆盖已暂存、未暂存和相关未跟踪文件。审查具名功能时，即使部分相关代码已提交，也要沿入口、调用者、契约和测试追踪当前实现。
+2. 确定入口、职责边界和关键路径。按需搜索相关调用者、类型、测试及外部契约。
+3. 先验证正确性和回归风险，再执行已选中的安全、架构或移除检查。
+4. 只保留能够说明触发条件和实际影响的发现。不要把个人偏好报告为问题。
+5. 记录实际执行或观察到的测试；不能只因测试存在就推断变更正确。
+6. 顶层发现质疑结束前，这些都只是候选项。只发布已确认候选项，其他裁决保留在质疑摘要中。
 
-## Severity
+## 严重程度
 
-Classify all findings as P0–P3:
+将所有发现分为 P0–P3：
 
-| Level | Meaning | Merge guidance |
+| 级别 | 含义 | 合并建议 |
 |---|---|---|
-| P0 | Can cause a critical security incident, data loss, or core feature unavailability | Must block the merge |
-| P1 | Clear logic defect, authorization issue, or major reliability or performance regression | Fix before merging |
-| P2 | Design or quality issue with demonstrated maintenance impact or medium risk | Blocks approval; creating a follow-up alone does not clear the finding |
-| P3 | Low-risk, evidence-backed local improvement | Optional |
+| P0 | 可能造成严重安全事故、数据丢失或核心功能不可用 | 必须阻止合并 |
+| P1 | 明确的逻辑缺陷、授权问题，或严重可靠性、性能回归 | 合并前修复 |
+| P2 | 有可证明维护成本或中等风险的设计、质量问题 | 阻止批准；仅创建后续事项不能消除该发现 |
+| P3 | 低风险且有证据支持的局部改进 | 可选 |
 
-## Output
+## 输出
 
 ```markdown
-## Code Review Summary
+## 代码审查摘要
 
-**Review scope**: <files and line count or commit range>
-**Overall conclusion**: APPROVE / REQUEST_CHANGES / COMMENT
+**审查范围**：<文件与行数，或提交范围>
+**总体结论**：APPROVE / REQUEST_CHANGES / COMMENT
 
-## Findings
+## 发现
 
 ### P0
 ### P1
 ### P2
 ### P3
 
-## Finding Challenge Summary
-<Candidate, confirmed, refuted, and insufficient-evidence counts; independent versus self challenge; unresolved high-risk candidates or scope expansion>
+## 发现质疑摘要
+<候选、确认、反驳及证据不足的数量；独立质疑与自行质疑；未解决的高风险候选或范围扩展>
 
-## Removal and Iteration Plan
-<Include only when removal-plan.md was loaded and contains relevant items>
+## 移除与迭代计划
+<仅在加载 removal-plan.md 且有相关项目时填写>
 
-## Coverage and Residual Risks
-<Executed checks, unreviewed areas, and recommended additional tests>
+## 覆盖情况与剩余风险
+<已执行检查、未审查区域及建议补充的测试>
 ```
 
-Every published finding must include its location, trigger, impact, evidence, challenge result, and the smallest safe fix direction. Explicitly state when no candidates confirm, keep non-confirmed candidates out of the Findings section, and retain both the challenge and residual-risk sections.
+每条发布的发现都须包含位置、触发条件、影响、证据、质疑结果和最小安全修复方向。若没有候选项被确认，应明确说明；未确认候选项不得进入“发现”章节，同时保留质疑和剩余风险章节。

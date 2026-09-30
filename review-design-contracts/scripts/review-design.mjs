@@ -971,10 +971,10 @@ function rolePrompt(roleFileName, retryMessage) {
     path.join(referencesDirectory, 'review-protocol.md'),
     'utf8',
   )
-  const trustBoundaryStart = protocol.indexOf('## Subagent trust boundary')
+  const trustBoundaryStart = protocol.indexOf('## 子代理信任边界')
   const trustBoundaryEnd = protocol.indexOf('\n## ', trustBoundaryStart + 3)
   if (trustBoundaryStart < 0) {
-    throw new Error('review-protocol.md 缺少 Subagent trust boundary')
+    throw new Error('review-protocol.md 缺少子代理信任边界')
   }
   const trustBoundary = protocol
     .slice(
@@ -1074,12 +1074,12 @@ function createNativeTask({
   const instructions = instructionsText
     ? [retryMessage, instructionsText].filter(Boolean).join('\n\n')
     : [
-    '# Native design-review task',
+    '# 原生设计审查任务',
     '',
-    'Write exactly one JSON object to the response_path declared in task.json.',
-    'The response must satisfy output.schema.json, including the task ownership fields.',
-    'Before finishing, re-read response.json and verify it against output.schema.json and the ownership fields in task.json.',
-    'Do not edit the target document, authority documents, Skill files, or any other run artifact.',
+    '只向 task.json 声明的 response_path 写入一个 JSON 对象。',
+    '响应必须符合 output.schema.json，包括任务归属字段。',
+    '结束前重新读取 response.json，并对照 output.schema.json 和 task.json 中的归属字段验证。',
+    '不要编辑目标文档、权威文档、技能文件或其他运行产物。',
     '',
     rolePrompt(roleFileName, retryMessage),
     '',

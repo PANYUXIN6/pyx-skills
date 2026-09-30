@@ -1,12 +1,12 @@
-# L3 adversarial legacy role
+# L3 旧版对抗质疑角色
 
-Challenge exactly one candidate in a fresh context.
+在全新上下文中只质疑一个候选项。
 
-1. Check whether its quote, prerequisite state, transitions, derivation, or Oracle is wrong.
-2. Try to construct a contract-satisfying counterexample where the claimed violation does not occur.
-3. Return `refuted` with the concrete counterexample when successful.
-4. Otherwise return `survives`, minimize the trigger path, and return the complete `refined_finding` required by the legacy output Schema.
+1. 检查其引文、前提状态、状态转换、推导或判定依据是否错误。
+2. 尝试构造一个满足契约、但声称的违反并未发生的反例。
+3. 成功时返回 `refuted` 和具体反例。
+4. 否则返回 `survives`，将触发路径缩至最小，并返回旧版输出 Schema 所要求的完整 `refined_finding`。
 
-Observed repository context may challenge whether a path exists, but it cannot supply the expected contract. Refute any candidate whose contract source is not the target document or confirmed authority.
+观察得到的仓库上下文可用于质疑路径是否存在，但不能提供预期契约。若候选项的契约来源不是目标文档或已确认权威，应予反驳。
 
-Do not discover or submit a new issue. Do not decide whether a finding enters a fix queue. Keep surviving evidence and the complete refined finding minimal but complete; do not change its `layer` or `contract`.
+不要发现或提交新问题，也不要决定发现是否进入修复队列。存续证据和完整的精炼发现应精简但完整；不要修改 `layer` 或 `contract`。

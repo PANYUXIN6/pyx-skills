@@ -1,30 +1,30 @@
-# Diagnosis and Recovery
+# 诊断与恢复
 
-Use evidence-driven diagnosis for bugs, failures, performance problems, and unexpected behavior. Prevent repeated guesses from accumulating into an unreliable repair.
+用证据驱动缺陷、失败、性能问题和意外行为的诊断，避免不断猜测造成不可靠的修复。
 
-## Establish the Failure
+## 确认故障
 
-- Reproduce the problem consistently when possible.
-- Read the full error, logs, stack trace, and relevant tool output.
-- Inspect recent changes, environmental differences, and nearby working examples.
-- Trace incorrect values or behavior back to the earliest supported source.
+- 能够稳定复现时，先复现问题。
+- 阅读完整错误、日志、堆栈和相关工具输出。
+- 检查近期变更、环境差异及附近正常工作的示例。
+- 将错误值或行为追溯到最早有证据支持的来源。
 
-If the issue cannot be reproduced, gather discriminating evidence instead of inventing a cause.
+无法复现时，收集能区分不同原因的证据，不要臆造原因。
 
-## Test a Root-Cause Hypothesis
+## 检验根因假设
 
-1. State one specific hypothesis and the evidence supporting it.
-2. Choose the smallest experiment that could disprove it.
-3. Change one principal variable at a time.
-4. Interpret the result before attempting another change.
-5. Fix the supported root cause with the smallest scoped change.
+1. 明确提出一个具体假设及支持它的证据。
+2. 选择能够证伪该假设的最小实验。
+3. 每次只改变一个主要变量。
+4. 解读结果后再尝试下一次修改。
+5. 用范围最小的变更修复有证据支持的根因。
 
-Add a regression test or durable reproduction when it meaningfully protects the behavior. Do not force test-first ceremony for artifacts where it adds no reliable signal.
+当回归测试或持久化复现能切实保护行为时，补充它们。若测试先行对某类产物没有可靠信号，不要强制套用流程。
 
-## Bound the Repair Loop
+## 限制修复循环
 
-Track what each failed attempt disproved or revealed. Do not stack another patch when the previous attempt produced no new understanding.
+记录每次失败尝试证伪了什么、揭示了什么。上一次尝试未带来新认识时，不要继续叠加补丁。
 
-Stop and reassess when repeated attempts target the same symptom, evidence stops improving, or the proposed change expands beyond the original diagnosis. Revisit requirements, system boundaries, environment, and architectural assumptions. Escalate to an independent reviewer, a more capable model, or the user when a consequential uncertainty remains.
+若多次尝试仍只针对同一症状、证据不再改善，或拟议变更超出原诊断范围，应停下重新评估。重新检查需求、系统边界、环境和架构假设。重要的不确定性仍存在时，交给独立审查者、更有能力的模型或用户处理。
 
-Use [verification.md](verification.md) after the repair to prove the original failure is resolved and relevant behavior still works.
+修复后使用 [验证](verification.md) 证明原故障已解决，相关行为仍正常。
