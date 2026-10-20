@@ -37,7 +37,7 @@ authority_status: observed
 - `reliable-task-execution/SKILL.md` 与 `references/`：可靠执行路由入口和六个按需规范。
 - `testing-guidelines/SKILL.md`：通用自动化测试设计入口；拥有测试价值、等价类、层级、test doubles、coverage 和验证范围的规范，但不规定测试先行顺序。
 - `tdd/SKILL.md`：测试先行入口；只拥有行为确认、有效 Red、合理 Green、局部 Refactor 和垂直切片顺序，测试证据设计依赖 `testing-guidelines`。
-- `code-review/SKILL.md`：Skill-fronted Review Agent 入口；把意图、契约、行为和风险推理留给 Codex，把可机械判定的完整性责任交给 Runner。
+- `code-review/SKILL.md`：Skill-fronted Review Agent 入口；约束主审与质疑的模型、推理程度及必要的 Native 委派，把意图、契约、行为和风险推理留给主审代理，把可机械判定的完整性责任交给 Runner。
 - `simplify-codebase/SKILL.md` 与 `references/`：独立简化入口、触发边界和 `audit`/`apply` 责任控制；通用层拥有消费者证明、影响分级和删除准入，目标仓库拥有语言、入口、排除项、防御模式、覆盖策略与门禁命令。
 - `code-review/scripts/review.mjs`：代码审查确定性 Runner，负责 staged、unstaged、untracked 分层 workspace，三点比较或无 Git 显式 current-state 文件 Manifest，供 Agent 读取的紧凑队列，受锁保护且与 Finding 摘要绑定的逐项声明状态，8 MiB 输入上限、输入失效、候选锚点校验、逐项挑战覆盖、confirmed-only 投影与结论门禁。
 - `code-review/scripts/review.test.mjs`：上述 Runner 的 Node.js 回归测试。
