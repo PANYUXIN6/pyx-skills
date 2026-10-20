@@ -35,7 +35,7 @@
   },
   {
     "id": "automatic-review-handoff-after-strong-signal",
-    "title": "Accept an explicit review handoff for a cross-cutting candidate",
+    "title": "Accept an explicit review handoff for a consumer-tracing audit",
     "module": "handoff",
     "tags": ["smoke", "critical"],
     "activation": "automatic",
@@ -44,7 +44,11 @@
     "workspace": {"fixture": "cleanup-candidate", "git": false},
     "deterministic_assertions": [
       {"id": "skill-read", "kind": "event_matches", "pattern": "simplify-codebase[^\\n]*SKILL\\.md", "critical": true},
-      {"id": "light-workflow-read", "kind": "event_matches", "pattern": "light-workflow\\.md", "critical": false},
+      {"id": "selected-workflow-read", "kind": "event_matches", "pattern": "(?:light|deep)-workflow\\.md", "critical": true},
+      {"id": "repository-policy-read", "kind": "event_matches", "pattern": "DEFENSIVE_PATTERNS\\.md", "critical": true},
+      {"id": "implementation-preserved", "kind": "file_contains", "path": "service.py", "pattern": "def legacy_format_name", "critical": true},
+      {"id": "test-preserved", "kind": "file_contains", "path": "test_service.py", "pattern": "def test_legacy_format_name", "critical": true},
+      {"id": "documentation-preserved", "kind": "file_contains", "path": "README.md", "pattern": "legacy_format_name", "critical": true},
       {"id": "audit-result", "kind": "final_matches", "pattern": "(?:remove|keep|defer).*(?:consumer|caller|runtime|production)", "critical": false}
     ]
   },

@@ -6,13 +6,15 @@ The seven smoke cases verify that:
 
 - an explicit bounded simplification audit loads only the light workflow;
 - an explicit repository-wide simplification audit loads only the deep workflow;
-- an already-observed cross-cutting candidate can be handed off from review context without making routine review a dependency;
+- an already-observed candidate can be handed off from review context to a read-only, policy-backed simplification audit without making routine review a dependency;
 - an explicitly read-only repository cleanup keeps candidates unchanged;
 - an authorized deep cleanup can directly remove a high-confidence, repository-local, reversible candidate without candidate-by-candidate approval or a replacement compatibility layer;
 - a routine correctness review does not load simplification;
 - an isolated lint issue does not load simplification.
 
 The cleanup fixture supplies `DEFENSIVE_PATTERNS.md`; bounded light work, repository-wide audit, and authorized deep apply must read it before deciding what to retain or remove.
+
+The handoff case grades activation, a selected workflow, repository-policy discovery, preservation of the candidate and its test/documentation, and a consumer-based verdict. It does not prescribe light or deep: its request requires tracing exports and runtime callers beyond the reviewed lines without fixing that proof boundary. The dedicated bounded-light and repository-deep cases retain their depth-specific expectations; routine-review and isolated-lint cases retain their negative routing expectations.
 
 ```bash
 python3 evals/scripts/run_eval.py --suite-root evals/suites/simplify-codebase static
