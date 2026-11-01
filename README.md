@@ -33,7 +33,7 @@
        ├─ 用户明确要求清理冗余表面
        │    └─ simplify-codebase：证明消费者关系后审计或删除完整闭包
        ├─ 用户明确要求审查代码或验证实现
-       │    └─ code-review：冻结目标、语义审查、逐项挑战，只报告确认成立的 Finding
+       │    └─ code-review：局部问题直接核对；正式审查冻结目标、逐项挑战，只报告确认成立的 Finding
        └─ 用户显式调用设计契约审查
             └─ review-design-contracts：分层审查、人工裁决、独立修复复核
 ```
@@ -102,8 +102,8 @@
 ### [`code-review`](./code-review/)
 
 - **触发**：目标包含代码或机器消费的实现制品，并且用户明确要求发现缺陷或风险、评估质量、验证正确性或契约符合性、执行专项审查或给出审查结论。
-- **职责**：选择 routine、acceptance 或 focused 工作流；由 Runner 冻结 Git 分层变更、固定比较范围或 current-state 文件集；Agent 负责语义分析，Runner 负责输入完整性、逐项 disposition、候选锚点、挑战覆盖和结论门禁。
-- **产出**：只包含挑战后仍确认成立的 P0–P3 Finding，并同时报告冻结范围、审查维度、已执行检查、排除项、残余风险和有界结论。
+- **职责**：低风险、范围明确的局部逻辑问题直接核对；正式审查选择 routine、acceptance 或 focused 工作流；由 Runner 冻结 Git 分层变更、固定比较范围或 current-state 文件集；Agent 负责语义分析，Runner 负责输入完整性、逐项 disposition、候选锚点、挑战覆盖和结论门禁。
+- **产出**：局部核对给出有界结论、必要证据和重要缺口，不生成 Runner 产物或批准结论；正式审查只报告挑战后仍确认成立的 P0–P3 Finding，并说明冻结范围、验证和重要限制。两条路径的主审与质疑均固定为 `gpt-6.1-sol / xhigh`。
 - **边界**：单纯阅读、解释、梳理或追踪代码不触发；Markdown 设计文档自身不属于审查目标；审查保持目标只读，Finding 不自动授权修复；Runner 证明流程状态，不证明模型判断天然正确。
 
 ### [`simplify-codebase`](./simplify-codebase/)
@@ -148,7 +148,7 @@ Codex 主要根据每个 `SKILL.md` 的 `name` 和 `description` 自动判断是
 
 ## 评测
 
-八个通用运行时 skill 共用零第三方 Python 依赖的最小行为评测 Runner。当前 suites 共包含 31 个确定性 case，覆盖自动触发、负向路由、关键工作流选择和安全退出边界。
+八个通用运行时 skill 共用零第三方 Python 依赖的最小行为评测 Runner。当前 suites 共包含 33 个确定性 case，覆盖自动触发、负向路由、关键工作流选择和安全退出边界。
 
 运行本地 Runner 测试：
 
@@ -173,7 +173,7 @@ python3 evals/scripts/run_eval.py \
 
 python3 evals/scripts/run_eval.py \
   --suite-root evals/suites/code-review \
-  smoke --max-codex-calls 5
+  smoke --model gpt-6.1-sol --reasoning-effort xhigh --max-codex-calls 8
 ```
 
 真实 smoke 会在隔离 workspace 和临时 `CODEX_HOME` 中运行，并把 suite prompt、合成 fixtures 和被测 skill 发送给 Codex 服务。执行前应确认数据出境范围和调用预算。历史结果默认保存在对应 suite 的 `results/` 中；不要用旧报告证明修改后的 skill。

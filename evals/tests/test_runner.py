@@ -33,7 +33,7 @@ class SuiteValidationTests(unittest.TestCase):
             "testing-guidelines": 2,
             "tdd": 2,
             "repo-map-first": 2,
-            "code-review": 6,
+            "code-review": 8,
         }
         for skill_name, count in expected.items():
             runner.configure_suite(SUITES_ROOT / skill_name)

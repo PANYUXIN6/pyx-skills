@@ -118,5 +118,101 @@
       {"id": "no-findings-artifact", "kind": "event_not_matches", "pattern": "findings(?:\\.json)?", "critical": false},
       {"id": "exploration-response", "kind": "final_matches", "pattern": "(?:采集|collect|data flow|input)", "critical": false}
     ]
+  },
+  {
+    "id": "local-logic-defect",
+    "title": "local logic defect",
+    "module": "local",
+    "tags": [
+      "smoke",
+      "critical"
+    ],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "审查 pagination.py 的 page_count 在总项数不是每页数量整数倍时是否算错；只核对这个局部逻辑问题，不修改代码。",
+    "workspace": {
+      "fixture": "local-logic",
+      "git": false
+    },
+    "deterministic_assertions": [
+      {
+        "id": "local-skill-read",
+        "kind": "event_matches",
+        "pattern": "code-review[^\\n]*SKILL\\.md",
+        "critical": true
+      },
+      {
+        "id": "local-code-read",
+        "kind": "event_matches",
+        "pattern": "pagination\\.py",
+        "critical": true
+      },
+      {
+        "id": "local-no-runtime",
+        "kind": "event_not_matches",
+        "pattern": "review\\.mjs\\s+(?:prepare|mark|validate|challenge|finalize)",
+        "critical": true
+      },
+      {
+        "id": "local-no-approval",
+        "kind": "final_matches",
+        "pattern": "\\A(?!.*\\bAPPROVE\\b).*",
+        "critical": true
+      },
+      {
+        "id": "local-logic-defect-result",
+        "kind": "final_matches",
+        "pattern": "(?:向上|末页|最后.*页|少算|ceil|partial|round.*up)",
+        "critical": true
+      }
+    ]
+  },
+  {
+    "id": "local-logic-no-finding",
+    "title": "local logic no finding",
+    "module": "local",
+    "tags": [
+      "smoke",
+      "critical"
+    ],
+    "activation": "automatic",
+    "skill_invocation_expected": true,
+    "prompt": "审查 pagination.py 的 is_page_in_range 是否符合它自己的文档约定；只核对这个局部边界判断，不审查其他函数，不修改代码。",
+    "workspace": {
+      "fixture": "local-logic",
+      "git": false
+    },
+    "deterministic_assertions": [
+      {
+        "id": "local-skill-read",
+        "kind": "event_matches",
+        "pattern": "code-review[^\\n]*SKILL\\.md",
+        "critical": true
+      },
+      {
+        "id": "local-code-read",
+        "kind": "event_matches",
+        "pattern": "pagination\\.py",
+        "critical": true
+      },
+      {
+        "id": "local-no-runtime",
+        "kind": "event_not_matches",
+        "pattern": "review\\.mjs\\s+(?:prepare|mark|validate|challenge|finalize)",
+        "critical": true
+      },
+      {
+        "id": "local-no-approval",
+        "kind": "final_matches",
+        "pattern": "\\A(?!.*\\bAPPROVE\\b).*",
+        "critical": true
+      },
+      {
+        "id": "local-logic-no-finding-result",
+        "kind": "final_matches",
+        "pattern": "(?:未发现|没有.*(?:缺陷|问题)|符合|no.*(?:defect|issue)|correct)",
+        "critical": true
+      }
+    ]
   }
 ]

@@ -3,7 +3,10 @@
 This suite checks stable workflow and module-routing boundaries. It does not grade
 whether every possible defect was found or whether a review is globally optimal.
 
-The six smoke cases verify that:
+The eight smoke cases verify that:
+
+- a concrete low-risk logic question finds the partial-page defect without Runtime artifacts or approval;
+- a correct local boundary check returns a bounded no-finding answer without reviewing unrelated functions;
 
 - a routine patch review loads the routine workflow and correctness module, then
   prepares, validates, challenges, and finalizes through the deterministic Runtime without
@@ -24,10 +27,10 @@ The six smoke cases verify that:
 ```bash
 python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review static
 python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --dry-run
-python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --max-codex-calls 6
+python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --model gpt-6.1-sol --reasoning-effort xhigh --max-codex-calls 8
 ```
 
 Use the `case` command for a one-call diagnostic. The suite validates routing,
-Runtime prepare/mark/validate/challenge/finalize use, and fail-fast behavior, not whether the
+local versus formal routing, formal Runtime prepare/mark/validate/challenge/finalize use, and fail-fast behavior, not whether the
 Agent actually performed complete semantic analysis. The Runtime's mechanical
 contracts have separate Node.js regression tests.

@@ -9,7 +9,7 @@ authority_status: observed
 
 - `repo-map-first/`：在代码归属不明、跨模块边界或地图可疑时定位行为改动；显式查看或使用只核对并报告，创建或修复按请求修改文档，并维护实现导致的结构变化。
 - `review-design-contracts/`：使用分层 Codex Native subagent 审查 Markdown 设计文档，最终由人工决定是否进入修复队列。
-- `code-review/`：仅在用户明确要求发现问题、评估质量、验证正确性或生成审查结论时，按目标和维度路由日常、验收与专项代码审查；单纯阅读、解释、梳理或追踪实现不会启动 Runner。
+- `code-review/`：仅在用户明确要求发现问题、评估质量、验证正确性或生成审查结论时，先区分低风险局部核对与正式审查，正式分支再按目标和维度路由日常、验收与专项代码审查；单纯阅读、解释、梳理或追踪实现不会启动 Runner。
 - `brainstorming/`：按不确定性、影响范围和可逆性选择快速执行、设计简报或完整设计；依赖实现拆分为受共享契约约束且可独立验证的切片，并按需提供可视化设计伴侣。
 - `using-superpowers/`：在跨 skill 选择会实质改变流程时组织最小有用集合；单一明显匹配可直接进入领域 skill，组合需求由 Router 协调。
 - `reliable-task-execution/`：按风险按需分发验证、安全操作、诊断恢复、任务连续性、委派和独立审查规范。
@@ -37,11 +37,11 @@ authority_status: observed
 - `reliable-task-execution/SKILL.md` 与 `references/`：可靠执行路由入口和六个按需规范。
 - `testing-guidelines/SKILL.md`：通用自动化测试设计入口；拥有测试价值、等价类、层级、test doubles、coverage 和验证范围的规范，但不规定测试先行顺序。
 - `tdd/SKILL.md`：测试先行入口；只拥有行为确认、有效 Red、合理 Green、局部 Refactor 和垂直切片顺序，测试证据设计依赖 `testing-guidelines`。
-- `code-review/SKILL.md`：Skill-fronted Review Agent 入口；约束主审与质疑的模型、推理程度及必要的 Native 委派，把意图、契约、行为和风险推理留给主审代理，把可机械判定的完整性责任交给 Runner。
+- `code-review/SKILL.md`：Skill-fronted Review Agent 入口；约束主审与质疑的模型、推理程度及必要的 Native 委派，把意图、契约、行为和风险推理留给主审代理，正式分支把可机械判定的完整性责任交给 Runner，局部核对不创建运行产物或批准结论。
 - `simplify-codebase/SKILL.md` 与 `references/`：独立简化入口、触发边界和 `audit`/`apply` 责任控制；通用层拥有消费者证明、影响分级和删除准入，目标仓库拥有语言、入口、排除项、防御模式、覆盖策略与门禁命令。
 - `code-review/scripts/review.mjs`：代码审查确定性 Runner，负责 staged、unstaged、untracked 分层 workspace，三点比较或无 Git 显式 current-state 文件 Manifest，供 Agent 读取的紧凑队列，受锁保护且与 Finding 摘要绑定的逐项声明状态，8 MiB 输入上限、输入失效、候选锚点校验、逐项挑战覆盖、confirmed-only 投影与结论门禁。
 - `code-review/scripts/review.test.mjs`：上述 Runner 的 Node.js 回归测试。
-- `evals/scripts/run_eval.py`：八套 skill 共用的最小集成评测 Runner；只支持静态校验、定点 case 和小规模 smoke，并负责隔离执行、成本预估、profile 硬上限和显式调用预算门禁。`evals/suites/<skill-name>/` 共保留三十一个具有确定性证据的案例；`brainstorming` 检查普通设计约束与可靠实现切片 Full Design 两类边界，`code-review` 检查日常、专项、当前状态验收、comparison baseline 以及文档/实现探索负向路由边界，`simplify-codebase` 检查仓库策略加载、light、deep、Review 明确移交、只读保持、可逆自治应用和普通 Review/孤立 lint 负向边界，`using-superpowers` 检查单 skill、组合 skill、选择歧义、显式调用、topic-only 与无需路由等边界，`testing-guidelines` 检查普通测试编写与仅运行测试的边界，TDD 检查测试先行组合与普通测试负向边界，repo-map-first 检查一正一负两个落点边界。
+- `evals/scripts/run_eval.py`：八套 skill 共用的最小集成评测 Runner；只支持静态校验、定点 case 和小规模 smoke，并负责隔离执行、成本预估、profile 硬上限和显式调用预算门禁。`evals/suites/<skill-name>/` 共保留三十三个具有确定性证据的案例；`brainstorming` 检查普通设计约束与可靠实现切片 Full Design 两类边界，`code-review` 检查局部缺陷/无发现、日常、专项、当前状态验收、comparison baseline 以及文档/实现探索负向路由边界，`simplify-codebase` 检查仓库策略加载、light、deep、Review 明确移交、只读保持、可逆自治应用和普通 Review/孤立 lint 负向边界，`using-superpowers` 检查单 skill、组合 skill、选择歧义、显式调用、topic-only 与无需路由等边界，`testing-guidelines` 检查普通测试编写与仅运行测试的边界，TDD 检查测试先行组合与普通测试负向边界，repo-map-first 检查一正一负两个落点边界。
 - `<skill-name>/SKILL.md`：后续迁入个人 skill 的标准入口。
 
 ## 资源边界
@@ -63,7 +63,7 @@ authority_status: observed
 7. Runner 校验原因 code、非空理由和批次完整性；只有人工明确接受的 finding 才能进入 `fix-queue.json`。
 8. 修复前由 `verify-queue` 校验摘要绑定；修复后 `verify-fixes` 创建独立 v10 运行。范围内修复只派发一个局部复核任务；结构或支持文档变化、范围外修改和旧队列缺失修复范围时，派发一个实际影响扩展复核任务。标题数量不决定重审范围；只有核心设计前提变化或影响无法界定才要求全量重审。扩展证据仍不足时报告缺失材料，不反复重跑。
 9. GitHub Actions 在推送到 `main` 或面向 `main` 的 Pull Request 上运行本地确定性验证，不运行真实 Codex smoke。
-10. 代码审查先由 Runner 在系统临时目录冻结分层 workspace、固定 range 或显式 current-state Manifest，并派生紧凑队列供 Codex 阅读；Codex 逐项声明 disposition 后，Runner 将候选 Finding 绑定当前 disposition 摘要并校验精确快照或 metadata 锚点，再要求每个候选有且仅有一个确认、反驳或证据不足的挑战裁决。最终 Findings 只投影确认项，批准门禁同时考虑确认后的阻塞严重度、未解决的 P0/P1 和挑战范围扩张。Runner 不证明 Agent 实际完成了语义分析或挑战裁决为真。
+10. 低风险局部逻辑核对直接检查相关代码、契约和反证并给出有界结论，不创建 Runner 产物；正式代码审查先由 Runner 在系统临时目录冻结分层 workspace、固定 range 或显式 current-state Manifest，并派生紧凑队列供 Codex 阅读；Codex 逐项声明 disposition 后，Runner 将候选 Finding 绑定当前 disposition 摘要并校验精确快照或 metadata 锚点，再要求每个候选有且仅有一个确认、反驳或证据不足的挑战裁决。最终 Findings 只投影确认项，批准门禁同时考虑确认后的阻塞严重度、未解决的 P0/P1 和挑战范围扩张。Runner 不证明 Agent 实际完成了语义分析或挑战裁决为真。
 11. 代码简化先验证目标仓库的本地策略、入口、排除项和门禁，再选择 `audit`/`apply` 与 `light`/`deep`；调查按生产、非生产、歧义和外部契约消费者证明、拒绝或推迟候选。`layered-safety.md` 统一拥有删除准入，仓库策略只负责提供本地事实和加强保护。
 12. 普通测试编写、修改或评审只进入 `testing-guidelines`；明确测试先行时由 `tdd` 单向组合该规范并拥有 Red—Green—Refactor 顺序；仅运行已有测试不进入任一测试设计 skill。
 

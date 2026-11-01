@@ -75,6 +75,13 @@ elif (workspace / "algorithm.py").is_file():
 elif (workspace / "PROPOSAL.md").is_file():
     command_event("sed -n 1,220p PROPOSAL.md")
     final_message = "The proposal is clear overall, but its rollout section needs explicit success criteria."
+elif (workspace / "pagination.py").is_file():
+    command_event("sed -n 1,220p codex-home/skills/code-review/SKILL.md")
+    command_event("sed -n 1,100p pagination.py")
+    if "is_page_in_range" in prompt:
+        final_message = "限定于 is_page_in_range，未发现违反文档约定的问题。"
+    else:
+        final_message = "page_count 少算了不足一页的末页，例如 11 项每页 10 项应为 2 页。"
 elif (workspace / "change.diff").is_file():
     if "采集思路" in prompt:
         command_event("sed -n 1,220p app.py")

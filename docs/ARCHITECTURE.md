@@ -21,7 +21,7 @@ L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增�
 
 `brainstorming`、`using-superpowers`、`reliable-task-execution`、`testing-guidelines`、`tdd`、`repo-map-first`、`code-review` 与 `simplify-codebase` 是边界独立的运行时 skill。`testing-guidelines` 拥有通用测试证据设计，`tdd` 只在测试先行请求中单向依赖它并拥有执行顺序。它们的开发期行为评测位于仓库级 `evals/`：共享最小集成 Runner、Schema 和本地测试，与 `evals/suites/<skill-name>/` 中的 suite 数据分离，避免开发资源进入运行时分发包。
 
-`code-review` 采用 Skill-fronted Agent 边界：frontmatter 先要求代码目标与明确审查意图同时成立，排除单纯阅读、解释、梳理和行为追踪；`SKILL.md` 与按需模块随后负责语义审查路由和候选级证伪挑战。技能入口固定主审与质疑的模型、推理程度；宿主会话设置不符或无法确认时，通过 Native 子代理执行完整审查。`scripts/review.mjs` 负责 Git 分层输入或显式 current-state 文件冻结、完整 Manifest、Agent 紧凑队列、声明式 disposition、输入失效、Finding 锚点校验、挑战覆盖、confirmed-only 投影和结论门禁。Runner 不启动或监控模型，不能证明 Agent 实际完成了语义分析、挑战者真正独立或挑战裁决在业务上正确，也不执行目标仓库提供的命令。
+`code-review` 采用 Skill-fronted Agent 边界：frontmatter 先要求代码目标与明确审查意图同时成立，排除单纯阅读、解释、梳理和行为追踪；`SKILL.md` 与按需模块随后负责语义审查路由和候选级证伪挑战。技能入口固定主审与质疑的模型、推理程度；宿主会话设置不符或无法确认时，通过 Native 子代理执行所需审查。具体低风险局部问题直接核对，不创建运行产物或批准结论；其余请求进入正式审查。正式分支的 `scripts/review.mjs` 负责 Git 分层输入或显式 current-state 文件冻结、完整 Manifest、Agent 紧凑队列、声明式 disposition、输入失效、Finding 锚点校验、挑战覆盖、confirmed-only 投影和结论门禁。Runner 不启动或监控模型，不能证明 Agent 实际完成了语义分析、挑战者真正独立或挑战裁决在业务上正确，也不执行目标仓库提供的命令。
 
 `simplify-codebase` 独立拥有证据型简化调查与获授权后的清理职责。它不依赖 `code-review`，也不是代码审查的固定阶段；普通审查中的局部冗余仍是普通 finding，只有显式清理请求或已观察到的强候选需要跨已审行追踪消费者时才进入该 Skill。通用层只拥有消费者分类、影响分级、证据组合和删除权限，目标仓库拥有语言、入口、排除项、防御模式、覆盖策略和门禁命令。Skill 在判断候选前验证仓库声明的路径与入口仍存在；开发期 suite 同时验证仓库策略加载、只读保持、可逆自治应用和普通 Review、孤立 lint 的负向路由。
 
@@ -33,7 +33,7 @@ L3 响应使用版本化契约：Manifest v5 及以上的普通任务通过增�
 review-design-contracts ──仓库文档缺失或可能陈旧时──> repo-map-first
 review-design-contracts ──每次运行──> Codex Native subagent 工具
 review-design.mjs ──读取──> review.config.json + references/
-code-review/SKILL.md ──调用──> code-review/scripts/review.mjs
+code-review/SKILL.md ──正式审查时──> code-review/scripts/review.mjs
 code-review/scripts/review.mjs ──读取并执行──> code-review/references/findings.schema.json + challenges.schema.json
 brainstorming ──用户接受视觉伴侣时──> brainstorming/scripts/
 tdd ──新增或修改测试时──> testing-guidelines
@@ -54,7 +54,7 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 8. 人工确认完整批次后，Runner 校验机器枚举、非空理由和批次覆盖，并保存可审计决定；只有明确接受才生成摘要绑定的修复队列。
 9. 修复后的 `verify-fixes` 使用新 v10 运行验证原问题闭合。确定性范围检查只决定局部或扩展复核，不把章节结构变化等同于语义影响扩大。扩展任务比较目标及支持文档的修复前后证据，逐条覆盖已接受发现、逐文档覆盖实际变化，并检查直接关联契约；新增修复冲突阻止通过。局部 reviewer 可请求一次扩展；只有核心前提变化或无法界定影响才全量重审，完整证据仍不足则显式失败并报告缺失材料。
 
-代码审查的独立控制流为：Codex 解析 authority 和目标后调用 `prepare`；Runner 将 workspace 的 `HEAD -> index`、`index -> worktree` 与 untracked 分层冻结，或冻结固定三点比较、无需 Git 的显式 current-state 文件集，并从完整 Manifest 派生不含摘要噪音的紧凑队列供 Agent 阅读。Codex 按工作流审查并用串行化的 `mark` 声明逐项 disposition；该声明不是语义审查已发生的机械证明。候选 Finding 经 `validate` 绑定当前 disposition 摘要并按 `item_id` 校验 Schema、快照、精确代码行或 Git metadata；非空候选集随后必须逐项 `challenge` 为 `confirmed`、`refuted` 或 `insufficient_evidence`，只有 confirmed 投影进入最终 Findings。后续 `mark` 或 `validate` 会使旧挑战集失效。`finalize` 根据声明完整性、确认后的 P0-P2、证据不足的 P0/P1 和挑战范围扩张决定允许的结论。输入漂移使活动运行进入 `INVALIDATED`，空范围、排除项、未完成项、未裁决候选和未解决的高风险候选均不能得到 `APPROVE`。
+代码审查先选择局部或正式分支；局部核对保留证据、反证、固定模型和只读边界，不调用 Runner。正式分支的控制流为：Codex 解析 authority 和目标后调用 `prepare`；Runner 将 workspace 的 `HEAD -> index`、`index -> worktree` 与 untracked 分层冻结，或冻结固定三点比较、无需 Git 的显式 current-state 文件集，并从完整 Manifest 派生不含摘要噪音的紧凑队列供 Agent 阅读。Codex 按工作流审查并用串行化的 `mark` 声明逐项 disposition；该声明不是语义审查已发生的机械证明。候选 Finding 经 `validate` 绑定当前 disposition 摘要并按 `item_id` 校验 Schema、快照、精确代码行或 Git metadata；非空候选集随后必须逐项 `challenge` 为 `confirmed`、`refuted` 或 `insufficient_evidence`，只有 confirmed 投影进入最终 Findings。后续 `mark` 或 `validate` 会使旧挑战集失效。`finalize` 根据声明完整性、确认后的 P0-P2、证据不足的 P0/P1 和挑战范围扩张决定允许的结论。输入漂移使活动运行进入 `INVALIDATED`，空范围、排除项、未完成项、未裁决候选和未解决的高风险候选均不能得到 `APPROVE`。
 
 代码简化的独立控制流为：Codex 先发现并验证仓库本地指令、防御模式、兼容策略、入口、排除项和门禁，再确定只读 `audit` 或获授权的 `apply`，并按局部闭包或跨边界证据选择 `light` 或 `deep`。调查把引用分为生产、非生产、歧义和外部契约四类，逐个候选给出 `remove`、`keep` 或 `defer`。`layered-safety.md` 是唯一删除准入事实源；仓库规则可以加强保护但不能授予修改权或降低全局高风险。`apply` 同步删除完整闭包，并以残留搜索、仓库自有门禁、最终 diff 和恢复证据复核。
 
@@ -77,7 +77,7 @@ evals/suites/<skill-name> ──开发期──> evals/scripts/run_eval.py
 - 运行依赖当前 Codex 环境提供 `spawn_agent`、`wait_agent` 和 `interrupt_agent`。
 - 行为评测依赖本机 Codex CLI；真实模型 case 需要显式允许访问 Codex 服务，static 和 fake-Codex 单测不需要网络。
 - GitHub Actions 仅运行仓库已有的确定性 Python 与 Node.js 测试及空白字符检查；发布标签由 GitHub Ruleset 保护，避免已发布的版本标签被更新或删除。
-- 行为评测只保留 `static`、单个 `case` 和最小 `smoke`：前两类本地结构/假执行测试零外部调用；`brainstorming`、`using-superpowers`、`reliable-task-execution`、`testing-guidelines`、`tdd`、`repo-map-first`、`code-review`、`simplify-codebase` 的真实 smoke 上限分别为 2、8、2、2、2、2、5、7 次。没有语义判分、baseline、重复 trial、regression 或 differential；多案例 smoke 在调用前必须同时满足 manifest 硬上限和显式 `--max-codex-calls` 预算。
+- 行为评测只保留 `static`、单个 `case` 和最小 `smoke`：前两类本地结构/假执行测试零外部调用；`brainstorming`、`using-superpowers`、`reliable-task-execution`、`testing-guidelines`、`tdd`、`repo-map-first`、`code-review`、`simplify-codebase` 的真实 smoke 上限分别为 2、8、2、2、2、2、8、7 次。没有语义判分、baseline、重复 trial、regression 或 differential；多案例 smoke 在调用前必须同时满足 manifest 硬上限和显式 `--max-codex-calls` 预算。
 - Runner 仅允许执行 `review.config.json` 中白名单声明的确定性验证命令。
-- Code Review Runner 只以参数数组执行自身固定的 Git 读取操作，不执行被审代码或仓库声明的测试命令；无法表示的远程或粘贴目标只能降级为明确的 `UNMANAGED_REVIEW`，且不能批准。
+- Code Review Runner 只以参数数组执行自身固定的 Git 读取操作，不执行被审代码或仓库声明的测试命令；正式审查中无法表示的远程或粘贴目标只能降级为明确的 `UNMANAGED_REVIEW`，且不能批准。
 - skill 包本身不保存评审运行数据，也不自动创建外部 issue、PR 或工单。
