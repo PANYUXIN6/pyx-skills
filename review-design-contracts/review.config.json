@@ -1,16 +1,16 @@
 {
   "models": {
     "self_consistency": {
-      "model": "gpt-6-sol",
-      "reasoning_effort": "high"
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "xhigh"
     },
     "architecture": {
-      "model": "gpt-6-sol",
-      "reasoning_effort": "high"
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "xhigh"
     },
     "adversarial": {
-      "model": "gpt-6-sol",
-      "reasoning_effort": "high"
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "xhigh"
     }
   },
   "timeouts_ms": {

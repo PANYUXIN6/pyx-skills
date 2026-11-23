@@ -103,7 +103,7 @@
 
 - **触发**：目标包含代码或机器消费的实现制品，并且用户明确要求发现缺陷或风险、评估质量、验证正确性或契约符合性、执行专项审查或给出审查结论。
 - **职责**：低风险、范围明确的局部逻辑问题直接核对；正式审查选择 routine、acceptance 或 focused 工作流；由 Runner 冻结 Git 分层变更、固定比较范围或 current-state 文件集；Agent 负责语义分析，Runner 负责输入完整性、逐项 disposition、候选锚点、挑战覆盖和结论门禁。
-- **产出**：局部核对给出有界结论、必要证据和重要缺口，不生成 Runner 产物或批准结论；正式审查只报告挑战后仍确认成立的 P0–P3 Finding，并说明冻结范围、验证和重要限制。两条路径的主审与质疑均固定为 `gpt-6.1-sol / xhigh`。
+- **产出**：局部核对给出有界结论、必要证据和重要缺口，不生成 Runner 产物或批准结论；正式审查只报告挑战后仍确认成立的 P0–P3 Finding，并说明冻结范围、验证和重要限制。两条路径的主审与质疑均固定为 `gpt-6.2-sol / xhigh`。
 - **边界**：单纯阅读、解释、梳理或追踪代码不触发；Markdown 设计文档自身不属于审查目标；审查保持目标只读，Finding 不自动授权修复；Runner 证明流程状态，不证明模型判断天然正确。
 
 ### [`simplify-codebase`](./simplify-codebase/)
@@ -173,7 +173,7 @@ python3 evals/scripts/run_eval.py \
 
 python3 evals/scripts/run_eval.py \
   --suite-root evals/suites/code-review \
-  smoke --model gpt-6.1-sol --reasoning-effort xhigh --max-codex-calls 8
+  smoke --model gpt-6.2-sol --reasoning-effort xhigh --max-codex-calls 8
 ```
 
 真实 smoke 会在隔离 workspace 和临时 `CODEX_HOME` 中运行，并把 suite prompt、合成 fixtures 和被测 skill 发送给 Codex 服务。执行前应确认数据出境范围和调用预算。历史结果默认保存在对应 suite 的 `results/` 中；不要用旧报告证明修改后的 skill。

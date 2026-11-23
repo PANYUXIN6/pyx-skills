@@ -959,7 +959,7 @@ function validateConfig(config) {
     if (
       typeof modelConfig?.model !== 'string' ||
       modelConfig.model.length === 0 ||
-      !['low', 'high'].includes(modelConfig.reasoning_effort)
+      !['low', 'high', 'xhigh'].includes(modelConfig.reasoning_effort)
     ) {
       throw new Error(`review.config.json 的 ${layer} 模型配置无效`)
     }

@@ -27,7 +27,7 @@ The eight smoke cases verify that:
 ```bash
 python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review static
 python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --dry-run
-python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --model gpt-6.1-sol --reasoning-effort xhigh --max-codex-calls 8
+python3 evals/scripts/run_eval.py --suite-root evals/suites/code-review smoke --model gpt-6.2-sol --reasoning-effort xhigh --max-codex-calls 8
 ```
 
 Use the `case` command for a one-call diagnostic. The suite validates routing,

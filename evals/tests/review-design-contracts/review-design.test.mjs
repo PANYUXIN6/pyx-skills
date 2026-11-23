@@ -3797,7 +3797,7 @@ test('v10 groups nonadjacent related candidates and shares evidence without merg
   assert.equal(input.cited_sections.length, 1)
   assert.equal(taskInput(single).candidate.contract.heading, 'Isolation')
   assert.equal(batch.fork_turns, 'none')
-  assert.equal(batch.reasoning_effort, 'high')
+  assert.equal(batch.reasoning_effort, reviewConfig.models.adversarial.reasoning_effort)
   writeBatchResults(batch, [survivedResult(), refutedResult(), survivedResult()])
   writeTaskResponse(single, refutedResult())
   const waiting = runCli(repositoryRoot, ['advance', started.run_dir])
@@ -3888,7 +3888,7 @@ test('v10 rejects missing, duplicate and foreign batch IDs and retries the same 
     const retried = runCli(repositoryRoot, ['advance', started.run_dir])
     assert.equal(retried.retry_reason, 'MODEL_OUTPUT_INVALID')
     assert.deepEqual(taskInput(retried.tasks[0]), taskInput(batch))
-    assert.equal(retried.tasks[0].reasoning_effort, 'high')
+    assert.equal(retried.tasks[0].reasoning_effort, batch.reasoning_effort)
     writeTaskResponse(retried.tasks[0], {
       finding_results: taskInput(batch).candidates.toReversed().map((item) => ({ finding_id: item.finding_id, result: refutedResult() })),
     })
